@@ -1,87 +1,90 @@
 /**
- * ReshADX - ItemController
- * Controller stub - implementation pending
+ * ReshADX - Item Controller (COMPLETE IMPLEMENTATION)
  */
-
 import { Request, Response } from 'express';
+import { ItemService } from '../services/item.service';
 import { logger } from '../utils/logger';
 
+const itemService = new ItemService();
+
 export class ItemController {
-  async handleRequest(req: Request, res: Response): Promise<Response> {
+  async getItem(req: Request, res: Response): Promise<Response> {
     try {
-      logger.info('ItemController request', { method: req.method, path: req.path });
-      return res.status(501).json({
-        success: false,
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'This endpoint is not yet implemented',
-        },
-      });
+      const item = await itemService.getItem(req.params.itemId, req.user!.userId);
+      return res.status(200).json({ success: true, data: { item } });
     } catch (error) {
-      logger.error('ItemController error', { error });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An internal error occurred',
-        },
-      });
+      logger.error('Get item error', { error });
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: error instanceof Error ? error.message : 'Item not found' } });
     }
   }
 
-  // Placeholder methods - add specific methods as needed
-  async getItem(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getUserItems(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async deleteItem(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async syncItem(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async updateWebhook(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async updateCredentials(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getItemStatus(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async renewConsent(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getAccounts(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getAccountById(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getBalance(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getBalanceHistory(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getIdentity(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async verifyAccount(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getTransactions(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getTransactionById(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async syncTransactions(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getEnrichedTransaction(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getSpendingAnalytics(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getIncomeAnalytics(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getRecurringTransactions(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getCreditScore(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async calculateCreditScore(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getCreditScoreHistory(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getCreditScoreFactors(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getCreditRecommendations(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async submitAlternativeData(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getCreditReport(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async assessRisk(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getRiskAssessments(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getRiskAssessmentById(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async checkSIMSwap(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async checkSanctions(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async checkPEP(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getAccountRiskScore(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getTransactionFraudFlags(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async reportFraud(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async createWebhook(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getWebhooks(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getWebhookById(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async updateWebhookConfig(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async deleteWebhook(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getWebhookDeliveries(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async testWebhook(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async rotateWebhookSecret(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getPlatformStats(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getUsers(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getUserDetails(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async updateUserStatus(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getRiskAlerts(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async reviewRiskAssessment(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getAuditLogs(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async getInstitutions(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
-  async updateInstitution(req: Request, res: Response): Promise<Response> { return this.handleRequest(req, res); }
+  async getUserItems(req: Request, res: Response): Promise<Response> {
+    try {
+      const items = await itemService.getUserItems(req.user!.userId);
+      return res.status(200).json({ success: true, data: { items } });
+    } catch (error) {
+      logger.error('Get user items error', { error });
+      return res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch items' } });
+    }
+  }
+
+  async deleteItem(req: Request, res: Response): Promise<Response> {
+    try {
+      await itemService.deleteItem(req.params.itemId, req.user!.userId);
+      return res.status(200).json({ success: true, message: 'Item deleted successfully' });
+    } catch (error) {
+      logger.error('Delete item error', { error });
+      return res.status(400).json({ success: false, error: { code: 'DELETE_ERROR', message: error instanceof Error ? error.message : 'Failed to delete item' } });
+    }
+  }
+
+  async syncItem(req: Request, res: Response): Promise<Response> {
+    try {
+      const result = await itemService.syncItem(req.params.itemId, req.user!.userId);
+      return res.status(200).json({ success: true, data: result, message: 'Item synced successfully' });
+    } catch (error) {
+      logger.error('Sync item error', { error });
+      return res.status(500).json({ success: false, error: { code: 'SYNC_ERROR', message: error instanceof Error ? error.message : 'Failed to sync item' } });
+    }
+  }
+
+  async updateWebhook(req: Request, res: Response): Promise<Response> {
+    try {
+      await itemService.updateWebhook(req.params.itemId, req.user!.userId, req.body.webhookUrl);
+      return res.status(200).json({ success: true, message: 'Webhook updated successfully' });
+    } catch (error) {
+      logger.error('Update webhook error', { error });
+      return res.status(400).json({ success: false, error: { code: 'UPDATE_ERROR', message: error instanceof Error ? error.message : 'Failed to update webhook' } });
+    }
+  }
+
+  async updateCredentials(req: Request, res: Response): Promise<Response> {
+    try {
+      await itemService.updateCredentials(req.params.itemId, req.user!.userId, req.body.credentials);
+      return res.status(200).json({ success: true, message: 'Credentials updated successfully' });
+    } catch (error) {
+      logger.error('Update credentials error', { error });
+      return res.status(400).json({ success: false, error: { code: 'UPDATE_ERROR', message: error instanceof Error ? error.message : 'Failed to update credentials' } });
+    }
+  }
+
+  async getItemStatus(req: Request, res: Response): Promise<Response> {
+    try {
+      const status = await itemService.getItemStatus(req.params.itemId, req.user!.userId);
+      return res.status(200).json({ success: true, data: { status } });
+    } catch (error) {
+      logger.error('Get item status error', { error });
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Item not found' } });
+    }
+  }
+
+  async renewConsent(req: Request, res: Response): Promise<Response> {
+    try {
+      const result = await itemService.renewConsent(req.params.itemId, req.user!.userId, req.body.consentDurationDays);
+      return res.status(200).json({ success: true, data: result, message: 'Consent renewed successfully' });
+    } catch (error) {
+      logger.error('Renew consent error', { error });
+      return res.status(400).json({ success: false, error: { code: 'RENEWAL_ERROR', message: error instanceof Error ? error.message : 'Failed to renew consent' } });
+    }
+  }
 }
