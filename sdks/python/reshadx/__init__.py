@@ -5,6 +5,7 @@ Official Python SDK for ReshADX - Open Banking API for Africa
 
 __version__ = "1.0.0"
 
+from .client import ReshADX
 from .utils.errors import (
     AuthenticationError,
     NotFoundError,
@@ -15,6 +16,7 @@ from .utils.errors import (
 )
 
 __all__ = [
+    "ReshADX",
     "ReshADXError",
     "ValidationError",
     "AuthenticationError",
@@ -22,7 +24,3 @@ __all__ = [
     "RateLimitError",
     "ServerError",
 ]
-
-# Client will be added once resources are implemented
-# from .client import ReshADX
-# __all__.append("ReshADX")
