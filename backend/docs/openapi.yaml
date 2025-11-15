@@ -1,0 +1,615 @@
+openapi: 3.0.3
+info:
+  title: ReshADX API
+  description: |
+    Open Banking API for Africa - Complete financial data aggregation platform.
+
+    ReshADX provides enterprise-grade financial data infrastructure for African markets with:
+    - Multi-institution data aggregation (OAuth, USSD, Screen Scraping)
+    - Alternative credit scoring using mobile money & telecom data
+    - Real-time fraud detection with SIM swap monitoring
+    - Transaction categorization & analytics
+    - Webhook delivery for real-time events
+
+    ## Authentication
+    All endpoints require JWT authentication via Bearer token in Authorization header:
+    ```
+    Authorization: Bearer {access_token}
+    ```
+
+    ## Rate Limiting
+    - FREE tier: 100 requests/hour
+    - STARTER tier: 1,000 requests/hour
+    - PROFESSIONAL tier: 10,000 requests/hour
+    - ENTERPRISE tier: Custom limits
+
+    ## Webhooks
+    Subscribe to events via webhooks. All webhook payloads are signed with HMAC-SHA256.
+
+  version: 1.0.0
+  contact:
+    name: ReshADX API Support
+    email: api@reshadx.com
+    url: https://reshadx.com/support
+  license:
+    name: Proprietary
+    url: https://reshadx.com/terms
+
+servers:
+  - url: https://api.reshadx.com/v1
+    description: Production server
+  - url: https://sandbox.reshadx.com/v1
+    description: Sandbox server
+  - url: http://localhost:3000/api/v1
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Link
+    description: Account linking and institution connection
+  - name: Items
+    description: Linked account management
+  - name: Accounts
+    description: Bank account data retrieval
+  - name: Transactions
+    description: Transaction data and analytics
+  - name: Credit Score
+    description: Credit scoring with alternative data
+  - name: Risk
+    description: Fraud detection and risk assessment
+  - name: Webhooks
+    description: Webhook management and delivery
+  - name: Admin
+    description: Platform administration (admin only)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from login or register endpoint
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid input parameters
+
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        accountTier:
+          type: string
+          enum: [FREE, STARTER, PROFESSIONAL, ENTERPRISE]
+        accountStatus:
+          type: string
+          enum: [ACTIVE, SUSPENDED, PENDING_VERIFICATION, CLOSED]
+        createdAt:
+          type: string
+          format: date-time
+
+    TokenPair:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (1 hour expiry)
+        refreshToken:
+          type: string
+          description: JWT refresh token (7 days expiry)
+        expiresIn:
+          type: integer
+          example: 3600
+
+    Account:
+      type: object
+      properties:
+        accountId:
+          type: string
+        itemId:
+          type: string
+        institutionId:
+          type: string
+        accountName:
+          type: string
+        accountType:
+          type: string
+          enum: [DEPOSITORY, CREDIT, LOAN, INVESTMENT, MOBILE_MONEY]
+        accountSubtype:
+          type: string
+        balanceCurrent:
+          type: number
+          description: Current balance in smallest currency unit (pesewas)
+        balanceAvailable:
+          type: number
+        currency:
+          type: string
+          example: GHS
+        createdAt:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      properties:
+        transactionId:
+          type: string
+        accountId:
+          type: string
+        amount:
+          type: number
+          description: Amount in smallest currency unit (pesewas)
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        merchantName:
+          type: string
+        primaryCategory:
+          type: string
+        secondaryCategory:
+          type: string
+        transactionType:
+          type: string
+          enum: [DEBIT, CREDIT]
+
+    CreditScore:
+      type: object
+      properties:
+        userId:
+          type: string
+        score:
+          type: integer
+          minimum: 300
+          maximum: 850
+          description: FICO-like credit score
+        scoreBand:
+          type: string
+          enum: [POOR, FAIR, GOOD, VERY_GOOD, EXCELLENT]
+        riskGrade:
+          type: string
+          enum: [A, B, C, D, E, F]
+        traditionalScore:
+          type: integer
+        alternativeDataScore:
+          type: integer
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+        recommendedCreditLimit:
+          type: number
+        defaultProbability:
+          type: number
+          minimum: 0
+          maximum: 1
+        calculatedAt:
+          type: string
+          format: date-time
+
+    FraudCheck:
+      type: object
+      properties:
+        userId:
+          type: string
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        decision:
+          type: string
+          enum: [APPROVE, REVIEW, DECLINE, BLOCK]
+        simSwapDetected:
+          type: boolean
+        simSwapRisk:
+          type: integer
+        flags:
+          type: array
+          items:
+            type: object
+        recommendations:
+          type: array
+          items:
+            type: string
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - firstName
+                - lastName
+                - phoneNumber
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phoneNumber:
+                  type: string
+                  pattern: '^\+233\d{9}$'
+                referralCode:
+                  type: string
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      userId:
+                        type: string
+                      tokens:
+                        $ref: '#/components/schemas/TokenPair'
+        '400':
+          description: Invalid input or duplicate email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      tokens:
+                        $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /link/token/create:
+    post:
+      tags:
+        - Link
+      summary: Create link token
+      description: Generate a link token for initiating account linking flow
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - products
+                - institutionId
+              properties:
+                userId:
+                  type: string
+                products:
+                  type: array
+                  items:
+                    type: string
+                    enum: [TRANSACTIONS, ACCOUNTS, IDENTITY, CREDIT_SCORE]
+                institutionId:
+                  type: string
+                redirectUri:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Link token created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      linkToken:
+                        type: string
+                      expiration:
+                        type: string
+                        format: date-time
+
+  /accounts:
+    get:
+      tags:
+        - Accounts
+      summary: Get user accounts
+      description: Retrieve all linked bank accounts for the authenticated user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: itemId
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [DEPOSITORY, CREDIT, LOAN, INVESTMENT, MOBILE_MONEY]
+      responses:
+        '200':
+          description: Accounts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      accounts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Account'
+
+  /transactions:
+    get:
+      tags:
+        - Transactions
+      summary: Get transactions
+      description: Retrieve transaction history with filtering and pagination
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: itemId
+          in: query
+          schema:
+            type: string
+        - name: accountId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      transactions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Transaction'
+                      pagination:
+                        type: object
+
+  /credit-score:
+    get:
+      tags:
+        - Credit Score
+      summary: Get credit score
+      description: Calculate or retrieve user's credit score with alternative data
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: includeAlternativeData
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Credit score retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      score:
+                        $ref: '#/components/schemas/CreditScore'
+
+  /risk/assess:
+    post:
+      tags:
+        - Risk
+      summary: Assess transaction risk
+      description: Perform fraud detection and risk assessment on a transaction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transactionId:
+                  type: string
+                amount:
+                  type: number
+                accountId:
+                  type: string
+                deviceFingerprint:
+                  type: object
+                location:
+                  type: object
+      responses:
+        '200':
+          description: Risk assessment completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      assessment:
+                        $ref: '#/components/schemas/FraudCheck'
+
+  /webhooks:
+    post:
+      tags:
+        - Webhooks
+      summary: Create webhook
+      description: Register a webhook endpoint for event notifications
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - events
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                    enum: [TRANSACTIONS_UPDATED, ITEM_SYNCED, ACCOUNT_UPDATED, WEBHOOK_TEST]
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Webhook created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      webhook:
+                        type: object
+
+security:
+  - BearerAuth: []
