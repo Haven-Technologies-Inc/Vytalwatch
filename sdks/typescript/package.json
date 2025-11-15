@@ -1,0 +1,75 @@
+{
+  "name": "@reshadx/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/JavaScript SDK for ReshADX - Open Banking API for Africa",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "reshadx",
+    "open-banking",
+    "africa",
+    "fintech",
+    "banking",
+    "payments",
+    "mobile-money",
+    "ghana",
+    "nigeria",
+    "kenya",
+    "plaid",
+    "typescript",
+    "sdk"
+  ],
+  "author": "ReshADX",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reshadx/reshadx.git",
+    "directory": "sdks/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/reshadx/reshadx/issues"
+  },
+  "homepage": "https://docs.reshadx.com",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "axios-retry": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

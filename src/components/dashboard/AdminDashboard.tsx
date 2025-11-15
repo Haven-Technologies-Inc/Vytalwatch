@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, Users, Building2, TrendingUp, DollarSign, 
-  Activity, Database, Shield, Settings, Bell, Search, 
+import {
+  LayoutDashboard, Users, Building2, TrendingUp, DollarSign,
+  Activity, Database, Shield, Settings, Bell, Search,
   Filter, Download, RefreshCw, ChevronDown, ChevronRight,
-  BarChart3, PieChart, Calendar, Clock, CheckCircle, 
+  BarChart3, PieChart, Calendar, Clock, CheckCircle,
   XCircle, AlertTriangle, Info, Menu, X, Eye, UserCheck,
   CreditCard, Globe, Server, Zap, Lock, Key, FileText,
   Mail, Phone, MapPin, ExternalLink, Edit, Trash2, Plus,
-  ArrowUp, ArrowDown, Minus, Package, Layers, Code, 
+  ArrowUp, ArrowDown, Minus, Package, Layers, Code,
   Webhook, Terminal, BookOpen, MessageSquare, HelpCircle,
   Ban, Play, Pause, RotateCcw, LogOut, Crown, Star, User
 } from 'lucide-react';
 import { Button } from '../Button';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 
 type TabType = 'overview' | 'users' | 'businesses' | 'analytics' | 'revenue' | 'api-health' | 'security' | 'support' | 'settings';
 
@@ -873,14 +874,8 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {/* Other tabs would follow similar patterns */}
-        {selectedTab === 'analytics' && (
-          <div className="text-center py-12">
-            <BarChart3 className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h2 className="text-white text-xl mb-2">Analytics Dashboard</h2>
-            <p className="text-white/60">Detailed analytics and reporting coming soon</p>
-          </div>
-        )}
+        {/* Analytics Tab - Full Dashboard */}
+        {selectedTab === 'analytics' && <AnalyticsDashboard />}
 
         {selectedTab === 'revenue' && (
           <div className="text-center py-12">
