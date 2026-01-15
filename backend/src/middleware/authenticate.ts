@@ -99,7 +99,12 @@ export const authenticate = async (
       }
     } else if (authHeader.startsWith('rshx_')) {
       // API Key Authentication
-      const apiKeyHash = authHeader; // In production, hash this
+      // Hash the incoming API key using SHA-256 for secure comparison
+      const crypto = require('crypto');
+      const apiKeyHash = crypto
+        .createHash('sha256')
+        .update(authHeader)
+        .digest('hex');
 
       try {
         const apiKey = await db('api_keys')

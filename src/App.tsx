@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from './contexts/AuthContext';
+// Auth Pages
+import { LoginPage, SignupPage, ForgotPasswordPage } from './pages/auth';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 // Landing Page
 import { LandingPage } from './components/landing/LandingPage';
 // Individual Verification Flow
@@ -33,6 +37,8 @@ import { BusinessType, BusinessRegistrationData, APITier, getRecommendedTier } f
 
 type FlowType = 'individual' | 'business';
 
+type AuthStep = 'login' | 'signup' | 'forgot-password';
+
 type IndividualStep = 'landing' | 'welcome' | 'country' | 'dynamic-flow' | 'document' | 'biometric' | 'phone' | 'success' | 'dashboard';
 
 type BusinessStep = 'landing' | 'business-welcome' | 'business-type' | 'business-registration' | 'business-documents' | 'pricing' | 'api-keys' | 'business-dashboard';
@@ -41,9 +47,11 @@ type DeveloperStep = 'developer' | 'dev-tools' | 'api-playground' | 'products' |
 
 type AdminStep = 'admin-dashboard';
 
-type AppStep = IndividualStep | BusinessStep | DeveloperStep | AdminStep;
+type AppStep = AuthStep | IndividualStep | BusinessStep | DeveloperStep | AdminStep;
 
 export default function App() {
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
+
   const [currentFlow, setCurrentFlow] = useState<FlowType>('business');
   const [currentStep, setCurrentStep] = useState<AppStep>('landing');
   const [language, setLanguage] = useState('en');
@@ -56,8 +64,8 @@ export default function App() {
   const [businessData, setBusinessData] = useState<BusinessRegistrationData | null>(null);
   const [selectedTier, setSelectedTier] = useState<APITier | null>(null);
 
-  // Listen for hash changes for developer portal navigation
-  React.useEffect(() => {
+  // Handle hash changes for developer portal navigation
+  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
       if (hash === 'developer') setCurrentStep('developer');
@@ -66,13 +74,50 @@ export default function App() {
       if (hash === 'products') setCurrentStep('products');
       if (hash === 'african-features') setCurrentStep('african-features');
       if (hash === 'advanced-endpoints') setCurrentStep('advanced-endpoints');
+      if (hash === 'login') setCurrentStep('login');
+      if (hash === 'signup') setCurrentStep('signup');
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // Check initial hash
+    handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Redirect authenticated users away from auth pages
+  useEffect(() => {
+    if (isAuthenticated && ['login', 'signup', 'forgot-password'].includes(currentStep)) {
+      // Redirect based on user role
+      if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
+        setCurrentStep('admin-dashboard');
+      } else if (user?.role === 'BUSINESS') {
+        setCurrentStep('business-dashboard');
+      } else {
+        setCurrentStep('dashboard');
+      }
+    }
+  }, [isAuthenticated, currentStep, user]);
+
+  // ========== AUTH HANDLERS ==========
+  const handleLoginClick = () => setCurrentStep('login');
+  const handleSignupClick = () => setCurrentStep('signup');
+  const handleForgotPasswordClick = () => setCurrentStep('forgot-password');
+
+  const handleAuthSuccess = () => {
+    // Redirect based on user role after successful auth
+    if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
+      setCurrentStep('admin-dashboard');
+    } else if (user?.role === 'BUSINESS') {
+      setCurrentStep('business-dashboard');
+    } else {
+      setCurrentStep('dashboard');
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setCurrentStep('landing');
+  };
 
   // ========== INDIVIDUAL FLOW HANDLERS ==========
   const handleStartIndividualVerification = () => {
@@ -114,13 +159,12 @@ export default function App() {
   };
 
   const handleDocumentsUploaded = () => {
-    // Get recommended tier based on business type and volume
     const volumeString = businessData?.estimatedMonthlyVolume || '0-1000';
-    const volumeNumber = volumeString.includes('+') 
-      ? 100000 
+    const volumeNumber = volumeString.includes('+')
+      ? 100000
       : parseInt(volumeString.split('-')[1] || '1000');
-    
-    const recommended = getRecommendedTier(businessType || 'developer', volumeNumber);
+
+    getRecommendedTier(businessType || 'developer', volumeNumber);
     setCurrentStep('pricing');
   };
 
@@ -151,7 +195,6 @@ export default function App() {
   // ========== NAVIGATION HANDLERS ==========
   const handleBack = () => {
     switch (currentStep) {
-      // Individual flow
       case 'country':
         setCurrentStep('business-welcome');
         break;
@@ -161,7 +204,6 @@ export default function App() {
       case 'document':
         setCurrentStep('dynamic-flow');
         break;
-      // Business flow
       case 'business-type':
         setCurrentStep('business-welcome');
         break;
@@ -183,26 +225,54 @@ export default function App() {
     setCurrentStep('success');
   };
 
-  const switchToIndividualFlow = () => {
-    setCurrentFlow('individual');
-    setCurrentStep('welcome');
-  };
-
-  const switchToBusinessFlow = () => {
-    setCurrentFlow('business');
-    setCurrentStep('business-welcome');
-  };
+  // Show loading screen while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0A2540] to-[#1a365d] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#00D4AA] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <h2 className="text-white text-xl font-semibold">
+            <span className="text-[#00D4AA]">Resh</span>ADX
+          </h2>
+          <p className="text-gray-400 mt-2">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--neutral-50)]">
+      {/* ========== AUTH PAGES ========== */}
+      {currentStep === 'login' && (
+        <LoginPage
+          onSuccess={handleAuthSuccess}
+          onSignupClick={handleSignupClick}
+          onForgotPasswordClick={handleForgotPasswordClick}
+        />
+      )}
+
+      {currentStep === 'signup' && (
+        <SignupPage
+          onSuccess={handleAuthSuccess}
+          onLoginClick={handleLoginClick}
+        />
+      )}
+
+      {currentStep === 'forgot-password' && (
+        <ForgotPasswordPage
+          onSuccess={handleLoginClick}
+          onBackToLogin={handleLoginClick}
+        />
+      )}
+
       {/* ========== LANDING PAGE ========== */}
       {currentStep === 'landing' && (
         <LandingPage
           onGetStarted={handleStartIndividualVerification}
           onBusinessSignup={handleStartBusinessOnboarding}
-          onBusinessDemoLogin={handleBusinessDemoLogin}
-          onIndividualDemoLogin={handleIndividualDemoLogin}
-          onAdminDemoLogin={handleAdminDemoLogin}
+          onBusinessDemoLogin={isAuthenticated ? handleBusinessDemoLogin : handleLoginClick}
+          onIndividualDemoLogin={isAuthenticated ? handleIndividualDemoLogin : handleLoginClick}
+          onAdminDemoLogin={isAuthenticated ? handleAdminDemoLogin : handleLoginClick}
         />
       )}
 
@@ -316,17 +386,23 @@ export default function App() {
         />
       )}
 
-      {/* ========== DASHBOARDS ========== */}
+      {/* ========== PROTECTED DASHBOARDS ========== */}
       {currentStep === 'business-dashboard' && (
-        <BusinessDashboard />
+        <ProtectedRoute onUnauthenticated={handleLoginClick}>
+          <BusinessDashboard />
+        </ProtectedRoute>
       )}
 
       {currentStep === 'dashboard' && (
-        <IndividualDashboard />
+        <ProtectedRoute onUnauthenticated={handleLoginClick}>
+          <IndividualDashboard />
+        </ProtectedRoute>
       )}
 
       {currentStep === 'admin-dashboard' && (
-        <AdminDashboard />
+        <ProtectedRoute onUnauthenticated={handleLoginClick} requiredRole="ADMIN">
+          <AdminDashboard />
+        </ProtectedRoute>
       )}
 
       {/* ========== DEVELOPER PORTAL & OTHER SCREENS ========== */}
