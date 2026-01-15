@@ -532,11 +532,70 @@ export class AuthService {
 
   /**
    * Invalidate all user sessions
+   * Uses Redis pattern matching to find and delete all user sessions
    */
   private async invalidateAllSessions(userId: string): Promise<void> {
-    // In production, you'd store session IDs in Redis with user prefix
-    // For now, this is a placeholder
-    logger.info('All sessions invalidated', { userId });
+    try {
+      // Get all session keys for this user
+      const sessionPattern = `session:*`;
+
+      // Use Redis SCAN to find matching keys
+      const redis = cache.getClient();
+
+      if (redis) {
+        let cursor = '0';
+        const keysToDelete: string[] = [];
+
+        do {
+          // SCAN through keys
+          const [nextCursor, keys] = await redis.scan(
+            cursor,
+            'MATCH',
+            sessionPattern,
+            'COUNT',
+            100
+          );
+          cursor = nextCursor;
+
+          // Check each session to see if it belongs to this user
+          for (const key of keys) {
+            const sessionData = await redis.get(key);
+            if (sessionData) {
+              try {
+                const session = JSON.parse(sessionData);
+                if (session.userId === userId) {
+                  keysToDelete.push(key);
+                }
+              } catch {
+                // Invalid session data, skip
+              }
+            }
+          }
+        } while (cursor !== '0');
+
+        // Delete all found sessions
+        if (keysToDelete.length > 0) {
+          await redis.del(...keysToDelete);
+          logger.info('Sessions invalidated', {
+            userId,
+            count: keysToDelete.length,
+          });
+        }
+      }
+
+      // Also store a session invalidation timestamp
+      // This ensures any tokens issued before this time are rejected
+      await cache.set(
+        `session_invalidated:${userId}`,
+        Date.now(),
+        86400 * 7 // 7 days
+      );
+
+      logger.info('All sessions invalidated', { userId });
+    } catch (error) {
+      logger.error('Error invalidating sessions', { userId, error });
+      // Don't throw - session invalidation is not critical for password reset
+    }
   }
 
   /**

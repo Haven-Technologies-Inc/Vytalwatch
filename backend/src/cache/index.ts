@@ -84,6 +84,29 @@ export class CacheService {
   }
 
   /**
+   * Get the raw Redis client for advanced operations
+   */
+  getClient(): Redis | null {
+    try {
+      return this.redis;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Ping Redis to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.redis.ping();
+      return result === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Get value from cache
    */
   async get<T>(key: string): Promise<T | null> {

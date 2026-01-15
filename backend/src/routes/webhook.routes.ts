@@ -9,6 +9,7 @@ import { WebhookController } from '../controllers/webhook.controller';
 import { validateRequest } from '../middleware/validate-request';
 import { authenticate } from '../middleware/authenticate';
 import { rateLimitAPI } from '../middleware/rate-limit';
+import { webhookUrlValidator } from '../middleware/webhook-url-validator';
 
 const router = Router();
 const webhookController = new WebhookController();
@@ -28,6 +29,7 @@ router.post(
     body('description').isString().optional(),
   ],
   validateRequest,
+  webhookUrlValidator, // SSRF protection
   webhookController.createWebhook
 );
 
@@ -75,6 +77,7 @@ router.patch(
     body('status').isIn(['ACTIVE', 'INACTIVE', 'PAUSED']).optional(),
   ],
   validateRequest,
+  webhookUrlValidator, // SSRF protection when URL is being updated
   webhookController.updateWebhook
 );
 

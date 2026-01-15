@@ -460,12 +460,16 @@ export class LinkService {
 
   /**
    * Encrypt token for storage
+   * Format: iv:encrypted:authTag (all hex encoded)
    */
   private encryptToken(token: string): string {
+    // Generate random IV for each encryption
+    const iv = crypto.randomBytes(16);
+
     const cipher = crypto.createCipheriv(
       'aes-256-gcm',
       Buffer.from(config.encryption.masterKey, 'hex'),
-      crypto.randomBytes(16)
+      iv
     );
 
     const encrypted = Buffer.concat([
@@ -475,7 +479,41 @@ export class LinkService {
 
     const tag = cipher.getAuthTag();
 
-    return `${encrypted.toString('hex')}:${tag.toString('hex')}`;
+    // Include IV in the stored format so it can be used for decryption
+    return `${iv.toString('hex')}:${encrypted.toString('hex')}:${tag.toString('hex')}`;
+  }
+
+  /**
+   * Decrypt token from storage
+   * Format: iv:encrypted:authTag (all hex encoded)
+   */
+  private decryptToken(encryptedData: string): string {
+    const parts = encryptedData.split(':');
+
+    if (parts.length !== 3) {
+      throw new Error('Invalid encrypted token format');
+    }
+
+    const [ivHex, encryptedHex, tagHex] = parts;
+
+    const iv = Buffer.from(ivHex, 'hex');
+    const encrypted = Buffer.from(encryptedHex, 'hex');
+    const tag = Buffer.from(tagHex, 'hex');
+
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      Buffer.from(config.encryption.masterKey, 'hex'),
+      iv
+    );
+
+    decipher.setAuthTag(tag);
+
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]);
+
+    return decrypted.toString('utf8');
   }
 
   /**
