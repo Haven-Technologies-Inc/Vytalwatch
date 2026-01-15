@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import { db } from '../../../config/database';
+import { getDatabase } from '../../../database';
 import { logger } from '../../../utils/logger';
 import { CreditScoringTrainer } from './credit-scoring.trainer';
 import { FraudDetectionTrainer } from './fraud-detection.trainer';
@@ -260,6 +260,7 @@ export class MLTrainingPipeline {
    */
   private async recordTrainingResult(result: TrainingResult): Promise<void> {
     try {
+      const db = getDatabase();
       await db('ml_training_history').insert({
         model_id: result.modelId,
         model_type: result.modelType,
@@ -289,6 +290,7 @@ export class MLTrainingPipeline {
     modelType?: string,
     limit: number = 10
   ): Promise<any[]> {
+    const db = getDatabase();
     const query = db('ml_training_history')
       .orderBy('created_at', 'desc')
       .limit(limit);
@@ -309,6 +311,7 @@ export class MLTrainingPipeline {
    * Compare model versions
    */
   async compareModels(version1: string, version2: string, modelType: string): Promise<any> {
+    const db = getDatabase();
     const model1 = await db('ml_training_history')
       .where({ version: version1, model_type: modelType })
       .first();
@@ -364,6 +367,7 @@ export class MLTrainingPipeline {
   async deployModel(modelId: string): Promise<void> {
     logger.info('Deploying model to production', { modelId });
 
+    const db = getDatabase();
     const model = await db('ml_training_history')
       .where({ model_id: modelId, status: 'SUCCESS' })
       .first();
