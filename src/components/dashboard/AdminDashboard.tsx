@@ -878,34 +878,506 @@ export function AdminDashboard() {
         {selectedTab === 'analytics' && <AnalyticsDashboard />}
 
         {selectedTab === 'revenue' && (
-          <div className="text-center py-12">
-            <DollarSign className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h2 className="text-white text-xl mb-2">Revenue Management</h2>
-            <p className="text-white/60">Revenue tracking and billing coming soon</p>
+          <div>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-white text-2xl md:text-3xl mb-2">Revenue Analytics</h1>
+                <p className="text-white/60">Track revenue, subscriptions, and billing</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline ml-2">Export Report</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Revenue Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+              {[
+                { label: 'Total Revenue (MTD)', value: '$284,950', change: '+15.7%', icon: DollarSign, color: 'text-[#10B981]' },
+                { label: 'Recurring Revenue', value: '$198,450', change: '+8.3%', icon: TrendingUp, color: 'text-[#06B6D4]' },
+                { label: 'Active Subscriptions', value: '2,634', change: '+12', icon: CreditCard, color: 'text-[#7C3AED]' },
+                { label: 'Average Revenue/User', value: '$108', change: '+$5', icon: Users, color: 'text-[#F59E0B]' },
+              ].map((stat, idx) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={idx} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
+                      <span className="text-[#10B981] text-xs">{stat.change}</span>
+                    </div>
+                    <div className="text-white text-2xl mb-1">{stat.value}</div>
+                    <div className="text-white/60 text-sm">{stat.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Revenue Breakdown */}
+            <div className="grid lg:grid-cols-2 gap-6 mb-6">
+              {/* By Plan Type */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4">Revenue by Plan</h3>
+                <div className="space-y-4">
+                  {[
+                    { plan: 'Enterprise', revenue: '$142,890', percentage: 50, count: 234 },
+                    { plan: 'Professional', revenue: '$89,450', percentage: 31, count: 892 },
+                    { plan: 'Starter', revenue: '$45,230', percentage: 16, count: 1245 },
+                    { plan: 'Free Trial', revenue: '$7,380', percentage: 3, count: 476 },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-white text-sm">{item.plan}</span>
+                          <span className="text-white text-sm">{item.revenue}</span>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#06B6D4] to-[#7C3AED]"
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                        <div className="text-white/50 text-xs mt-1">{item.count} businesses • {item.percentage}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* By Country */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4">Revenue by Country</h3>
+                <div className="space-y-3">
+                  {revenueByCountry.map((country, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-black/40 border border-white/10 rounded-lg">
+                      <span className="text-2xl">{country.flag}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white text-sm">{country.country}</span>
+                          <span className="text-white text-sm">{country.revenue}</span>
+                        </div>
+                        <div className="text-white/50 text-xs">{country.businesses} businesses</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Transactions */}
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+              <h3 className="text-white mb-4">Recent Transactions</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="px-4 py-3 text-left text-white/60 text-sm">Business</th>
+                      <th className="px-4 py-3 text-left text-white/60 text-sm">Type</th>
+                      <th className="px-4 py-3 text-left text-white/60 text-sm">Amount</th>
+                      <th className="px-4 py-3 text-left text-white/60 text-sm">Status</th>
+                      <th className="px-4 py-3 text-left text-white/60 text-sm">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { business: 'FinTech Solutions Ltd', type: 'Subscription', amount: '$2,450', status: 'Completed', date: '2 hours ago' },
+                      { business: 'PayNow Services', type: 'API Usage', amount: '$890', status: 'Completed', date: '5 hours ago' },
+                      { business: 'LendMe App', type: 'Upgrade', amount: '$1,230', status: 'Pending', date: '1 day ago' },
+                      { business: 'BankConnect SA', type: 'Subscription', amount: '$3,500', status: 'Completed', date: '2 days ago' },
+                      { business: 'MobiCash UG', type: 'API Usage', amount: '$180', status: 'Completed', date: '3 days ago' },
+                    ].map((tx, idx) => (
+                      <tr key={idx} className="border-b border-white/5 hover:bg-white/5">
+                        <td className="px-4 py-3 text-white text-sm">{tx.business}</td>
+                        <td className="px-4 py-3 text-white/70 text-sm">{tx.type}</td>
+                        <td className="px-4 py-3 text-white text-sm">{tx.amount}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            tx.status === 'Completed' ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#F59E0B]/20 text-[#F59E0B]'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-white/50 text-sm">{tx.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
         {selectedTab === 'api-health' && (
-          <div className="text-center py-12">
-            <Activity className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h2 className="text-white text-xl mb-2">API Health Monitoring</h2>
-            <p className="text-white/60">Real-time API health dashboard coming soon</p>
+          <div>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-white text-2xl md:text-3xl mb-2">API Health Monitoring</h1>
+                <p className="text-white/60">Real-time monitoring of all API endpoints</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 text-[#10B981] rounded-lg text-sm">
+                  <span className="w-2 h-2 bg-[#10B981] rounded-full animate-pulse" />
+                  All Systems Operational
+                </span>
+                <button className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors">
+                  <RefreshCw className="w-4 h-4 text-white/60" />
+                </button>
+              </div>
+            </div>
+
+            {/* Health Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+              {[
+                { label: 'Uptime (30d)', value: '99.98%', icon: Activity, color: 'text-[#10B981]', bgColor: 'bg-[#10B981]/20' },
+                { label: 'Avg Response', value: '187ms', icon: Zap, color: 'text-[#06B6D4]', bgColor: 'bg-[#06B6D4]/20' },
+                { label: 'Success Rate', value: '99.6%', icon: CheckCircle, color: 'text-[#7C3AED]', bgColor: 'bg-[#7C3AED]/20' },
+                { label: 'Requests/sec', value: '1,247', icon: TrendingUp, color: 'text-[#F59E0B]', bgColor: 'bg-[#F59E0B]/20' },
+              ].map((stat, idx) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={idx} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
+                    <div className={`w-10 h-10 ${stat.bgColor} rounded-lg flex items-center justify-center mb-3`}>
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
+                    </div>
+                    <div className="text-white text-2xl mb-1">{stat.value}</div>
+                    <div className="text-white/60 text-sm">{stat.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Endpoint Health */}
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6 mb-6">
+              <h3 className="text-white mb-4">Endpoint Status</h3>
+              <div className="space-y-3">
+                {[
+                  { name: '/v1/auth/*', calls: '2.3M', success: '99.9%', avg: '98ms', p99: '245ms', status: 'healthy' },
+                  { name: '/v1/accounts/*', calls: '8.7M', success: '99.7%', avg: '156ms', p99: '412ms', status: 'healthy' },
+                  { name: '/v1/transactions/*', calls: '12.1M', success: '99.8%', avg: '189ms', p99: '523ms', status: 'healthy' },
+                  { name: '/v1/identity/*', calls: '15.2M', success: '99.5%', avg: '234ms', p99: '687ms', status: 'healthy' },
+                  { name: '/v1/credit-score/*', calls: '4.2M', success: '99.3%', avg: '456ms', p99: '1.2s', status: 'warning' },
+                  { name: '/v1/risk/*', calls: '6.8M', success: '99.6%', avg: '312ms', p99: '890ms', status: 'healthy' },
+                  { name: '/v1/webhooks/*', calls: '1.9M', success: '98.9%', avg: '567ms', p99: '2.1s', status: 'warning' },
+                ].map((endpoint, idx) => (
+                  <div key={idx} className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-black/40 border border-white/10 rounded-lg hover:bg-white/5 transition-all">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                        endpoint.status === 'healthy' ? 'bg-[#10B981]' : 'bg-[#F59E0B]'
+                      }`} />
+                      <code className="text-white text-sm">{endpoint.name}</code>
+                    </div>
+                    <div className="grid grid-cols-4 gap-4 md:gap-8 text-sm">
+                      <div>
+                        <div className="text-white/50 text-xs mb-1">Calls (30d)</div>
+                        <div className="text-white">{endpoint.calls}</div>
+                      </div>
+                      <div>
+                        <div className="text-white/50 text-xs mb-1">Success</div>
+                        <div className={`${parseFloat(endpoint.success) >= 99.5 ? 'text-[#10B981]' : 'text-[#F59E0B]'}`}>
+                          {endpoint.success}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-white/50 text-xs mb-1">Avg</div>
+                        <div className="text-white">{endpoint.avg}</div>
+                      </div>
+                      <div>
+                        <div className="text-white/50 text-xs mb-1">P99</div>
+                        <div className="text-white">{endpoint.p99}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent Incidents */}
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+              <h3 className="text-white mb-4">Recent Incidents</h3>
+              <div className="space-y-3">
+                {[
+                  { title: 'Elevated latency on /v1/credit-score', status: 'Resolved', duration: '12 min', time: '2 days ago', severity: 'medium' },
+                  { title: 'Webhook delivery delays', status: 'Resolved', duration: '23 min', time: '5 days ago', severity: 'low' },
+                  { title: 'Database connection spike', status: 'Resolved', duration: '8 min', time: '1 week ago', severity: 'medium' },
+                ].map((incident, idx) => (
+                  <div key={idx} className="flex items-start gap-3 p-3 bg-black/40 border border-white/10 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-[#10B981] flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white text-sm">{incident.title}</span>
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          incident.severity === 'medium' ? 'bg-[#F59E0B]/20 text-[#F59E0B]' : 'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        }`}>
+                          {incident.severity}
+                        </span>
+                      </div>
+                      <div className="text-white/50 text-xs">
+                        {incident.status} • Duration: {incident.duration} • {incident.time}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
         {selectedTab === 'support' && (
-          <div className="text-center py-12">
-            <MessageSquare className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h2 className="text-white text-xl mb-2">Support Center</h2>
-            <p className="text-white/60">Ticket management system coming soon</p>
+          <div>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-white text-2xl md:text-3xl mb-2">Support Center</h1>
+                <p className="text-white/60">Manage support tickets and customer inquiries</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 bg-[#EF4444]/20 text-[#EF4444] rounded-lg text-sm">
+                  3 Open Tickets
+                </span>
+              </div>
+            </div>
+
+            {/* Support Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+              {[
+                { label: 'Open Tickets', value: '23', icon: MessageSquare, color: 'text-[#EF4444]', bgColor: 'bg-[#EF4444]/20' },
+                { label: 'In Progress', value: '12', icon: Clock, color: 'text-[#F59E0B]', bgColor: 'bg-[#F59E0B]/20' },
+                { label: 'Resolved Today', value: '34', icon: CheckCircle, color: 'text-[#10B981]', bgColor: 'bg-[#10B981]/20' },
+                { label: 'Avg Response', value: '2.4h', icon: Zap, color: 'text-[#06B6D4]', bgColor: 'bg-[#06B6D4]/20' },
+              ].map((stat, idx) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={idx} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
+                    <div className={`w-10 h-10 ${stat.bgColor} rounded-lg flex items-center justify-center mb-3`}>
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
+                    </div>
+                    <div className="text-white text-2xl mb-1">{stat.value}</div>
+                    <div className="text-white/60 text-sm">{stat.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tickets Table */}
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+                <div className="relative flex-1 w-full md:max-w-sm">
+                  <Search className="w-4 h-4 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search tickets..."
+                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white text-sm placeholder:text-white/40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  {['All', 'Open', 'In Progress', 'Resolved'].map((filter) => (
+                    <button
+                      key={filter}
+                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 text-sm transition-colors"
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {supportTickets.map((ticket) => (
+                  <div key={ticket.id} className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-black/40 border border-white/10 rounded-lg hover:bg-white/5 transition-all cursor-pointer">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      ticket.status === 'open' ? 'bg-[#EF4444]' :
+                      ticket.status === 'in-progress' ? 'bg-[#F59E0B]' :
+                      'bg-[#10B981]'
+                    }`} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white text-sm">{ticket.subject}</span>
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          ticket.priority === 'high' ? 'bg-[#EF4444]/20 text-[#EF4444]' :
+                          ticket.priority === 'medium' ? 'bg-[#F59E0B]/20 text-[#F59E0B]' :
+                          'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        }`}>
+                          {ticket.priority}
+                        </span>
+                      </div>
+                      <div className="text-white/50 text-xs">{ticket.business} • {ticket.time}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        ticket.status === 'open' ? 'bg-[#EF4444]/20 text-[#EF4444]' :
+                        ticket.status === 'in-progress' ? 'bg-[#F59E0B]/20 text-[#F59E0B]' :
+                        'bg-[#10B981]/20 text-[#10B981]'
+                      }`}>
+                        {ticket.status}
+                      </span>
+                      <button className="p-1.5 hover:bg-white/5 rounded transition-colors">
+                        <Eye className="w-4 h-4 text-white/60" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
         {selectedTab === 'settings' && (
-          <div className="text-center py-12">
-            <Settings className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h2 className="text-white text-xl mb-2">Platform Settings</h2>
-            <p className="text-white/60">System configuration coming soon</p>
+          <div>
+            <div className="mb-6">
+              <h1 className="text-white text-2xl md:text-3xl mb-2">Platform Settings</h1>
+              <p className="text-white/60">Configure system settings and preferences</p>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* General Settings */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-[#06B6D4]" />
+                  General Settings
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/70 text-sm block mb-2">Platform Name</label>
+                    <input
+                      type="text"
+                      defaultValue="ReshADX"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white/70 text-sm block mb-2">Support Email</label>
+                    <input
+                      type="email"
+                      defaultValue="support@reshadx.com"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">Maintenance Mode</div>
+                      <div className="text-white/50 text-xs">Temporarily disable API access</div>
+                    </div>
+                    <button className="w-12 h-6 bg-white/10 rounded-full relative">
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white/60 rounded-full" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Settings */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-[#10B981]" />
+                  Security Settings
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">Two-Factor Authentication</div>
+                      <div className="text-white/50 text-xs">Require 2FA for admin access</div>
+                    </div>
+                    <button className="w-12 h-6 bg-[#10B981] rounded-full relative">
+                      <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">IP Whitelist</div>
+                      <div className="text-white/50 text-xs">Restrict admin access by IP</div>
+                    </div>
+                    <button className="w-12 h-6 bg-white/10 rounded-full relative">
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white/60 rounded-full" />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="text-white/70 text-sm block mb-2">Session Timeout (minutes)</label>
+                    <input
+                      type="number"
+                      defaultValue="30"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* API Settings */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4 flex items-center gap-2">
+                  <Code className="w-5 h-5 text-[#7C3AED]" />
+                  API Settings
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/70 text-sm block mb-2">Default Rate Limit (req/min)</label>
+                    <input
+                      type="number"
+                      defaultValue="1000"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white/70 text-sm block mb-2">API Version</label>
+                    <select className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white text-sm">
+                      <option>v1 (Current)</option>
+                      <option>v2 (Beta)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">Debug Mode</div>
+                      <div className="text-white/50 text-xs">Enable detailed error responses</div>
+                    </div>
+                    <button className="w-12 h-6 bg-white/10 rounded-full relative">
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white/60 rounded-full" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notification Settings */}
+              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 md:p-6">
+                <h3 className="text-white mb-4 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-[#F59E0B]" />
+                  Notifications
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">Email Notifications</div>
+                      <div className="text-white/50 text-xs">Receive alerts via email</div>
+                    </div>
+                    <button className="w-12 h-6 bg-[#10B981] rounded-full relative">
+                      <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">Slack Integration</div>
+                      <div className="text-white/50 text-xs">Send alerts to Slack</div>
+                    </div>
+                    <button className="w-12 h-6 bg-[#10B981] rounded-full relative">
+                      <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white text-sm">SMS Alerts</div>
+                      <div className="text-white/50 text-xs">Critical alerts via SMS</div>
+                    </div>
+                    <button className="w-12 h-6 bg-white/10 rounded-full relative">
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white/60 rounded-full" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end mt-6">
+              <Button variant="primary" size="md">
+                Save Changes
+              </Button>
+            </div>
           </div>
         )}
       </div>
