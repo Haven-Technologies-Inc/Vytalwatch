@@ -1,0 +1,148 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: vytalwatch-production
+
+jobs:
+  deploy-production:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.vytalwatch.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Verify tag
+        run: |
+          if ! git describe --exact-match --tags HEAD; then
+            echo "Error: Must deploy from a tagged release"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Security scan
+        run: |
+          chmod +x scripts/monitoring/security-scan.sh
+          ./scripts/monitoring/security-scan.sh
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/vytalwatch/backend:${{ github.ref_name }}
+            ${{ steps.login-ecr.outputs.registry }}/vytalwatch/backend:production-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./vitalwatch-frontend
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/vytalwatch/frontend:${{ github.ref_name }}
+            ${{ steps.login-ecr.outputs.registry }}/vytalwatch/frontend:production-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Create pre-deployment backup
+        run: |
+          chmod +x scripts/backup/backup-database.sh
+          ./scripts/backup/backup-database.sh production pre-deployment
+
+      - name: Run pre-deployment checks
+        run: |
+          chmod +x scripts/deployment/pre-deployment-checks.sh
+          ./scripts/deployment/pre-deployment-checks.sh production
+
+      - name: Deploy to production
+        run: |
+          chmod +x scripts/deployment/deploy-production.sh
+          ./scripts/deployment/deploy-production.sh
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+
+      - name: Verify deployment
+        run: |
+          chmod +x scripts/deployment/post-deployment-tests.sh
+          ./scripts/deployment/post-deployment-tests.sh production
+
+      - name: Monitor deployment
+        run: |
+          chmod +x scripts/monitoring/health-check.sh
+          ./scripts/monitoring/health-check.sh production
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Notify on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚀 Production deployment successful!",
+              attachments: [{
+                color: 'good',
+                text: `Version: ${{ github.ref_name }}\nDeployed by: ${{ github.actor }}`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          chmod +x scripts/deployment/rollback-deployment.sh
+          ./scripts/deployment/rollback-deployment.sh production
+
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚨 Production deployment FAILED and rolled back!",
+              attachments: [{
+                color: 'danger',
+                text: `Version: ${{ github.ref_name }}\nDeployed by: ${{ github.actor }}`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

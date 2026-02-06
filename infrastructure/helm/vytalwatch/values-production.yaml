@@ -1,0 +1,60 @@
+# Production environment overrides
+replicaCount: 4
+
+image:
+  backend:
+    tag: production-latest
+    pullPolicy: Always
+  frontend:
+    tag: production-latest
+    pullPolicy: Always
+
+resources:
+  backend:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  frontend:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 4
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: app.vytalwatch.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: vytalwatch-production-tls
+      hosts:
+        - app.vytalwatch.com
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: ENABLE_METRICS
+    value: "true"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

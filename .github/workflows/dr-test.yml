@@ -1,0 +1,53 @@
+name: Monthly DR Test
+
+on:
+  schedule:
+    # Run on first Sunday of each month at 1 AM UTC
+    - cron: '0 1 1-7 * 0'
+  workflow_dispatch:
+
+jobs:
+  dr-test:
+    name: Disaster Recovery Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name vytalwatch-production --region us-east-1
+
+      - name: Run DR test
+        run: |
+          chmod +x scripts/backup/test-recovery.sh
+          ./scripts/backup/test-recovery.sh
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        with:
+          name: dr-test-report
+          path: logs/dr-tests/dr_test_report_*.md
+
+      - name: Notify team
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "📋 Monthly DR test completed",
+              attachments: [{
+                color: '${{ job.status }}' === 'success' ? 'good' : 'danger',
+                text: 'Check the artifacts for detailed report'
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

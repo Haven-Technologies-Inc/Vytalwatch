@@ -1,0 +1,113 @@
+groups:
+  - name: vytalwatch_alerts
+    interval: 30s
+    rules:
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="vytalwatch",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: vytalwatch
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="vytalwatch"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: vytalwatch
+        annotations:
+          summary: "High API response time"
+          description: "P95 response time is {{ $value }}s (threshold: 2s)"
+
+      # Pod Restarts
+      - alert: PodRestartingFrequently
+        expr: rate(kube_pod_container_status_restarts_total{namespace="vytalwatch-production"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: vytalwatch
+        annotations:
+          summary: "Pod {{ $labels.pod }} is restarting frequently"
+          description: "Pod has restarted {{ $value }} times in the last 15 minutes"
+
+      # Pod Not Running
+      - alert: PodNotRunning
+        expr: kube_pod_status_phase{namespace="vytalwatch-production",phase!="Running"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          service: vytalwatch
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not running"
+          description: "Pod is in {{ $labels.phase }} state"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{namespace="vytalwatch-production"} / container_spec_memory_limit_bytes{namespace="vytalwatch-production"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: vytalwatch
+        annotations:
+          summary: "High memory usage in {{ $labels.pod }}"
+          description: "Memory usage is at {{ $value | humanizePercentage }}"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{namespace="vytalwatch-production"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: vytalwatch
+        annotations:
+          summary: "High CPU usage in {{ $labels.pod }}"
+          description: "CPU usage is at {{ $value | humanizePercentage }}"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionHigh
+        expr: pg_stat_database_numbackends{datname="vytalwatch"} > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High number of database connections"
+          description: "{{ $value }} active connections (threshold: 90)"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+      # SSL Certificate Expiring
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+        for: 1h
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate expires in {{ $value | humanizeDuration }}"
+
+      # Backup Failed
+      - alert: BackupFailed
+        expr: time() - backup_last_success_timestamp_seconds > 7200
+        for: 5m
+        labels:
+          severity: critical
+          service: backup
+        annotations:
+          summary: "Database backup has not completed successfully"
+          description: "Last successful backup was {{ $value | humanizeDuration }} ago"

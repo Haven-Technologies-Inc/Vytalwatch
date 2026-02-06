@@ -1,0 +1,63 @@
+# VytalWatch RPM - Backup Scheduler Cron Jobs
+# HIPAA-compliant automated backup schedule
+# Edit with: crontab -e
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=devops@vytalwatch.com
+
+# Hourly database backups (RPO: 1 hour)
+0 * * * * /home/user/RMP/scripts/backup/backup-database.sh production scheduled >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Hourly file backups
+5 * * * * /home/user/RMP/scripts/backup/backup-files.sh production >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Daily backup verification at 2 AM
+0 2 * * * /home/user/RMP/scripts/backup/backup-verify.sh production >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Weekly full backup verification (Sunday at 3 AM)
+0 3 * * 0 /home/user/RMP/scripts/backup/backup-verify.sh production >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Monthly DR test (first Sunday at 1 AM)
+0 1 1-7 * 0 /home/user/RMP/scripts/backup/test-recovery.sh >> /home/user/RMP/logs/dr-tests/cron.log 2>&1
+
+# Staging environment backups (daily at 1 AM)
+0 1 * * * /home/user/RMP/scripts/backup/backup-database.sh staging scheduled >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Staging file backups (daily at 1:30 AM)
+30 1 * * * /home/user/RMP/scripts/backup/backup-files.sh staging >> /home/user/RMP/logs/backup/cron.log 2>&1
+
+# Database vacuum and maintenance (daily at 4 AM)
+0 4 * * * /home/user/RMP/scripts/database/vacuum-database.sh production >> /home/user/RMP/logs/database/cron.log 2>&1
+
+# Security scans (daily at 5 AM)
+0 5 * * * /home/user/RMP/scripts/monitoring/security-scan.sh production >> /home/user/RMP/logs/monitoring/cron.log 2>&1
+
+# Cost monitoring (daily at 6 AM)
+0 6 * * * /home/user/RMP/scripts/monitoring/cost-monitor.sh >> /home/user/RMP/logs/monitoring/cron.log 2>&1
+
+# Health checks every 5 minutes
+*/5 * * * * /home/user/RMP/scripts/monitoring/health-check.sh production >> /home/user/RMP/logs/monitoring/health-check.log 2>&1
+
+# Performance monitoring every 15 minutes
+*/15 * * * * /home/user/RMP/scripts/monitoring/performance-monitor.sh production >> /home/user/RMP/logs/monitoring/performance.log 2>&1
+
+# Alert check every 5 minutes
+*/5 * * * * /home/user/RMP/scripts/monitoring/alert-check.sh >> /home/user/RMP/logs/monitoring/alerts.log 2>&1
+
+# Log aggregation every 30 minutes
+*/30 * * * * /home/user/RMP/scripts/monitoring/log-aggregator.sh production >> /home/user/RMP/logs/monitoring/log-aggregation.log 2>&1
+
+# Cleanup old logs (daily at midnight)
+0 0 * * * find /home/user/RMP/logs -name "*.log" -mtime +30 -delete
+
+# Cleanup old backups (daily at 3 AM via backup script retention)
+# Handled automatically by backup scripts
+
+# Notes:
+# - All times are in UTC
+# - Logs are rotated daily
+# - Adjust frequencies based on your RTO/RPO requirements
+# - Enable email notifications by setting MAILTO
+# - Monitor cron execution with: grep CRON /var/log/syslog
