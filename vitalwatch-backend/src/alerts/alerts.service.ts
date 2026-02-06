@@ -72,7 +72,7 @@ export class AlertsService {
     return this.create({
       patientId: vital.patientId,
       providerId: vital.providerId,
-      type: AlertType.VITAL_ABNORMAL,
+      type: AlertType.VITAL_THRESHOLD,
       severity,
       title,
       message,
@@ -80,10 +80,8 @@ export class AlertsService {
       deviceId: vital.deviceId,
       metadata: {
         vitalType: vital.type,
-        value: vital.value,
+        values: vital.values,
         unit: vital.unit,
-        systolic: vital.systolic,
-        diastolic: vital.diastolic,
       },
     });
   }
@@ -103,11 +101,11 @@ export class AlertsService {
     const typeNames: Record<VitalType, string> = {
       [VitalType.BLOOD_PRESSURE]: 'Blood Pressure',
       [VitalType.HEART_RATE]: 'Heart Rate',
-      [VitalType.BLOOD_GLUCOSE]: 'Blood Glucose',
+      [VitalType.GLUCOSE]: 'Blood Glucose',
       [VitalType.SPO2]: 'Oxygen Saturation',
       [VitalType.TEMPERATURE]: 'Temperature',
       [VitalType.WEIGHT]: 'Weight',
-      [VitalType.RESPIRATORY_RATE]: 'Respiratory Rate',
+      [VitalType.ECG]: 'ECG',
     };
 
     const statusText = status === VitalStatus.CRITICAL ? 'Critical' : 'Abnormal';
@@ -115,11 +113,12 @@ export class AlertsService {
   }
 
   private getAlertMessage(vital: VitalReading): string {
-    if (vital.type === VitalType.BLOOD_PRESSURE) {
-      return `Blood pressure reading of ${vital.systolic}/${vital.diastolic} mmHg is outside normal range.`;
+    if (vital.type === VitalType.BLOOD_PRESSURE && vital.values.systolic && vital.values.diastolic) {
+      return `Blood pressure reading of ${vital.values.systolic}/${vital.values.diastolic} mmHg is outside normal range.`;
     }
 
-    return `${vital.type} reading of ${vital.value} ${vital.unit} is outside normal range.`;
+    const value = vital.values[Object.keys(vital.values)[0]];
+    return `${vital.type} reading of ${value} ${vital.unit} is outside normal range.`;
   }
 
   private async sendAlertNotifications(alert: Alert): Promise<void> {

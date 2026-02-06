@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Subscription, SubscriptionStatus, PlanType } from './entities/subscription.entity';
@@ -481,5 +481,16 @@ export class BillingService {
     const [invoices, total] = await queryBuilder.getManyAndCount();
 
     return { invoices, total };
+  }
+
+  async findByIds(ids: string[]): Promise<BillingRecord[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+
+    return this.billingRecordRepository.find({
+      where: { id: In(ids) },
+      order: { serviceDate: 'ASC' },
+    });
   }
 }

@@ -8,8 +8,9 @@ import {
 } from 'typeorm';
 
 export enum AlertSeverity {
-  INFO = 'info',
-  WARNING = 'warning',
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
   CRITICAL = 'critical',
 }
 
@@ -119,7 +120,20 @@ export class Alert {
   @Column('text', { nullable: true })
   notes: string;
 
+  // Additional metadata
+  @Column('uuid', { nullable: true })
+  deviceId: string;
+
+  @Column('jsonb', { nullable: true })
+  metadata: Record<string, any>;
+
   // Notification tracking
+  @Column({ default: false })
+  notificationSent: boolean;
+
+  @Column({ nullable: true })
+  notificationSentAt: Date;
+
   @Column({ default: false })
   pushSent: boolean;
 
@@ -137,6 +151,9 @@ export class Alert {
 
   @Column({ nullable: true })
   nextEscalationAt: Date;
+
+  @Column({ nullable: true })
+  escalatedAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

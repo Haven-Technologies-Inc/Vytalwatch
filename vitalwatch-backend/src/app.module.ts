@@ -18,6 +18,9 @@ import { BillingModule } from './billing/billing.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
 import { AIModule } from './ai/ai.module';
+import { TasksModule } from './tasks/tasks.module';
+import { ConsentsModule } from './consents/consents.module';
+import { ClaimsModule } from './claims/claims.module';
 
 @Module({
   imports: [
@@ -46,6 +49,9 @@ import { AIModule } from './ai/ai.module';
     NotificationsModule,
     AuditModule,
     AIModule,
+    TasksModule,
+    ConsentsModule,
+    ClaimsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

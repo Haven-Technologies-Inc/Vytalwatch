@@ -16,6 +16,7 @@ export enum VitalType {
   HEART_RATE = 'heart_rate',
   TEMPERATURE = 'temperature',
   ECG = 'ecg',
+  RESPIRATORY_RATE = 'respiratory_rate',
 }
 
 export enum VitalStatus {

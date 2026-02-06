@@ -210,9 +210,11 @@ export class DevicesService {
 
     switch (vitalType) {
       case VitalType.BLOOD_PRESSURE:
-        vitalData.systolic = data.systolic;
-        vitalData.diastolic = data.diastolic;
-        vitalData.value = data.systolic; // Primary value for sorting/display
+        vitalData.values = {
+          systolic: data.systolic,
+          diastolic: data.diastolic,
+          ...(data.pulse && { heartRate: data.pulse })
+        };
         vitalData.unit = 'mmHg';
         if (data.pulse) {
           // Also create heart rate reading
@@ -220,27 +222,30 @@ export class DevicesService {
             patientId: device.patientId,
             deviceId: device.id,
             type: VitalType.HEART_RATE,
-            value: data.pulse,
+            values: { heartRate: data.pulse },
             unit: 'bpm',
             recordedAt: new Date(payload.timestamp),
           });
         }
         break;
 
-      case VitalType.BLOOD_GLUCOSE:
-        vitalData.value = data.glucose || data.value;
+      case VitalType.GLUCOSE:
+        vitalData.values = { glucose: data.glucose || data.value };
         vitalData.unit = data.unit || 'mg/dL';
         break;
 
       case VitalType.SPO2:
-        vitalData.value = data.spo2 || data.value;
+        vitalData.values = {
+          spo2: data.spo2 || data.value,
+          ...(data.pulse && { heartRate: data.pulse })
+        };
         vitalData.unit = '%';
         if (data.pulse) {
           await this.vitalsService.create({
             patientId: device.patientId,
             deviceId: device.id,
             type: VitalType.HEART_RATE,
-            value: data.pulse,
+            values: { heartRate: data.pulse },
             unit: 'bpm',
             recordedAt: new Date(payload.timestamp),
           });
@@ -248,22 +253,27 @@ export class DevicesService {
         break;
 
       case VitalType.WEIGHT:
-        vitalData.value = data.weight || data.value;
+        vitalData.values = { weight: data.weight || data.value };
         vitalData.unit = data.unit || 'lbs';
         break;
 
       case VitalType.TEMPERATURE:
-        vitalData.value = data.temperature || data.value;
+        vitalData.values = { temperature: data.temperature || data.value };
         vitalData.unit = data.unit || '°F';
         break;
 
       case VitalType.HEART_RATE:
-        vitalData.value = data.pulse || data.value;
+        vitalData.values = { heartRate: data.pulse || data.value };
         vitalData.unit = 'bpm';
         break;
 
+      case VitalType.RESPIRATORY_RATE:
+        vitalData.values = { respiratoryRate: data.value };
+        vitalData.unit = 'breaths/min';
+        break;
+
       default:
-        vitalData.value = data.value;
+        vitalData.values = { value: data.value };
         vitalData.unit = data.unit || '';
     }
 
@@ -271,9 +281,13 @@ export class DevicesService {
     await this.vitalsService.create(vitalData);
 
     // Update device stats
+    await this.deviceRepository.increment(
+      { id: device.id },
+      'totalReadings',
+      1
+    );
     await this.deviceRepository.update(device.id, {
       lastReadingAt: new Date(payload.timestamp),
-      totalReadings: () => 'totalReadings + 1',
     });
   }
 
@@ -281,8 +295,8 @@ export class DevicesService {
     const mapping: Record<string, VitalType> = {
       'blood_pressure': VitalType.BLOOD_PRESSURE,
       'bp': VitalType.BLOOD_PRESSURE,
-      'glucose': VitalType.BLOOD_GLUCOSE,
-      'blood_glucose': VitalType.BLOOD_GLUCOSE,
+      'glucose': VitalType.GLUCOSE,
+      'blood_glucose': VitalType.GLUCOSE,
       'spo2': VitalType.SPO2,
       'oxygen': VitalType.SPO2,
       'pulse_ox': VitalType.SPO2,
@@ -293,6 +307,7 @@ export class DevicesService {
       'heart_rate': VitalType.HEART_RATE,
       'pulse': VitalType.HEART_RATE,
       'respiratory_rate': VitalType.RESPIRATORY_RATE,
+      'respiration': VitalType.RESPIRATORY_RATE,
     };
 
     return mapping[tenoviType.toLowerCase()] || null;

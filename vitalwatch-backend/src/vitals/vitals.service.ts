@@ -11,10 +11,12 @@ export interface CreateVitalDto {
   providerId?: string;
   deviceId?: string;
   type: VitalType;
-  value: number;
+  values: Record<string, number>;
   unit: string;
-  systolic?: number;
-  diastolic?: number;
+  mealContext?: string;
+  notes?: string;
+  deviceSerial?: string;
+  deviceModel?: string;
   metadata?: Record<string, any>;
   recordedAt?: Date;
 }
@@ -47,7 +49,7 @@ export class VitalsService {
     const vital = this.vitalRepository.create({
       ...createVitalDto,
       status,
-      recordedAt: createVitalDto.recordedAt || new Date(),
+      timestamp: createVitalDto.recordedAt || new Date(),
     });
 
     const savedVital = await this.vitalRepository.save(vital);
@@ -63,7 +65,7 @@ export class VitalsService {
       userId: createVitalDto.patientId,
       resourceType: 'vital',
       resourceId: savedVital.id,
-      details: { type: createVitalDto.type, value: createVitalDto.value, status },
+      details: { type: createVitalDto.type, values: createVitalDto.values, status },
     });
 
     return savedVital;
@@ -74,26 +76,45 @@ export class VitalsService {
 
     switch (vital.type) {
       case VitalType.BLOOD_PRESSURE:
-        return this.evaluateBloodPressure(vital.systolic, vital.diastolic, thresholds.bloodPressure);
+        return this.evaluateBloodPressure(
+          vital.values.systolic,
+          vital.values.diastolic,
+          thresholds.bloodPressure
+        );
 
-      case VitalType.BLOOD_GLUCOSE:
-        return this.evaluateRange(vital.value, thresholds.glucose);
+      case VitalType.GLUCOSE:
+        return this.evaluateRange(
+          vital.values.glucose || vital.values.value,
+          thresholds.glucose
+        );
 
       case VitalType.SPO2:
-        return this.evaluateSpo2(vital.value, thresholds.spo2);
+        return this.evaluateSpo2(
+          vital.values.spo2 || vital.values.value,
+          thresholds.spo2
+        );
 
       case VitalType.HEART_RATE:
-        return this.evaluateRange(vital.value, { min: 60, max: 100 });
+        return this.evaluateRange(
+          vital.values.heartRate || vital.values.value,
+          { min: 60, max: 100 }
+        );
 
       case VitalType.TEMPERATURE:
-        return this.evaluateRange(vital.value, { min: 97.0, max: 99.5 });
+        return this.evaluateRange(
+          vital.values.temperature || vital.values.value,
+          { min: 97.0, max: 99.5 }
+        );
 
       case VitalType.WEIGHT:
         // Weight changes evaluated separately via trends
         return VitalStatus.NORMAL;
 
       case VitalType.RESPIRATORY_RATE:
-        return this.evaluateRange(vital.value, { min: 12, max: 20 });
+        return this.evaluateRange(
+          vital.values.respiratoryRate || vital.values.value,
+          { min: 12, max: 20 }
+        );
 
       default:
         return VitalStatus.NORMAL;
