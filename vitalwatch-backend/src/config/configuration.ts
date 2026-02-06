@@ -135,4 +135,13 @@ export default () => ({
     retentionDays: 365, // HIPAA requires 6 years, but configurable
     sensitiveFields: ['ssn', 'dob', 'password', 'token'],
   },
+
+  // Encryption settings
+  encryption: {
+    masterKey: process.env.ENCRYPTION_MASTER_KEY,
+    keyRotationEnabled: process.env.KEY_ROTATION_ENABLED === 'true',
+    keyRotationIntervalDays: parseInt(process.env.KEY_ROTATION_INTERVAL_DAYS, 10) || 90,
+    awsKmsKeyId: process.env.AWS_KMS_KEY_ID,
+    azureKeyVaultUrl: process.env.AZURE_KEY_VAULT_URL,
+  },
 });
