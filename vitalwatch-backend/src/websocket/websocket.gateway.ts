@@ -13,9 +13,13 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { WebSocketService } from './websocket.service';
+import { UsersService } from '../users/users.service';
+import { UserStatus } from '../users/entities/user.entity';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -38,7 +42,12 @@ export class WebSocketGatewayService
 
   private readonly logger = new Logger(WebSocketGatewayService.name);
 
-  constructor(private wsService: WebSocketService) {}
+  constructor(
+    private readonly wsService: WebSocketService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {}
 
   afterInit(server: Server) {
     this.wsService.setServer(server);
@@ -48,24 +57,45 @@ export class WebSocketGatewayService
   async handleConnection(client: AuthenticatedSocket) {
     try {
       // Extract token from handshake
-      const token = client.handshake.auth?.token || client.handshake.headers?.authorization;
+      let token = client.handshake.auth?.token || client.handshake.headers?.authorization;
       
       if (!token) {
         this.logger.warn(`Client ${client.id} connection rejected: No token`);
+        client.emit('error', { message: 'Authentication required' });
         client.disconnect();
         return;
       }
 
-      // TODO: Verify JWT token and extract user info
-      // For now, accept connections with basic validation
-      const userId = client.handshake.auth?.userId;
-      const role = client.handshake.auth?.role;
-      const organizationId = client.handshake.auth?.organizationId;
+      // Remove 'Bearer ' prefix if present
+      if (typeof token === 'string' && token.startsWith('Bearer ')) {
+        token = token.slice(7);
+      }
 
-      if (!userId) {
+      // Verify JWT token and extract user info
+      let payload: { sub: string; email: string; role: string; organizationId?: string };
+      try {
+        payload = await this.jwtService.verifyAsync(token, {
+          secret: this.configService.get<string>('jwt.secret'),
+        });
+      } catch (jwtError) {
+        this.logger.warn(`Client ${client.id} connection rejected: Invalid token - ${jwtError.message}`);
+        client.emit('error', { message: 'Invalid or expired token' });
         client.disconnect();
         return;
       }
+
+      // Verify user exists and is active
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || user.status !== UserStatus.ACTIVE) {
+        this.logger.warn(`Client ${client.id} connection rejected: User not found or inactive`);
+        client.emit('error', { message: 'User not found or inactive' });
+        client.disconnect();
+        return;
+      }
+
+      const userId = payload.sub;
+      const role = payload.role;
+      const organizationId = payload.organizationId;
 
       client.userId = userId;
       client.role = role;
@@ -151,6 +181,98 @@ export class WebSocketGatewayService
   @SubscribeMessage('ping')
   handlePing(@ConnectedSocket() client: Socket) {
     return { event: 'pong', timestamp: Date.now() };
+  }
+
+  // ==================== Messaging ====================
+
+  @SubscribeMessage('message:join-thread')
+  handleJoinThread(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { threadId: string }
+  ) {
+    client.join(`thread:${data.threadId}`);
+    this.logger.debug(`Client ${client.id} joined thread ${data.threadId}`);
+    return { success: true };
+  }
+
+  @SubscribeMessage('message:leave-thread')
+  handleLeaveThread(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { threadId: string }
+  ) {
+    client.leave(`thread:${data.threadId}`);
+    return { success: true };
+  }
+
+  @SubscribeMessage('message:send')
+  handleSendMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { 
+      threadId: string; 
+      content: string;
+      tempId?: string;
+    }
+  ) {
+    const message = {
+      id: data.tempId || `msg_${Date.now()}`,
+      threadId: data.threadId,
+      senderId: client.userId,
+      content: data.content,
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    // Broadcast to all participants in the thread (except sender)
+    client.to(`thread:${data.threadId}`).emit('message:new', message);
+    
+    this.logger.debug(`Message sent in thread ${data.threadId} by ${client.userId}`);
+    return { success: true, message };
+  }
+
+  @SubscribeMessage('typing:start')
+  handleTypingStart(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { threadId: string; userName: string }
+  ) {
+    // Notify others in thread that user is typing
+    client.to(`thread:${data.threadId}`).emit('typing:update', {
+      threadId: data.threadId,
+      userId: client.userId,
+      userName: data.userName,
+      isTyping: true,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('typing:stop')
+  handleTypingStop(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { threadId: string }
+  ) {
+    // Notify others in thread that user stopped typing
+    client.to(`thread:${data.threadId}`).emit('typing:update', {
+      threadId: data.threadId,
+      userId: client.userId,
+      isTyping: false,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('message:read')
+  handleMessageRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { threadId: string; messageId: string }
+  ) {
+    // Notify sender that their message was read
+    this.server.to(`thread:${data.threadId}`).emit('message:read-receipt', {
+      threadId: data.threadId,
+      messageId: data.messageId,
+      readBy: client.userId,
+      readAt: new Date().toISOString(),
+    });
+    return { success: true };
   }
 
   // ==================== WebRTC Signaling ====================

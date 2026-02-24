@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { messagingApi } from '@/services/api';
 import type { MessageThread, Message as MessageType } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Send, Search, Paperclip, MoreVertical, Phone, Video, User, Plus } from 'lucide-react';
+import { Send, Search, Paperclip, MoreVertical, Phone, Video, Plus, X, File as FileIcon } from 'lucide-react';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/useToast';
@@ -37,26 +38,6 @@ interface Conversation {
   lastMessageTime: Date;
   unreadCount: number;
   messages: LocalMessage[];
-}
-
-// Helper to check demo mode
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vytalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
 }
 
 const mockConversations: Conversation[] = [
@@ -102,14 +83,19 @@ const mockConversations: Conversation[] = [
 export default function ProviderMessagesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(mockConversations[0]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'patients' | 'staff'>('all');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<string, { userName: string; timestamp: number }>>(new Map());
+  const [userName, setUserName] = useState('Provider');
+  const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize socket connection for video calls
   useEffect(() => {
@@ -150,14 +136,122 @@ export default function ProviderMessagesPage() {
     };
   }, []);
 
-  const fetchConversations = useCallback(async () => {
-    if (isDemoMode()) {
-      setConversations(mockConversations);
-      setSelectedConversation(mockConversations[0]);
-      setLoading(false);
-      return;
-    }
+  // Real-time message and typing listeners
+  useEffect(() => {
+    if (!socketConnected || !selectedConversation) return;
 
+    // Join the thread room
+    socketClient.emit('message:join-thread', { threadId: selectedConversation.id });
+
+    // Listen for new messages
+    const cleanupMessages = socketClient.on<{
+      id: string;
+      threadId: string;
+      senderId: string;
+      content: string;
+      timestamp: string;
+    }>('message:new', (msg) => {
+      if (msg.threadId === selectedConversation.id) {
+        const newMsg: LocalMessage = {
+          id: msg.id,
+          senderId: msg.senderId,
+          senderName: selectedConversation.participant.name,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          read: false,
+        };
+        setSelectedConversation((prev) =>
+          prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev
+        );
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === msg.threadId
+              ? { ...conv, messages: [...conv.messages, newMsg], lastMessage: msg.content, lastMessageTime: new Date(msg.timestamp) }
+              : conv
+          )
+        );
+        toast({ title: 'New message', description: `${selectedConversation.participant.name}: ${msg.content.slice(0, 50)}...`, type: 'info' });
+      }
+    });
+
+    // Listen for typing updates
+    const cleanupTyping = socketClient.on<{
+      threadId: string;
+      userId: string;
+      userName: string;
+      isTyping: boolean;
+    }>('typing:update', (data) => {
+      if (data.threadId === selectedConversation.id) {
+        setTypingUsers((prev) => {
+          const newMap = new Map(prev);
+          if (data.isTyping) {
+            newMap.set(data.userId, { userName: data.userName, timestamp: Date.now() });
+          } else {
+            newMap.delete(data.userId);
+          }
+          return newMap;
+        });
+      }
+    });
+
+    // Listen for read receipts
+    const cleanupRead = socketClient.on<{
+      threadId: string;
+      messageId: string;
+      readBy: string;
+    }>('message:read-receipt', (data) => {
+      if (data.threadId === selectedConversation.id) {
+        setSelectedConversation((prev) =>
+          prev ? {
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === data.messageId ? { ...m, read: true } : m
+            ),
+          } : prev
+        );
+      }
+    });
+
+    return () => {
+      socketClient.emit('message:leave-thread', { threadId: selectedConversation.id });
+      cleanupMessages();
+      cleanupTyping();
+      cleanupRead();
+    };
+  }, [socketConnected, selectedConversation?.id, toast]);
+
+  // Clear stale typing indicators after 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTypingUsers((prev) => {
+        const newMap = new Map(prev);
+        newMap.forEach((value, key) => {
+          if (now - value.timestamp > 3000) {
+            newMap.delete(key);
+          }
+        });
+        return newMap;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle typing indicator emission
+  const handleTyping = useCallback(() => {
+    if (!selectedConversation || !socketConnected) return;
+    
+    socketClient.emit('typing:start', { threadId: selectedConversation.id, userName });
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      socketClient.emit('typing:stop', { threadId: selectedConversation.id });
+    }, 2000);
+  }, [selectedConversation, socketConnected, userName]);
+
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
       const response = await messagingApi.getThreads({ limit: 50 });
@@ -174,20 +268,19 @@ export default function ProviderMessagesPage() {
           unreadCount: thread.unreadCount || 0,
           messages: [],
         }));
-        setConversations(threads.length > 0 ? threads : mockConversations);
-        setSelectedConversation(threads[0] || mockConversations[0]);
+        setConversations(threads);
+        if (threads.length > 0) {
+          setSelectedConversation(threads[0]);
+        }
       }
     } catch {
-      setConversations(mockConversations);
-      setSelectedConversation(mockConversations[0]);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   const fetchMessages = useCallback(async (threadId: string) => {
-    if (isDemoMode()) return;
-
     try {
       const response = await messagingApi.getMessages(threadId, { limit: 100 });
       if (response.data?.results) {
@@ -274,8 +367,6 @@ export default function ProviderMessagesPage() {
           : conv
       )
     );
-
-    if (isDemoMode()) return;
 
     try {
       setSending(true);
@@ -373,12 +464,26 @@ export default function ProviderMessagesPage() {
   }, [incomingCall]);
 
   const handleAttachFile = useCallback(() => {
-    toast({ 
-      title: 'Attach file', 
-      description: 'File attachment feature coming soon',
-      type: 'info'
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024;
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        toast({ title: 'File too large', description: `${file.name} exceeds 10MB limit`, type: 'error' });
+        return false;
+      }
+      return true;
     });
+    setAttachedFiles(prev => [...prev, ...validFiles].slice(0, 5));
+    if (e.target) e.target.value = '';
   }, [toast]);
+
+  const removeAttachedFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   const handleViewPatient = useCallback(() => {
     if (selectedConversation?.participant.role === 'Patient') {
@@ -444,18 +549,14 @@ export default function ProviderMessagesPage() {
                 )}
               >
                 <div className="relative">
-                  <div className={cn(
-                    'flex h-12 w-12 items-center justify-center rounded-full',
-                    conversation.participant.role === 'Patient'
-                      ? conversation.participant.riskLevel === 'high'
-                        ? 'bg-red-100 text-red-600 dark:bg-red-900/30'
-                        : conversation.participant.riskLevel === 'moderate'
-                        ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30'
-                        : 'bg-green-100 text-green-600 dark:bg-green-900/30'
-                      : 'bg-primary/10 text-primary'
-                  )}>
-                    <User className="h-6 w-6" />
-                  </div>
+                  <Avatar 
+                    name={conversation.participant.name} 
+                    size="lg"
+                    status={conversation.participant.role === 'Patient' ? (
+                      conversation.participant.riskLevel === 'high' ? 'busy' :
+                      conversation.participant.riskLevel === 'moderate' ? 'away' : 'online'
+                    ) : undefined}
+                  />
                   {conversation.unreadCount > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
                       {conversation.unreadCount}
@@ -491,16 +592,14 @@ export default function ProviderMessagesPage() {
           <div className="flex flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-full',
-                  selectedConversation.participant.role === 'Patient'
-                    ? selectedConversation.participant.riskLevel === 'high'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-primary/10 text-primary'
-                    : 'bg-primary/10 text-primary'
-                )}>
-                  <User className="h-5 w-5" />
-                </div>
+                <Avatar 
+                  name={selectedConversation.participant.name}
+                  size="md"
+                  status={selectedConversation.participant.role === 'Patient' ? (
+                    selectedConversation.participant.riskLevel === 'high' ? 'busy' :
+                    selectedConversation.participant.riskLevel === 'moderate' ? 'away' : 'online'
+                  ) : undefined}
+                />
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">
                     {selectedConversation.participant.name}
@@ -565,6 +664,43 @@ export default function ProviderMessagesPage() {
             </div>
 
             <div className="border-t border-gray-200 p-4 dark:border-gray-800">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="Attach files"
+              />
+              {/* Attached files preview */}
+              {attachedFiles.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">
+                      <FileIcon className="h-4 w-4 text-gray-500" />
+                      <span className="max-w-[120px] truncate text-sm text-gray-700 dark:text-gray-300">{file.name}</span>
+                      <button onClick={() => removeAttachedFile(index)} className="text-gray-400 hover:text-red-500" title="Remove file">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Typing indicator */}
+              {typingUsers.size > 0 && (
+                <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+                  <div className="flex gap-1">
+                    <span className="animate-bounce h-2 w-2 rounded-full bg-gray-400" />
+                    <span className="animate-bounce h-2 w-2 rounded-full bg-gray-400 [animation-delay:150ms]" />
+                    <span className="animate-bounce h-2 w-2 rounded-full bg-gray-400 [animation-delay:300ms]" />
+                  </div>
+                  <span>
+                    {Array.from(typingUsers.values()).map(u => u.userName).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="sm" title="Attach file" onClick={handleAttachFile}>
                   <Paperclip className="h-5 w-5" />
@@ -572,7 +708,10 @@ export default function ProviderMessagesPage() {
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    handleTyping();
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                   className="flex-1"
                 />

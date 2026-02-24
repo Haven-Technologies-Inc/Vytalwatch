@@ -33,12 +33,17 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { MedicationsModule } from './medications/medications.module';
 import { WebRTCModule } from './webrtc/webrtc.module';
 import { WebSocketModule } from './websocket/websocket.module';
+import { EmailModule } from './email/email.module';
+import { SmsModule } from './sms/sms.module';
+import { ClinicalNotesModule } from './clinical-notes/clinical-notes.module';
+import { ConsentModule } from './consent/consent.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
       load: [configuration],
     }),
 
@@ -76,6 +81,10 @@ import { WebSocketModule } from './websocket/websocket.module';
     MedicationsModule,
     WebRTCModule,
     WebSocketModule,
+    EmailModule,
+    SmsModule,
+    ClinicalNotesModule,
+    ConsentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

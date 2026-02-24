@@ -69,8 +69,8 @@ export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'enum', enum: AuditAction })
-  action: AuditAction;
+  @Column({ type: 'varchar', length: 100 })
+  action: string;
 
   @Column({ nullable: true })
   userId: string;

@@ -5,44 +5,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "next-themes";
-import {
-  Menu,
-  X,
-  Sun,
-  Moon,
-  ChevronDown,
-} from "lucide-react";
+import { Menu, X, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  {
-    name: "Product",
-    href: "#",
-    children: [
-      { name: "Features", href: "/features" },
-      { name: "AI Insights", href: "/ai" },
-      { name: "Devices", href: "/devices" },
-    ],
-  },
+  { name: "Home", href: "#home" },
+  { name: "About", href: "#about" },
+  { name: "Why Choose Us", href: "#why-choose" },
+  { name: "Use Cases", href: "#use-cases" },
   { name: "Pricing", href: "#pricing" },
-  {
-    name: "Resources",
-    href: "#",
-    children: [
-      { name: "Blog", href: "/blog" },
-      { name: "Case Studies", href: "/case-studies" },
-      { name: "Documentation", href: "/docs" },
-      { name: "Help Center", href: "/help" },
-    ],
-  },
-  { name: "About", href: "/about" },
+  { name: "FAQs", href: "#faqs" },
+  { name: "Devices", href: "/devices" },
 ];
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const { theme, setTheme } = useTheme();
+    const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -59,8 +38,8 @@ export function Header() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         isScrolled
-          ? "bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg shadow-sm border-b border-slate-200/50 dark:border-slate-700/50"
-          : "bg-transparent"
+          ? "bg-slate-950/95 backdrop-blur-lg shadow-sm border-b border-slate-800/50"
+          : "bg-slate-950/30 backdrop-blur-sm"
       )}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,45 +58,15 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-6">
             {navigation.map((item) => (
-              <div
+              <Link
                 key={item.name}
-                className="relative"
-                onMouseEnter={() => item.children && setOpenDropdown(item.name)}
-                onMouseLeave={() => setOpenDropdown(null)}
+                href={item.href}
+                className="text-slate-400 hover:text-white transition-colors text-sm"
               >
-                {item.children ? (
-                  <button className="flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
-                    {item.name}
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <Link
-                    href={item.href}
-                    className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
-                  >
-                    {item.name}
-                  </Link>
-                )}
-
-                {/* Dropdown */}
-                {item.children && openDropdown === item.name && (
-                  <div className="absolute top-full left-0 pt-2">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[180px]">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.name}
-                          href={child.href}
-                          className="block px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        >
-                          {child.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                {item.name}
+              </Link>
             ))}
           </div>
 
@@ -127,7 +76,7 @@ export function Header() {
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? (
@@ -151,7 +100,7 @@ export function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
             >
               {isMobileMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -164,45 +113,22 @@ export function Header() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-slate-200 dark:border-slate-700">
-            <div className="space-y-2">
+          <div className="lg:hidden py-4 border-t border-slate-800">
+            <div className="space-y-1">
               {navigation.map((item) => (
-                <div key={item.name}>
-                  {item.children ? (
-                    <div>
-                      <div className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium">
-                        {item.name}
-                      </div>
-                      <div className="pl-4 space-y-1">
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.name}
-                            href={child.href}
-                            className="block px-4 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <Link
-                      href={item.href}
-                      className="block px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:text-slate-900 dark:hover:text-white"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      {item.name}
-                    </Link>
-                  )}
-                </div>
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="block px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex gap-3 px-4">
+            <div className="mt-4 pt-4 border-t border-slate-800 flex gap-3 px-4">
               <Link href="/auth/login" className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Sign In
-                </Button>
+                <Button variant="outline" className="w-full">Sign In</Button>
               </Link>
               <Link href="/auth/register" className="flex-1">
                 <Button className="w-full">Free Trial</Button>

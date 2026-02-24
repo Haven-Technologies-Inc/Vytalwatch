@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Send, Search, Paperclip, MoreVertical, Phone, Video, User } from 'lucide-react';
+import { Send, Search, Paperclip, MoreVertical, Phone, Video, User, X, File as FileIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { VideoCall, IncomingCallModal } from '@/components/video';
@@ -105,6 +105,8 @@ export default function PatientMessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(mockConversations[0]);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize socket connection for video calls
   useEffect(() => {
@@ -242,8 +244,26 @@ export default function PatientMessagesPage() {
   }, [incomingCall]);
 
   const handleAttachFile = useCallback(() => {
-    toast({ title: 'Attach file', description: 'File attachment feature coming soon', type: 'info' });
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024;
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        toast({ title: 'File too large', description: `${file.name} exceeds 10MB limit`, type: 'error' });
+        return false;
+      }
+      return true;
+    });
+    setAttachedFiles(prev => [...prev, ...validFiles].slice(0, 5));
+    if (e.target) e.target.value = '';
   }, [toast]);
+
+  const removeAttachedFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   return (
     <DashboardLayout>
@@ -364,6 +384,28 @@ export default function PatientMessagesPage() {
             </div>
 
             <div className="border-t border-gray-200 p-4 dark:border-gray-800">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="Attach files"
+              />
+              {attachedFiles.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">
+                      <FileIcon className="h-4 w-4 text-gray-500" />
+                      <span className="max-w-[120px] truncate text-sm text-gray-700 dark:text-gray-300">{file.name}</span>
+                      <button onClick={() => removeAttachedFile(index)} className="text-gray-400 hover:text-red-500" title="Remove file">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="sm" onClick={handleAttachFile} title="Attach file">
                   <Paperclip className="h-5 w-5" />

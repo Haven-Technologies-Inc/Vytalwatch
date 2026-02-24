@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -10,13 +11,16 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { SessionTimeoutGuard } from './guards/session-timeout.guard';
 import { EmergencyAccessService } from './services/emergency-access.service';
+import { AuthSecurityService } from './services/auth-security.service';
 import { PasswordValidator } from './validators/password.validator';
+import { InviteCode } from './entities/invite-code.entity';
 import { UsersModule } from '../users/users.module';
 import { AuditModule } from '../audit/audit.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([InviteCode]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -41,6 +45,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     RolesGuard,
     SessionTimeoutGuard,
     EmergencyAccessService,
+    AuthSecurityService,
     PasswordValidator,
   ],
   exports: [
@@ -49,6 +54,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     RolesGuard,
     SessionTimeoutGuard,
     EmergencyAccessService,
+    AuthSecurityService,
     PasswordValidator,
   ],
 })

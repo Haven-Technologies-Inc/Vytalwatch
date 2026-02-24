@@ -23,66 +23,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Demo mode detection
-const isDemoMode = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vytalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-};
-
-// Demo data for gateways
-const demoGateways: TenoviGateway[] = [
-  {
-    id: 'demo-gw-1',
-    gatewayUuid: 'GW-001-UUID',
-    firmwareVersion: '2.1.0',
-    bootloaderVersion: '1.0.0',
-    provisioned: true,
-    lastSignalStrength: 35,
-    lastCheckinTime: new Date().toISOString(),
-    organizationId: 'org-1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo-gw-2',
-    gatewayUuid: 'GW-002-UUID',
-    firmwareVersion: '2.0.5',
-    bootloaderVersion: '1.0.0',
-    provisioned: true,
-    lastSignalStrength: 22,
-    lastCheckinTime: new Date(Date.now() - 3600000).toISOString(),
-    organizationId: 'org-1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo-gw-3',
-    gatewayUuid: 'GW-003-UUID',
-    firmwareVersion: '2.1.0',
-    bootloaderVersion: '1.0.0',
-    provisioned: false,
-    lastSignalStrength: 8,
-    lastCheckinTime: new Date(Date.now() - 86400000).toISOString(),
-    organizationId: 'org-2',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-] as TenoviGateway[];
-
 export default function AdminGatewaysPage() {
   const { toast } = useToast();
   const [gateways, setGateways] = useState<TenoviGateway[]>([]);
@@ -93,13 +33,6 @@ export default function AdminGatewaysPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const fetchGateways = useCallback(async () => {
-    // Skip API calls in demo mode
-    if (isDemoMode()) {
-      setGateways(demoGateways);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -108,9 +41,7 @@ export default function AdminGatewaysPage() {
         setGateways(response.data.results);
       }
     } catch (err) {
-      // Fallback to demo data on API errors
-      setGateways(demoGateways);
-      setError('Demo mode: Showing sample gateways');
+      setError('Failed to load gateways. Please try again.');
       console.error('Error fetching gateways:', err);
     } finally {
       setLoading(false);
@@ -122,15 +53,6 @@ export default function AdminGatewaysPage() {
   }, [fetchGateways]);
 
   const handleSyncGateway = useCallback(async (uuid: string) => {
-    // Simulate sync in demo mode
-    if (isDemoMode()) {
-      setSyncing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setSyncing(false);
-      toast({ title: 'Gateway synced', description: `Demo: Gateway ${uuid.slice(0, 8)}... synced`, type: 'success' });
-      return;
-    }
-
     try {
       setSyncing(true);
       await tenoviApi.syncGateway(uuid);
@@ -145,12 +67,6 @@ export default function AdminGatewaysPage() {
   }, [fetchGateways, toast]);
 
   const handleUnlinkGateway = useCallback(async (gatewayId: string) => {
-    // Simulate unlink in demo mode
-    if (isDemoMode()) {
-      toast({ title: 'Gateway unlinked', description: 'Demo: Gateway unlinked successfully', type: 'success' });
-      return;
-    }
-
     try {
       await tenoviApi.unlinkGateway(gatewayId);
       await fetchGateways();

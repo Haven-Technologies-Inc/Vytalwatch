@@ -1,7 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { AIService } from '../ai/ai.service';
+import axios from 'axios';
 
 export interface IntegrationConfig {
   name: string;
@@ -15,12 +17,20 @@ export interface IntegrationConfig {
 
 @Injectable()
 export class IntegrationsService {
+  private readonly logger = new Logger(IntegrationsService.name);
   private integrations: Map<string, IntegrationConfig> = new Map();
+  private readonly tenoviApiUrl: string;
+  private readonly tenoviApiKey: string;
+  private readonly tenoviClientDomain: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly aiService: AIService,
   ) {
+    this.tenoviApiUrl = this.configService.get('tenovi.apiUrl') || 'https://api2.tenovi.com';
+    this.tenoviApiKey = this.configService.get('tenovi.apiKey') || '';
+    this.tenoviClientDomain = this.configService.get('tenovi.clientDomain') || '';
     this.initializeIntegrations();
   }
 
@@ -197,46 +207,109 @@ export class IntegrationsService {
   }
 
   async analyzeWithOpenAI(dto: { prompt: string; context?: string }, user: CurrentUserPayload) {
-    const apiKey = this.configService.get('openai.apiKey');
-    
-    if (!apiKey) {
-      throw new BadRequestException('OpenAI not configured');
+    if (!this.aiService.isConfigured()) {
+      throw new BadRequestException('AI services not configured. Please set OPENAI_API_KEY or GROK_API_KEY.');
     }
 
-    // In production, call OpenAI API
+    await this.auditService.log({
+      action: 'OPENAI_ANALYSIS_REQUESTED',
+      userId: user.sub,
+      details: { promptLength: dto.prompt.length },
+    });
+
+    const fullPrompt = dto.context 
+      ? `Context: ${dto.context}\n\nQuery: ${dto.prompt}`
+      : dto.prompt;
+
+    const response = await this.aiService.chatWithAI([
+      { role: 'user', content: fullPrompt }
+    ]);
+
     return {
-      analysis: 'AI analysis result placeholder',
+      analysis: response,
+      provider: this.aiService.getActiveProvider(),
       confidence: 0.85,
       timestamp: new Date().toISOString(),
     };
   }
 
   async generateOpenAIInsight(dto: { patientId: string; vitalData: any }, user: CurrentUserPayload) {
+    if (!this.aiService.isConfigured()) {
+      throw new BadRequestException('AI services not configured');
+    }
+
+    await this.auditService.log({
+      action: 'AI_INSIGHT_GENERATED',
+      userId: user.sub,
+      details: { patientId: dto.patientId },
+    });
+
+    // Use real AI analysis
+    const insight = await this.aiService.getPatientInsights(dto.patientId);
+    
     return {
-      insight: 'Based on recent vital readings, blood pressure is trending higher than baseline.',
-      recommendations: [
-        'Consider medication adjustment',
-        'Increase monitoring frequency',
-        'Review dietary sodium intake',
-      ],
-      riskLevel: 'moderate',
-      confidence: 0.82,
+      patientId: dto.patientId,
+      insight: insight.summary,
+      trends: insight.trends,
+      concerns: insight.concerns,
+      recommendations: insight.recommendations,
+      riskLevel: insight.overallRiskLevel,
+      provider: this.aiService.getActiveProvider(),
+      confidence: 0.85,
+      generatedAt: new Date().toISOString(),
     };
   }
 
   async analyzeWithGrok(dto: { data: any; analysisType: string }, user: CurrentUserPayload) {
+    if (!this.aiService.isConfigured()) {
+      throw new BadRequestException('AI services not configured');
+    }
+
+    await this.auditService.log({
+      action: 'GROK_ANALYSIS_REQUESTED',
+      userId: user.sub,
+      details: { analysisType: dto.analysisType },
+    });
+
+    const prompt = `Perform a ${dto.analysisType} analysis on the following healthcare data:\n\n${JSON.stringify(dto.data, null, 2)}\n\nProvide actionable insights for remote patient monitoring.`;
+
+    const response = await this.aiService.chatWithAI([
+      { role: 'user', content: prompt }
+    ]);
+
     return {
-      result: 'Grok analysis result',
+      result: response,
       analysisType: dto.analysisType,
+      provider: this.aiService.getActiveProvider(),
       timestamp: new Date().toISOString(),
     };
   }
 
   async grokRealTimeAnalysis(dto: { vitalReading: any }, user: CurrentUserPayload) {
+    if (!this.aiService.isConfigured()) {
+      throw new BadRequestException('AI services not configured');
+    }
+
+    await this.auditService.log({
+      action: 'REALTIME_ANALYSIS_REQUESTED',
+      userId: user.sub,
+      details: { vitalType: dto.vitalReading.type },
+    });
+
+    const result = await this.aiService.realTimeAnalysis({
+      vitalReading: dto.vitalReading,
+      patientId: dto.vitalReading.patientId || 'unknown',
+    });
+
     return {
-      anomalyDetected: false,
-      score: 0.15,
-      recommendation: 'Reading within normal parameters',
+      anomalyDetected: result.analysis?.isAnomalous || false,
+      confidence: result.analysis?.confidence || 0.85,
+      deviation: result.analysis?.deviation || 'normal',
+      trend: result.analysis?.trend || 'stable',
+      alert: result.alert,
+      recommendations: result.recommendations,
+      provider: this.aiService.getActiveProvider(),
+      latencyMs: result.latencyMs,
       timestamp: new Date().toISOString(),
     };
   }
@@ -260,19 +333,72 @@ export class IntegrationsService {
   }
 
   async getTenoviDevices() {
-    return [
-      { id: 'dev1', type: 'bp_monitor', model: 'BP-100', status: 'active' },
-      { id: 'dev2', type: 'pulse_ox', model: 'PO-50', status: 'active' },
-      { id: 'dev3', type: 'scale', model: 'SC-200', status: 'active' },
-    ];
+    try {
+      if (!this.tenoviApiKey || !this.tenoviClientDomain) {
+        this.logger.warn('Tenovi API not configured - returning empty device list');
+        return [];
+      }
+
+      const response = await axios.get(
+        `${this.tenoviApiUrl}/clients/${this.tenoviClientDomain}/hwi/hwi-devices/`,
+        {
+          headers: {
+            Authorization: `Api-Key ${this.tenoviApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        },
+      );
+
+      const devices = response.data.results || response.data || [];
+      return devices.map((device: any) => ({
+        id: device.hwi_device_id || device.id,
+        type: device.device?.sensor_code || 'unknown',
+        model: device.device?.model_number || device.device?.name || 'Unknown Model',
+        status: device.status || 'unknown',
+        patientId: device.patient_id,
+        lastMeasurement: device.last_measurement,
+        connectedOn: device.connected_on,
+      }));
+    } catch (error) {
+      this.logger.error(`Failed to fetch Tenovi devices: ${error.message}`);
+      return [];
+    }
   }
 
   async syncTenoviDevices(user: CurrentUserPayload) {
-    await this.auditService.log({
-      action: 'TENOVI_SYNC',
-      userId: user.sub,
-    });
+    try {
+      if (!this.tenoviApiKey || !this.tenoviClientDomain) {
+        throw new BadRequestException('Tenovi API not configured');
+      }
 
-    return { success: true, syncedDevices: 3, timestamp: new Date().toISOString() };
+      const response = await axios.get(
+        `${this.tenoviApiUrl}/clients/${this.tenoviClientDomain}/hwi/hwi-devices/`,
+        {
+          headers: {
+            Authorization: `Api-Key ${this.tenoviApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        },
+      );
+
+      const devices = response.data.results || response.data || [];
+
+      await this.auditService.log({
+        action: 'TENOVI_SYNC',
+        userId: user.sub,
+        details: { deviceCount: devices.length },
+      });
+
+      return {
+        success: true,
+        syncedDevices: devices.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to sync Tenovi devices: ${error.message}`);
+      throw new BadRequestException(`Tenovi sync failed: ${error.message}`);
+    }
   }
 }

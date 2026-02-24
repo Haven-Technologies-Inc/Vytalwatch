@@ -2,8 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { Twilio } from 'twilio';
 import {
   Notification,
   NotificationType,
@@ -11,107 +9,134 @@ import {
   NotificationCategory,
 } from './entities/notification.entity';
 import { User } from '../users/entities/user.entity';
+import { EmailService } from '../email/email.service';
+import { SmsService } from '../sms/sms.service';
 
-export interface SendEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
+export interface NotificationPreferences {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+  alertTypes: string[];
 }
 
-export interface SendSmsOptions {
-  to: string;
-  body: string;
+export interface SendNotificationOptions {
+  user: User;
+  category: NotificationCategory;
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  forceEmail?: boolean;
+  forceSms?: boolean;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private emailTransporter: nodemailer.Transporter;
-  private twilioClient: Twilio;
 
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly configService: ConfigService,
-  ) {
-    this.initializeEmailTransporter();
-    this.initializeTwilioClient();
-  }
+    private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
+  ) {}
 
-  private initializeEmailTransporter(): void {
-    const smtpConfig = this.configService.get('smtp');
+  private getUserPreferences(user: User): NotificationPreferences {
+    const defaults: NotificationPreferences = {
+      email: true,
+      sms: true,
+      push: true,
+      alertTypes: ['critical', 'high', 'medium', 'low'],
+    };
 
-    if (smtpConfig?.host) {
-      this.emailTransporter = nodemailer.createTransport({
-        host: smtpConfig.host,
-        port: smtpConfig.port,
-        secure: smtpConfig.secure,
-        auth: {
-          user: smtpConfig.user,
-          pass: smtpConfig.pass,
-        },
-      });
+    if (!user.notificationPreferences) {
+      return defaults;
     }
+
+    return {
+      email: user.notificationPreferences.email ?? defaults.email,
+      sms: user.notificationPreferences.sms ?? defaults.sms,
+      push: user.notificationPreferences.push ?? defaults.push,
+      alertTypes: user.notificationPreferences.alertTypes ?? defaults.alertTypes,
+    };
   }
 
-  private initializeTwilioClient(): void {
-    const twilioConfig = this.configService.get('twilio');
+  private shouldSendNotification(
+    preferences: NotificationPreferences,
+    channel: 'email' | 'sms' | 'push',
+    severity?: string,
+  ): boolean {
+    if (!preferences[channel]) return false;
+    if (severity && !preferences.alertTypes.includes(severity)) return false;
+    return true;
+  }
 
-    if (twilioConfig?.accountSid && twilioConfig?.authToken) {
-      this.twilioClient = new Twilio(
-        twilioConfig.accountSid,
-        twilioConfig.authToken,
+  async sendNotification(options: SendNotificationOptions): Promise<{ email?: boolean; sms?: boolean }> {
+    const { user, category, title, message, data, forceEmail, forceSms, severity } = options;
+    const preferences = this.getUserPreferences(user);
+    const results: { email?: boolean; sms?: boolean } = {};
+
+    // Send email if user prefers it or forced
+    if (forceEmail || this.shouldSendNotification(preferences, 'email', severity)) {
+      const emailNotification = await this.createNotification({
+        userId: user.id,
+        type: NotificationType.EMAIL,
+        category,
+        title,
+        body: message,
+        recipient: user.email,
+        data,
+      });
+
+      try {
+        await this.emailService.send({
+          to: user.email,
+          subject: title,
+          html: `<p>Hi ${user.firstName || ''},</p><p>${message}</p>`,
+        });
+        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.SENT);
+        results.email = true;
+      } catch (error) {
+        this.logger.error(`Failed to send email notification to ${user.email}`, error);
+        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.FAILED, undefined, error.message);
+        results.email = false;
+      }
+    }
+
+    // Send SMS if user prefers it, has phone, or forced
+    if (user.phone && (forceSms || this.shouldSendNotification(preferences, 'sms', severity))) {
+      const smsNotification = await this.createNotification({
+        userId: user.id,
+        type: NotificationType.SMS,
+        category,
+        title,
+        body: message,
+        recipient: user.phone,
+        data,
+      });
+
+      const smsResult = await this.smsService.send(user.phone, `VytalWatch: ${message}`);
+      await this.updateNotificationStatus(
+        smsNotification.id,
+        smsResult.success ? NotificationStatus.SENT : NotificationStatus.FAILED,
+        smsResult.messageId,
+        smsResult.error,
       );
+      results.sms = smsResult.success;
     }
-  }
 
-  async sendEmail(options: SendEmailOptions): Promise<boolean> {
-    try {
-      if (!this.emailTransporter) {
-        this.logger.warn('Email transporter not configured');
-        return false;
-      }
+    // Always create in-app notification
+    await this.createNotification({
+      userId: user.id,
+      type: NotificationType.IN_APP,
+      category,
+      title,
+      body: message,
+      data,
+    });
 
-      const smtpConfig = this.configService.get('smtp');
-
-      await this.emailTransporter.sendMail({
-        from: `"${smtpConfig.fromName}" <${smtpConfig.from}>`,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-      });
-
-      this.logger.log(`Email sent to ${options.to}`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${options.to}`, error);
-      return false;
-    }
-  }
-
-  async sendSms(options: SendSmsOptions): Promise<{ success: boolean; messageId?: string }> {
-    try {
-      if (!this.twilioClient) {
-        this.logger.warn('Twilio client not configured');
-        return { success: false };
-      }
-
-      const twilioConfig = this.configService.get('twilio');
-
-      const message = await this.twilioClient.messages.create({
-        body: options.body,
-        to: options.to,
-        from: twilioConfig.phoneNumber,
-      });
-
-      this.logger.log(`SMS sent to ${options.to}, SID: ${message.sid}`);
-      return { success: true, messageId: message.sid };
-    } catch (error) {
-      this.logger.error(`Failed to send SMS to ${options.to}`, error);
-      return { success: false };
-    }
+    return results;
   }
 
   async sendEmailVerification(user: User): Promise<void> {
@@ -127,26 +152,16 @@ export class NotificationsService {
       data: { verificationUrl },
     });
 
-    const success = await this.sendEmail({
-      to: user.email,
-      subject: 'Verify Your VytalWatch AI Account',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0066cc;">Welcome to VytalWatch AI!</h2>
-          <p>Hi ${user.firstName},</p>
-          <p>Please verify your email address by clicking the button below:</p>
-          <a href="${verificationUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Verify Email</a>
-          <p>Or copy and paste this link: ${verificationUrl}</p>
-          <p>This link expires in 24 hours.</p>
-          <p>Best regards,<br>The VytalWatch AI Team</p>
-        </div>
-      `,
-    });
-
-    await this.updateNotificationStatus(
-      notification.id,
-      success ? NotificationStatus.SENT : NotificationStatus.FAILED,
-    );
+    try {
+      await this.emailService.sendEmailVerification(
+        { email: user.email, firstName: user.firstName },
+        user.verificationToken,
+      );
+      await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
+    } catch (error) {
+      this.logger.error(`Failed to send verification email to ${user.email}`, error);
+      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+    }
   }
 
   async sendMagicLinkEmail(user: User, magicToken: string): Promise<void> {
@@ -162,26 +177,16 @@ export class NotificationsService {
       data: { magicLinkUrl },
     });
 
-    const success = await this.sendEmail({
-      to: user.email,
-      subject: 'Sign In to VytalWatch AI',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0066cc;">Sign In to VytalWatch AI</h2>
-          <p>Hi ${user.firstName},</p>
-          <p>Click the button below to sign in to your account:</p>
-          <a href="${magicLinkUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Sign In</a>
-          <p>Or copy and paste this link: ${magicLinkUrl}</p>
-          <p>This link expires in 15 minutes. If you didn't request this, please ignore this email.</p>
-          <p>Best regards,<br>The VytalWatch AI Team</p>
-        </div>
-      `,
-    });
-
-    await this.updateNotificationStatus(
-      notification.id,
-      success ? NotificationStatus.SENT : NotificationStatus.FAILED,
-    );
+    try {
+      await this.emailService.sendMagicLink(
+        { email: user.email, firstName: user.firstName },
+        magicToken,
+      );
+      await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
+    } catch (error) {
+      this.logger.error(`Failed to send magic link email to ${user.email}`, error);
+      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+    }
   }
 
   async sendPasswordResetEmail(user: User, resetToken: string): Promise<void> {
@@ -197,68 +202,53 @@ export class NotificationsService {
       data: { resetUrl },
     });
 
-    const success = await this.sendEmail({
-      to: user.email,
-      subject: 'Reset Your VytalWatch AI Password',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0066cc;">Password Reset Request</h2>
-          <p>Hi ${user.firstName},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <a href="${resetUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Reset Password</a>
-          <p>Or copy and paste this link: ${resetUrl}</p>
-          <p>This link expires in 1 hour. If you didn't request this, please ignore this email.</p>
-          <p>Best regards,<br>The VytalWatch AI Team</p>
-        </div>
-      `,
-    });
-
-    await this.updateNotificationStatus(
-      notification.id,
-      success ? NotificationStatus.SENT : NotificationStatus.FAILED,
-    );
+    try {
+      await this.emailService.sendPasswordReset(
+        { email: user.email, firstName: user.firstName },
+        resetToken,
+      );
+      await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${user.email}`, error);
+      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+    }
   }
 
   async sendAlertNotification(
     user: User,
     alert: { id: string; type: string; severity: string; message: string },
-  ): Promise<void> {
-    // Send email notification
-    const emailNotification = await this.createNotification({
-      userId: user.id,
-      type: NotificationType.EMAIL,
-      category: NotificationCategory.ALERT,
-      title: `Health Alert: ${alert.type}`,
-      body: alert.message,
-      recipient: user.email,
-      data: { alertId: alert.id, severity: alert.severity },
-    });
+  ): Promise<{ email?: boolean; sms?: boolean }> {
+    const preferences = this.getUserPreferences(user);
+    const results: { email?: boolean; sms?: boolean } = {};
 
-    const emailSuccess = await this.sendEmail({
-      to: user.email,
-      subject: `[${alert.severity.toUpperCase()}] Health Alert - ${alert.type}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: ${alert.severity === 'critical' ? '#dc2626' : alert.severity === 'high' ? '#f97316' : '#eab308'}; color: white; padding: 16px; border-radius: 4px 4px 0 0;">
-            <h2 style="margin: 0;">Health Alert</h2>
-          </div>
-          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none;">
-            <p><strong>Alert Type:</strong> ${alert.type}</p>
-            <p><strong>Severity:</strong> ${alert.severity}</p>
-            <p><strong>Message:</strong> ${alert.message}</p>
-            <a href="${this.configService.get('app.frontendUrl')}/alerts/${alert.id}" style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">View Alert</a>
-          </div>
-        </div>
-      `,
-    });
+    // Send email notification if user prefers it
+    if (this.shouldSendNotification(preferences, 'email', alert.severity)) {
+      const emailNotification = await this.createNotification({
+        userId: user.id,
+        type: NotificationType.EMAIL,
+        category: NotificationCategory.ALERT,
+        title: `Health Alert: ${alert.type}`,
+        body: alert.message,
+        recipient: user.email,
+        data: { alertId: alert.id, severity: alert.severity },
+      });
 
-    await this.updateNotificationStatus(
-      emailNotification.id,
-      emailSuccess ? NotificationStatus.SENT : NotificationStatus.FAILED,
-    );
+      try {
+        await this.emailService.sendHealthAlert(
+          { email: user.email, firstName: user.firstName },
+          { id: alert.id, type: alert.type, severity: alert.severity as 'info' | 'warning' | 'critical', message: alert.message },
+        );
+        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.SENT);
+        results.email = true;
+      } catch (error) {
+        this.logger.error(`Failed to send alert email to ${user.email}`, error);
+        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.FAILED, undefined, error.message);
+        results.email = false;
+      }
+    }
 
-    // Send SMS notification for critical/high alerts
-    if (user.phone && ['critical', 'high'].includes(alert.severity)) {
+    // Send SMS notification if user prefers it and has phone
+    if (user.phone && this.shouldSendNotification(preferences, 'sms', alert.severity)) {
       const smsNotification = await this.createNotification({
         userId: user.id,
         type: NotificationType.SMS,
@@ -269,17 +259,31 @@ export class NotificationsService {
         data: { alertId: alert.id },
       });
 
-      const smsResult = await this.sendSms({
-        to: user.phone,
-        body: `VytalWatch Alert [${alert.severity.toUpperCase()}]: ${alert.message}. View: ${this.configService.get('app.frontendUrl')}/alerts/${alert.id}`,
-      });
+      const smsResult = await this.smsService.sendHealthAlert(
+        { phone: user.phone, firstName: user.firstName },
+        { type: alert.type, severity: alert.severity, message: alert.message },
+      );
 
       await this.updateNotificationStatus(
         smsNotification.id,
         smsResult.success ? NotificationStatus.SENT : NotificationStatus.FAILED,
         smsResult.messageId,
+        smsResult.error,
       );
+      results.sms = smsResult.success;
     }
+
+    // Always create in-app notification
+    await this.createNotification({
+      userId: user.id,
+      type: NotificationType.IN_APP,
+      category: NotificationCategory.ALERT,
+      title: `Health Alert: ${alert.type}`,
+      body: alert.message,
+      data: { alertId: alert.id, severity: alert.severity },
+    });
+
+    return results;
   }
 
   async createNotification(data: {
@@ -354,10 +358,10 @@ export class NotificationsService {
   }
 
   async sendSmsVerificationCode(phone: string, code: string): Promise<void> {
-    await this.sendSms({
-      to: phone,
-      body: `Your VytalWatch AI verification code is: ${code}. This code expires in 10 minutes.`,
-    });
+    await this.smsService.send(
+      phone,
+      `Your VytalWatch AI verification code is: ${code}. This code expires in 10 minutes.`
+    );
   }
 
   async create(data: {

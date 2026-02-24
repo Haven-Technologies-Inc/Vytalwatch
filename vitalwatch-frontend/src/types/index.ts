@@ -1128,6 +1128,19 @@ export interface TenoviOrder {
   notifyEmails?: string;
   created?: string;
   modified?: string;
+  contents?: Array<{ name: string; quantity: number; sku?: string }>;
+}
+
+export interface TenoviFulfillmentResponse {
+  id: string;
+  status: string;
+  hwiDeviceId?: string;
+  hardwareUuid?: string;
+  shippingStatus?: TenoviShippingStatus;
+  trackingNumber?: string;
+  carrier?: string;
+  estimatedDelivery?: string;
+  created?: string;
 }
 
 export interface TenoviMeasurement {
@@ -1226,4 +1239,55 @@ export interface AuditLog {
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
+}
+
+export interface SoapContent {
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+}
+
+export interface ClinicalNote {
+  id: string;
+  patientId: string;
+  providerId: string;
+  type: string;
+  title: string;
+  content?: string;
+  soapContent?: SoapContent;
+  signedAt?: string;
+  signedBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TimeTracking {
+  totalMinutes: number;
+  billableMinutes: number;
+  notes: ClinicalNote[];
+}
+
+export interface ConsentTemplate {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  requiredFields?: string[];
+}
+
+export interface Consent {
+  id: string;
+  patientId: string;
+  templateId: string;
+  templateName?: string;
+  type: string;
+  status: 'pending' | 'signed' | 'revoked' | 'expired';
+  signedAt?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+  signatureData?: string;
+  customFields?: Record<string, string>;
+  createdAt: string;
+  expiresAt?: string;
 }

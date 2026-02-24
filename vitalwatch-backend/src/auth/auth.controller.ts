@@ -11,6 +11,7 @@ import {
   BadRequestException,
   Query,
 } from '@nestjs/common';
+import { IsEmail, IsString, IsOptional, MinLength, IsEnum } from 'class-validator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
@@ -18,45 +19,82 @@ import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decor
 import { UserRole } from '../users/entities/user.entity';
 
 class LoginDto {
+  @IsEmail()
   email: string;
+
+  @IsString()
   password: string;
 }
 
 class RegisterDto {
+  @IsEmail()
   email: string;
+
+  @IsString()
+  @MinLength(8)
   password: string;
+
+  @IsString()
   firstName: string;
+
+  @IsString()
   lastName: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsEnum(UserRole)
   role?: UserRole;
+
+  @IsOptional()
+  @IsString()
   organizationId?: string;
+
+  @IsOptional()
+  @IsString()
   inviteCode?: string;
 }
 
 class RefreshTokenDto {
+  @IsString()
   refreshToken: string;
 }
 
 class ChangePasswordDto {
+  @IsString()
   oldPassword: string;
+
+  @IsString()
+  @MinLength(8)
   newPassword: string;
 }
 
 class RequestPasswordResetDto {
+  @IsEmail()
   email: string;
 }
 
 class ResetPasswordDto {
+  @IsString()
   token: string;
+
+  @IsString()
+  @MinLength(8)
   newPassword: string;
 }
 
 class VerifyEmailDto {
+  @IsString()
   token: string;
 }
 
 class VerifySmsDto {
+  @IsString()
   phone: string;
+
+  @IsString()
   code: string;
 }
 
@@ -85,7 +123,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Ip() ip: string) {
-    const user = await this.authService.validateUser(dto.email, dto.password);
+    const user = await this.authService.validateUser(dto.email, dto.password, ip);
 
     if (!user) {
       throw new BadRequestException('Invalid email or password');

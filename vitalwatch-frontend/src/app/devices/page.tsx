@@ -98,7 +98,7 @@ export default function DevicesPage() {
       <Header />
       <main className="pt-20">
         {/* Hero */}
-        <section className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-20 lg:py-28">
+        <section className="bg-linear-to-br from-slate-900 via-blue-900 to-slate-900 py-20 lg:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
@@ -110,16 +110,16 @@ export default function DevicesPage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link
-                    href="/contact"
+                    href="/admin/devices/order"
                     className="px-8 py-4 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center"
                   >
-                    Request Device Catalog
+                    Order Devices
                   </Link>
                   <Link
-                    href="/docs/devices"
+                    href="/auth/login?redirect=/admin/devices/order"
                     className="px-8 py-4 border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors text-center"
                   >
-                    View Documentation
+                    Sign In to Order
                   </Link>
                 </div>
               </div>
@@ -296,9 +296,9 @@ export default function DevicesPage() {
                   </Link>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-blue-100 to-emerald-100 dark:from-blue-900/20 dark:to-emerald-900/20 rounded-2xl p-8 flex items-center justify-center">
+              <div className="bg-linear-to-br from-blue-100 to-emerald-100 dark:from-blue-900/20 dark:to-emerald-900/20 rounded-2xl p-8 flex items-center justify-center">
                 <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-4 w-64">
-                  <div className="bg-slate-100 dark:bg-slate-700 rounded-2xl aspect-[9/16] flex items-center justify-center">
+                  <div className="bg-slate-100 dark:bg-slate-700 rounded-2xl aspect-9/16 flex items-center justify-center">
                     <div className="text-center">
                       <Activity className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
                       <div className="text-2xl font-bold text-slate-900 dark:text-white">120/80</div>
@@ -322,10 +322,10 @@ export default function DevicesPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/contact"
+                href="/admin/devices/order"
                 className="px-8 py-4 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
               >
-                Request Device Catalog
+                Order Devices Now
               </Link>
               <Link
                 href="/auth/register"

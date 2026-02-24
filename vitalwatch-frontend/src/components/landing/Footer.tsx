@@ -1,140 +1,39 @@
-"use client";
-
+﻿"use client";
 import Link from "next/link";
 import Image from "next/image";
-import { Linkedin, Twitter, Youtube, Facebook } from "lucide-react";
 
-const footerLinks = {
-  product: {
-    title: "Product",
-    links: [
-      { name: "Features", href: "#features" },
-      { name: "Pricing", href: "#pricing" },
-      { name: "Integrations", href: "#integrations" },
-      { name: "API Documentation", href: "/docs" },
-      { name: "Security", href: "/security" },
-    ],
-  },
-  resources: {
-    title: "Resources",
-    links: [
-      { name: "Blog", href: "/blog" },
-      { name: "Case Studies", href: "/case-studies" },
-      { name: "Webinars", href: "/webinars" },
-      { name: "Help Center", href: "/help" },
-      { name: "Developer Docs", href: "/developers" },
-    ],
-  },
-  company: {
-    title: "Company",
-    links: [
-      { name: "About Us", href: "/about" },
-      { name: "Careers", href: "/careers" },
-      { name: "Press Kit", href: "/press" },
-      { name: "Contact", href: "/contact" },
-      { name: "Partner Program", href: "/partners" },
-    ],
-  },
-  legal: {
-    title: "Legal",
-    links: [
-      { name: "Privacy Policy", href: "/privacy" },
-      { name: "Terms of Service", href: "/terms" },
-      { name: "HIPAA Compliance", href: "/hipaa" },
-      { name: "Cookie Policy", href: "/cookies" },
-      { name: "BAA", href: "/baa" },
-    ],
-  },
+const links = {
+  Product: [{ name: "Features", href: "#why-choose" }, { name: "Use Cases", href: "#use-cases" }, { name: "Pricing", href: "#pricing" }, { name: "Devices", href: "/devices" }],
+  Company: [{ name: "About", href: "#about" }, { name: "Careers", href: "/careers" }, { name: "Contact", href: "/contact" }],
+  Legal: [{ name: "Privacy Policy", href: "/privacy" }, { name: "Terms of Service", href: "/terms" }, { name: "HIPAA Compliance", href: "/hipaa" }],
 };
-
-const socialLinks = [
-  { name: "LinkedIn", icon: Linkedin, href: "https://linkedin.com" },
-  { name: "Twitter", icon: Twitter, href: "https://twitter.com" },
-  { name: "YouTube", icon: Youtube, href: "https://youtube.com" },
-  { name: "Facebook", icon: Facebook, href: "https://facebook.com" },
-];
 
 export function Footer() {
   return (
-    <footer className="bg-slate-900 text-white">
-      {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
-          {/* Brand Column */}
-          <div className="col-span-2">
-            <Link href="/" className="flex items-center mb-4">
-              <Image
-                src="/logo.png"
-                alt="VytalWatch AI"
-                width={140}
-                height={48}
-                className="h-12"
-                style={{ width: 'auto', height: 'auto' }}
-              />
-            </Link>
-            <p className="text-slate-400 text-sm mb-6 max-w-sm">
-              AI-powered remote patient monitoring platform that reduces readmissions,
-              improves outcomes, and generates sustainable RPM revenue.
-            </p>
-            <div className="flex gap-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.name}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors"
-                  aria-label={social.name}
-                >
-                  <social.icon className="h-5 w-5 text-slate-400" />
-                </a>
-              ))}
-            </div>
+    <footer className="bg-slate-900 border-t border-slate-800">
+      <div className="max-w-6xl mx-auto px-6 py-16">
+        <div className="grid md:grid-cols-4 gap-12 mb-12">
+          <div>
+            <Image src="/logo.png" alt="VytalWatch" width={120} height={40} className="mb-4" style={{ width: "auto", height: "auto" }} />
+            <p className="text-slate-400 text-sm">AI-powered remote patient monitoring platform revolutionizing healthcare delivery.</p>
           </div>
-
-          {/* Link Columns */}
-          {Object.values(footerLinks).map((section) => (
-            <div key={section.title}>
-              <h4 className="font-semibold text-white mb-4">{section.title}</h4>
-              <ul className="space-y-3">
-                {section.links.map((link) => (
-                  <li key={link.name}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-slate-400 hover:text-white transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+          {Object.entries(links).map(([title, items]) => (
+            <div key={title}>
+              <h4 className="text-white font-semibold mb-4">{title}</h4>
+              <ul className="space-y-2">{items.map((item) => <li key={item.name}><Link href={item.href} className="text-slate-500 hover:text-white text-sm transition-colors">{item.name}</Link></li>)}</ul>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Bottom Bar */}
-      <div className="border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-400">
-              © {new Date().getFullYear()} VytalWatch AI. All rights reserved.
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
-                  <span className="text-xs font-bold text-emerald-400">SOC2</span>
-                </div>
-                <span className="text-xs text-slate-500">Certified</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
-                  <span className="text-xs font-bold text-blue-400">HIPAA</span>
-                </div>
-                <span className="text-xs text-slate-500">Compliant</span>
-              </div>
-            </div>
+        <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-slate-500 text-sm"> 2025 VytalWatch. All rights reserved.</p>
+          <div className="flex gap-6 text-slate-500 text-sm">
+            <span>HIPAA Compliant</span><span>SOC 2 Certified</span><span>FDA Approved</span>
           </div>
+        </div>
+      </div>
+      <div className="bg-slate-950 py-4 border-t border-slate-800">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <p className="text-slate-600 text-sm">Powered by <span className="text-slate-400 font-medium">Haven Technologies Inc.</span></p>
         </div>
       </div>
     </footer>

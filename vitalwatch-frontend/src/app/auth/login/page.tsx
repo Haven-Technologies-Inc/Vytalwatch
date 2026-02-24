@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -13,20 +13,31 @@ import {
   Lock,
   ArrowRight,
   AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, loginWithGoogle, loginWithMicrosoft, loginWithApple, isLoading } =
     useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Check for registration success
+  useEffect(() => {
+    if (searchParams.get("registered") === "true") {
+      setSuccessMessage("Account created successfully! Please sign in.");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
 
     try {
       await login(email, password);
@@ -35,7 +46,7 @@ export default function LoginPage() {
         router.push(getRedirectPath(user.role));
       }
     } catch (err) {
-      setError("Invalid email or password. Try: patient@demo.com / demo123");
+      setError("Invalid email or password. Please check your credentials and try again.");
     }
   };
 
@@ -78,17 +89,13 @@ export default function LoginPage() {
         </div>
 
         <Card className="p-6">
-          {/* Demo Credentials */}
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-              Demo Credentials:
-            </p>
-            <div className="space-y-1 text-xs text-blue-700 dark:text-blue-400">
-              <p>Patient: patient@demo.com / demo123</p>
-              <p>Provider: provider@demo.com / demo123</p>
-              <p>Admin: admin@demo.com / demo123</p>
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">{successMessage}</span>
             </div>
-          </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -223,5 +230,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

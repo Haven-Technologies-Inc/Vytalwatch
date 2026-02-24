@@ -24,6 +24,15 @@ export enum UserStatus {
   REJECTED = 'rejected',
 }
 
+export enum OnboardingStep {
+  REGISTERED = 'registered',
+  EMAIL_VERIFIED = 'email_verified',
+  PROFILE_COMPLETED = 'profile_completed',
+  DEVICE_ASSIGNED = 'device_assigned',
+  FIRST_READING = 'first_reading',
+  COMPLETED = 'completed',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -132,6 +141,14 @@ export class User {
   // Patient assignment (for providers)
   @Column({ nullable: true })
   assignedProviderId: string;
+
+  // Onboarding tracking (for patients)
+  @Column({
+    type: 'enum',
+    enum: OnboardingStep,
+    nullable: true,
+  })
+  onboardingStep: OnboardingStep;
 
   @Column({ type: 'simple-json', nullable: true })
   notificationPreferences: {

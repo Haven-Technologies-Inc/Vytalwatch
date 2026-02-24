@@ -65,7 +65,8 @@
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.11.2",
     "typeorm": "^0.3.28",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zeptomail": "^7.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

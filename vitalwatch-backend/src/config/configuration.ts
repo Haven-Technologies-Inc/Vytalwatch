@@ -82,14 +82,22 @@ export default () => ({
     ttl: parseInt(process.env.TURN_TTL || '3600', 10),
   },
 
-  // Zoho SMTP
+  // ZeptoMail (Zoho Transactional Email)
+  email: {
+    zeptoToken: process.env.ZEPTOMAIL_TOKEN,
+    from: process.env.EMAIL_FROM || 'noreply@vytalwatch.ai',
+    fromName: process.env.EMAIL_FROM_NAME || 'VytalWatch AI',
+  },
+
+  // Zoho SMTP (fallback)
   smtp: {
     host: process.env.SMTP_HOST || 'smtp.zoho.com',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
-    password: process.env.SMTP_PASSWORD,
-    from: process.env.SMTP_FROM || 'noreply@vitalwatch.ai',
+    pass: process.env.SMTP_PASS,
+    from: process.env.SMTP_FROM || 'noreply@vytalwatch.ai',
+    fromName: process.env.SMTP_FROM_NAME || 'VytalWatch AI',
   },
 
   // OpenAI
@@ -152,6 +160,14 @@ export default () => ({
     timeoutMinutes: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '15', 10),
     maxConcurrentSessions: parseInt(process.env.MAX_CONCURRENT_SESSIONS || '3', 10),
     extendOnActivity: true,
+  },
+
+  // Security settings (rate limiting, lockout, password history)
+  security: {
+    maxFailedAttempts: parseInt(process.env.SECURITY_MAX_FAILED_ATTEMPTS || '5', 10),
+    lockoutDurationMinutes: parseInt(process.env.SECURITY_LOCKOUT_DURATION_MINUTES || '15', 10),
+    rateLimitWindowMinutes: parseInt(process.env.SECURITY_RATE_LIMIT_WINDOW_MINUTES || '15', 10),
+    passwordHistoryCount: parseInt(process.env.SECURITY_PASSWORD_HISTORY_COUNT || '5', 10),
   },
 
   // Password policy (HIPAA compliant)

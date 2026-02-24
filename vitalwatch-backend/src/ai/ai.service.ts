@@ -19,20 +19,74 @@ export interface PatientInsight {
   overallRiskLevel: 'low' | 'moderate' | 'elevated' | 'high';
 }
 
+export interface ClinicalRecommendation {
+  category: 'medication' | 'lifestyle' | 'monitoring' | 'referral' | 'emergency';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  recommendation: string;
+  rationale: string;
+  evidence: string;
+  timeframe: string;
+}
+
+export interface PopulationHealthInsight {
+  cohortSize: number;
+  riskDistribution: { low: number; moderate: number; high: number; critical: number };
+  topConditions: Array<{ condition: string; count: number; percentAffected: number }>;
+  trendingAlerts: Array<{ type: string; count: number; trend: 'increasing' | 'stable' | 'decreasing' }>;
+  interventionOpportunities: string[];
+  predictedOutcomes: Array<{ outcome: string; probability: number; preventable: boolean }>;
+}
+
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
   private openai: OpenAI;
   private grokClient: OpenAI; // Grok uses OpenAI-compatible API
+  private readonly RPM_SYSTEM_PROMPT: string;
 
   constructor(private readonly configService: ConfigService) {
     this.initializeClients();
+    this.RPM_SYSTEM_PROMPT = this.buildSystemPrompt();
+  }
+
+  private buildSystemPrompt(): string {
+    return `You are VytalWatch AI, the most advanced Remote Patient Monitoring (RPM) clinical decision support system. You are designed to provide world-class healthcare insights while maintaining the highest standards of patient safety and clinical accuracy.
+
+## Core Competencies
+- **Vital Signs Analysis**: Expert interpretation of blood pressure, heart rate, SpO2, glucose, weight, temperature, and ECG data
+- **Trend Detection**: Identify subtle patterns and deviations that may indicate clinical deterioration or improvement
+- **Risk Stratification**: Evidence-based risk scoring using validated clinical models (Framingham, CHADS2-VASc, etc.)
+- **Clinical Correlation**: Connect vital sign changes with potential underlying conditions and comorbidities
+- **Medication Insights**: Consider drug interactions, adherence patterns, and therapeutic monitoring
+- **Population Health**: Aggregate analysis for cohort management and resource allocation
+
+## Clinical Guidelines Integration
+- ACC/AHA Blood Pressure Guidelines (2017)
+- ADA Standards of Medical Care in Diabetes
+- GOLD COPD Guidelines
+- Heart Failure Clinical Pathways (HFSA)
+- CMS Remote Physiologic Monitoring Requirements
+
+## Safety Protocols
+- ALWAYS flag life-threatening values requiring immediate intervention
+- Never provide specific medication dosing - recommend provider consultation
+- Acknowledge uncertainty when data is insufficient for confident analysis
+- Prioritize patient safety over all other considerations
+- Include appropriate caveats for AI-generated recommendations
+
+## Response Standards
+- Use clinical terminology appropriate for healthcare providers
+- Provide evidence-based rationale for recommendations
+- Include confidence levels for predictions and assessments
+- Structure responses for easy clinical workflow integration
+- Support shared decision-making between providers and patients`;
   }
 
   private initializeClients(): void {
     const openaiKey = this.configService.get('openai.apiKey');
     if (openaiKey) {
       this.openai = new OpenAI({ apiKey: openaiKey });
+      this.logger.log('OpenAI client initialized');
     }
 
     const grokKey = this.configService.get('grok.apiKey');
@@ -42,7 +96,18 @@ export class AIService {
         apiKey: grokKey,
         baseURL: grokBaseUrl,
       });
+      this.logger.log('Grok AI client initialized');
     }
+  }
+
+  isConfigured(): boolean {
+    return !!(this.openai || this.grokClient);
+  }
+
+  getActiveProvider(): 'openai' | 'grok' | null {
+    if (this.openai) return 'openai';
+    if (this.grokClient) return 'grok';
+    return null;
   }
 
   async analyzeVitalReading(vital: VitalReading): Promise<AIAnalysisResult> {
@@ -349,15 +414,40 @@ export class AIService {
 
   // New methods for controller endpoints
 
-  async getPatientInsights(patientId: string): Promise<PatientInsight> {
-    // In production, fetch patient vitals and alerts from database
-    return {
-      summary: `AI-generated health insights for patient ${patientId}`,
-      trends: ['Blood pressure trending stable', 'Weight decreasing slightly'],
-      concerns: [],
-      recommendations: ['Continue current medication regimen', 'Maintain regular monitoring'],
-      overallRiskLevel: 'low',
-    };
+  async getPatientInsights(patientId: string, vitals?: VitalReading[], alerts?: Alert[]): Promise<PatientInsight> {
+    // If vitals/alerts provided, use AI to analyze them
+    if (vitals && vitals.length > 0) {
+      return this.analyzePatientHistory(patientId, vitals, alerts || []);
+    }
+
+    // Generate insights using AI if no data provided
+    const prompt = `
+      Generate health insights for a remote patient monitoring patient.
+      Patient ID: ${patientId}
+      
+      Provide a JSON response with:
+      {
+        "summary": "Brief overall health summary",
+        "trends": ["trend 1", "trend 2"],
+        "concerns": ["concern if any"],
+        "recommendations": ["recommendation 1", "recommendation 2"],
+        "overallRiskLevel": "low|moderate|elevated|high"
+      }
+    `;
+
+    try {
+      const response = await this.getCompletion(prompt);
+      return this.parsePatientInsightResponse(response);
+    } catch (error) {
+      this.logger.error('Failed to get patient insights from AI', error);
+      return {
+        summary: 'Unable to generate AI insights at this time.',
+        trends: [],
+        concerns: [],
+        recommendations: ['Continue regular monitoring', 'Contact provider if symptoms change'],
+        overallRiskLevel: 'moderate',
+      };
+    }
   }
 
   async predictRisk(body: { patientId: string; vitals?: any[]; conditions?: string[] }): Promise<any> {
@@ -546,44 +636,136 @@ export class AIService {
 
   async realTimeAnalysis(body: { vitalReading: any; patientId: string }): Promise<any> {
     const { vitalReading, patientId } = body;
+    const startTime = Date.now();
     
-    // Simulate real-time analysis
-    const isAnomalous = Math.random() > 0.8;
-    
-    return {
-      patientId,
-      vitalType: vitalReading.type,
-      value: vitalReading.value,
-      analysis: {
-        isAnomalous,
-        confidence: isAnomalous ? 0.75 : 0.95,
-        deviation: isAnomalous ? 'significant' : 'normal',
-        trend: 'stable',
-      },
-      alert: isAnomalous ? {
-        recommended: true,
-        severity: 'warning',
-        message: `Unusual ${vitalReading.type} reading detected`,
-      } : null,
-      recommendations: isAnomalous ? ['Review patient history', 'Consider follow-up reading'] : [],
-      processedAt: new Date().toISOString(),
-      latencyMs: Math.floor(50 + Math.random() * 100),
-    };
+    const prompt = `
+      Analyze this vital reading in real-time for anomaly detection:
+      
+      Patient ID: ${patientId}
+      Vital Type: ${vitalReading.type}
+      Value: ${vitalReading.value} ${vitalReading.unit || ''}
+      Timestamp: ${vitalReading.timestamp || new Date().toISOString()}
+      
+      Respond with JSON:
+      {
+        "isAnomalous": true/false,
+        "confidence": 0.0-1.0,
+        "deviation": "normal|minor|significant",
+        "trend": "stable|increasing|decreasing",
+        "alertRecommended": true/false,
+        "alertSeverity": "info|warning|critical",
+        "alertMessage": "message if alert recommended",
+        "recommendations": ["recommendation 1"]
+      }
+    `;
+
+    try {
+      const response = await this.getCompletion(prompt);
+      const parsed = JSON.parse(response);
+      const latencyMs = Date.now() - startTime;
+      
+      return {
+        patientId,
+        vitalType: vitalReading.type,
+        value: vitalReading.value,
+        analysis: {
+          isAnomalous: parsed.isAnomalous || false,
+          confidence: parsed.confidence || 0.85,
+          deviation: parsed.deviation || 'normal',
+          trend: parsed.trend || 'stable',
+        },
+        alert: parsed.alertRecommended ? {
+          recommended: true,
+          severity: parsed.alertSeverity || 'warning',
+          message: parsed.alertMessage || `Unusual ${vitalReading.type} reading detected`,
+        } : null,
+        recommendations: parsed.recommendations || [],
+        processedAt: new Date().toISOString(),
+        latencyMs,
+      };
+    } catch (error) {
+      this.logger.error('Real-time analysis failed', error);
+      const latencyMs = Date.now() - startTime;
+      
+      // Fallback to rule-based analysis
+      const isAnomalous = this.checkVitalThresholds(vitalReading);
+      
+      return {
+        patientId,
+        vitalType: vitalReading.type,
+        value: vitalReading.value,
+        analysis: {
+          isAnomalous,
+          confidence: 0.7,
+          deviation: isAnomalous ? 'significant' : 'normal',
+          trend: 'stable',
+        },
+        alert: isAnomalous ? {
+          recommended: true,
+          severity: 'warning',
+          message: `${vitalReading.type} reading outside normal range`,
+        } : null,
+        recommendations: isAnomalous ? ['Review patient history', 'Consider follow-up reading'] : [],
+        processedAt: new Date().toISOString(),
+        latencyMs,
+      };
+    }
   }
 
-  async calculateRiskScore(patientId: string): Promise<any> {
-    // Simplified risk calculation
-    const score = Math.floor(20 + Math.random() * 60);
+  private checkVitalThresholds(vitalReading: any): boolean {
+    const thresholds: Record<string, { min: number; max: number }> = {
+      blood_pressure_systolic: { min: 90, max: 140 },
+      blood_pressure_diastolic: { min: 60, max: 90 },
+      heart_rate: { min: 60, max: 100 },
+      spo2: { min: 95, max: 100 },
+      temperature: { min: 97, max: 99.5 },
+      glucose: { min: 70, max: 140 },
+    };
+
+    const threshold = thresholds[vitalReading.type];
+    if (!threshold) return false;
+
+    const value = parseFloat(vitalReading.value);
+    return value < threshold.min || value > threshold.max;
+  }
+
+  async calculateRiskScore(patientId: string, vitals?: VitalReading[], alerts?: Alert[]): Promise<any> {
+    // Calculate risk based on available data
+    let vitalScore = 50;
+    let alertScore = 0;
+    let adherenceScore = 80;
+    
+    if (vitals && vitals.length > 0) {
+      const criticalCount = vitals.filter(v => v.status === 'critical').length;
+      const warningCount = vitals.filter(v => v.status === 'warning').length;
+      vitalScore = Math.min(100, (criticalCount * 30) + (warningCount * 15));
+    }
+    
+    if (alerts && alerts.length > 0) {
+      const criticalAlerts = alerts.filter(a => a.severity === 'critical').length;
+      const highAlerts = alerts.filter(a => a.severity === 'high').length;
+      alertScore = Math.min(100, (criticalAlerts * 25) + (highAlerts * 15));
+    }
+    
+    // Weighted calculation
+    const score = Math.round(
+      (vitalScore * 0.35) + 
+      (alertScore * 0.30) + 
+      ((100 - adherenceScore) * 0.20) + 
+      (25 * 0.15) // Base demographic factor
+    );
+    
+    const clampedScore = Math.min(100, Math.max(0, score));
     
     return {
       patientId,
-      score,
-      level: score >= 70 ? 'high' : score >= 40 ? 'moderate' : 'low',
+      score: clampedScore,
+      level: clampedScore >= 70 ? 'high' : clampedScore >= 40 ? 'moderate' : 'low',
       factors: [
-        { name: 'Vital trends', weight: 0.3, score: Math.floor(Math.random() * 100) },
-        { name: 'Alert history', weight: 0.25, score: Math.floor(Math.random() * 100) },
-        { name: 'Adherence', weight: 0.2, score: Math.floor(Math.random() * 100) },
-        { name: 'Demographics', weight: 0.25, score: Math.floor(Math.random() * 100) },
+        { name: 'Vital trends', weight: 0.35, score: vitalScore },
+        { name: 'Alert history', weight: 0.30, score: alertScore },
+        { name: 'Adherence', weight: 0.20, score: 100 - adherenceScore },
+        { name: 'Demographics', weight: 0.15, score: 25 },
       ],
       calculatedAt: new Date().toISOString(),
     };

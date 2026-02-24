@@ -2,20 +2,24 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserRole, UserStatus } from '../users/entities/user.entity';
+import { User, UserRole, UserStatus, OnboardingStep } from '../users/entities/user.entity';
 import { VitalsService } from '../vitals/vitals.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { DevicesService } from '../devices/devices.service';
 import { TenoviService } from '../devices/tenovi.service';
 import { AIService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class PatientsService {
+  private readonly logger = new Logger(PatientsService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -25,6 +29,7 @@ export class PatientsService {
     private readonly tenoviService: TenoviService,
     private readonly aiService: AIService,
     private readonly auditService: AuditService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(options: {
@@ -104,9 +109,21 @@ export class PatientsService {
       status: UserStatus.PENDING,
       organizationId: user.organizationId,
       providerId: dto.providerId || user.sub,
+      onboardingStep: OnboardingStep.REGISTERED,
     });
 
     const saved = await this.userRepository.save(patient);
+
+    // Send welcome email to new patient
+    try {
+      await this.emailService.sendWelcomeEmail({
+        email: saved.email,
+        firstName: saved.firstName,
+      });
+      this.logger.log(`Welcome email sent to patient: ${saved.email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send welcome email to ${saved.email}`, error);
+    }
 
     await this.auditService.log({
       action: 'PATIENT_CREATED',

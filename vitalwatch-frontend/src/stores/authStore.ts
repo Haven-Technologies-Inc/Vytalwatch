@@ -9,7 +9,6 @@ interface AuthState {
   isLoading: boolean;
   accessToken: string | null;
   refreshToken: string | null;
-  useDemoMode: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
@@ -20,59 +19,7 @@ interface AuthState {
   loginWithApple: () => Promise<void>;
   logout: () => void;
   refreshSession: () => Promise<void>;
-  setDemoMode: (enabled: boolean) => void;
 }
-
-// Demo users for testing
-const DEMO_USERS: Record<string, User> = {
-  "patient@demo.com": {
-    id: "pat_demo_001",
-    email: "patient@demo.com",
-    name: "John Doe",
-    firstName: "John",
-    lastName: "Doe",
-    role: "patient" as UserRole,
-    avatar: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&h=100&fit=crop",
-    phone: "+1 (555) 123-4567",
-    createdAt: new Date("2023-06-15"),
-    updatedAt: new Date(),
-    emailVerified: true,
-    phoneVerified: true,
-    mfaEnabled: false,
-  },
-  "provider@demo.com": {
-    id: "prov_demo_001",
-    email: "provider@demo.com",
-    name: "Dr. Sarah Chen",
-    firstName: "Sarah",
-    lastName: "Chen",
-    role: "provider" as UserRole,
-    avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&h=100&fit=crop",
-    phone: "+1 (555) 234-5678",
-    createdAt: new Date("2023-01-10"),
-    updatedAt: new Date(),
-    emailVerified: true,
-    phoneVerified: true,
-    mfaEnabled: true,
-    organizationId: "org_demo_001",
-  },
-  "admin@demo.com": {
-    id: "admin_demo_001",
-    email: "admin@demo.com",
-    name: "Michael Torres",
-    firstName: "Michael",
-    lastName: "Torres",
-    role: "superadmin" as UserRole,
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    phone: "+1 (555) 345-6789",
-    createdAt: new Date("2022-12-01"),
-    updatedAt: new Date(),
-    emailVerified: true,
-    phoneVerified: true,
-    mfaEnabled: true,
-    organizationId: "org_demo_001",
-  },
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -82,7 +29,6 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       accessToken: null,
       refreshToken: null,
-      useDemoMode: false,
 
       setUser: (user) => {
         set({ user, isAuthenticated: !!user });
@@ -92,28 +38,9 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken, refreshToken });
       },
 
-      setDemoMode: (enabled) => {
-        set({ useDemoMode: enabled });
-      },
-
       login: async (email, password) => {
         set({ isLoading: true });
 
-        // Check for demo login first
-        const demoUser = DEMO_USERS[email.toLowerCase()];
-        if (demoUser && password === "demo123") {
-          set({
-            user: demoUser,
-            isAuthenticated: true,
-            isLoading: false,
-            useDemoMode: true,
-            accessToken: "demo_access_token_" + Date.now(),
-            refreshToken: "demo_refresh_token_" + Date.now(),
-          });
-          return;
-        }
-
-        // Try real backend authentication
         try {
           const response = await fetch(`${config.api.baseUrl}/auth/login`, {
             method: "POST",
@@ -131,7 +58,6 @@ export const useAuthStore = create<AuthState>()(
             user: data.data?.user || data.user,
             isAuthenticated: true,
             isLoading: false,
-            useDemoMode: false,
             accessToken: data.data?.accessToken || data.accessToken,
             refreshToken: data.data?.refreshToken || data.refreshToken,
           });
@@ -143,50 +69,23 @@ export const useAuthStore = create<AuthState>()(
 
       loginWithGoogle: async () => {
         set({ isLoading: true });
-        // In production, redirect to backend OAuth endpoint
-        // For now, use demo mode
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        set({
-          user: DEMO_USERS["provider@demo.com"],
-          isAuthenticated: true,
-          isLoading: false,
-          useDemoMode: true,
-          accessToken: "google_access_token_" + Date.now(),
-          refreshToken: "google_refresh_token_" + Date.now(),
-        });
+        window.location.href = `${config.api.baseUrl}/auth/google`;
       },
 
       loginWithMicrosoft: async () => {
         set({ isLoading: true });
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        set({
-          user: DEMO_USERS["provider@demo.com"],
-          isAuthenticated: true,
-          isLoading: false,
-          useDemoMode: true,
-          accessToken: "microsoft_access_token_" + Date.now(),
-          refreshToken: "microsoft_refresh_token_" + Date.now(),
-        });
+        window.location.href = `${config.api.baseUrl}/auth/microsoft`;
       },
 
       loginWithApple: async () => {
         set({ isLoading: true });
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        set({
-          user: DEMO_USERS["patient@demo.com"],
-          isAuthenticated: true,
-          isLoading: false,
-          useDemoMode: true,
-          accessToken: "apple_access_token_" + Date.now(),
-          refreshToken: "apple_refresh_token_" + Date.now(),
-        });
+        window.location.href = `${config.api.baseUrl}/auth/apple`;
       },
 
       logout: async () => {
-        const { accessToken, useDemoMode } = get();
+        const { accessToken } = get();
         
-        // Call backend logout if not in demo mode
-        if (!useDemoMode && accessToken) {
+        if (accessToken) {
           try {
             await fetch(`${config.api.baseUrl}/auth/logout`, {
               method: "POST",
@@ -205,19 +104,13 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           accessToken: null,
           refreshToken: null,
-          useDemoMode: false,
         });
       },
 
       refreshSession: async () => {
-        const { refreshToken, useDemoMode } = get();
+        const { refreshToken } = get();
         if (!refreshToken) {
           get().logout();
-          return;
-        }
-
-        if (useDemoMode) {
-          set({ accessToken: "refreshed_demo_token_" + Date.now() });
           return;
         }
 
@@ -250,7 +143,6 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
-        useDemoMode: state.useDemoMode,
       }),
     }
   )

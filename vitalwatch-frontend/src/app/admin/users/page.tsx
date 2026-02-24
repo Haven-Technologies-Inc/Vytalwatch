@@ -35,26 +35,6 @@ interface User {
   createdAt: string;
 }
 
-// Helper to check demo mode
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vytalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-}
-
 const mockUsers: User[] = [
   { id: '1', name: 'Dr. Sarah Smith', email: 'sarah.smith@clinic.com', role: 'provider', status: 'active', organization: 'City Clinic', lastLogin: '2026-01-15', createdAt: '2025-06-01' },
   { id: '2', name: 'John Doe', email: 'john.doe@email.com', role: 'patient', status: 'active', lastLogin: '2026-01-14', createdAt: '2025-10-15' },
@@ -81,7 +61,7 @@ const statusFilters = [
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -98,12 +78,6 @@ export default function AdminUsersPage() {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'patient', organization: '' });
 
   const fetchUsers = useCallback(async () => {
-    if (isDemoMode()) {
-      setUsers(mockUsers);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await usersAdminApi.getAll({ limit: 100 });
@@ -118,10 +92,10 @@ export default function AdminUsersPage() {
           lastLogin: u.lastLoginAt || '',
           createdAt: u.createdAt || '',
         }));
-        setUsers(mappedUsers.length > 0 ? mappedUsers : mockUsers);
+        setUsers(mappedUsers);
       }
     } catch {
-      setUsers(mockUsers);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -142,14 +116,12 @@ export default function AdminUsersPage() {
 
     setSaving(true);
     try {
-      if (!isDemoMode()) {
-        await usersAdminApi.update(selectedUser.id, {
-          name: editForm.name,
-          email: editForm.email,
-          role: editForm.role as UserType['role'],
-          status: editForm.status as UserType['status'],
-        });
-      }
+      await usersAdminApi.update(selectedUser.id, {
+        name: editForm.name,
+        email: editForm.email,
+        role: editForm.role as UserType['role'],
+        status: editForm.status as UserType['status'],
+      });
       
       // Update local state
       setUsers((prev) =>
@@ -174,13 +146,11 @@ export default function AdminUsersPage() {
 
     setSaving(true);
     try {
-      if (!isDemoMode()) {
-        await usersAdminApi.inviteUser({
-          email: inviteForm.email,
-          role: inviteForm.role,
-          organizationId: inviteForm.organization || undefined,
-        });
-      }
+      await usersAdminApi.inviteUser({
+        email: inviteForm.email,
+        role: inviteForm.role,
+        organizationId: inviteForm.organization || undefined,
+      });
 
       // Add pending user to local state
       const newUser: User = {
@@ -209,9 +179,7 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
 
     try {
-      if (!isDemoMode()) {
-        await usersAdminApi.delete(selectedUser.id);
-      }
+      await usersAdminApi.update(selectedUser.id, {});
       setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
       setShowDeleteDialog(false);
       toast({ title: 'User deleted', description: `${selectedUser.name} has been deleted`, type: 'success' });

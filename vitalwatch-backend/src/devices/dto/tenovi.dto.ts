@@ -48,6 +48,82 @@ export enum TenoviMetricType {
 export enum TenoviWebhookEvent {
   MEASUREMENT = 'MEASUREMENT',
   FULFILLMENT = 'FULFILLMENT',
+  SPECIAL_ORDER = 'SPECIAL_ORDER',
+}
+
+// Special Order Webhook DTO (for supply shipments)
+export class TenoviSpecialOrderWebhookDto {
+  @IsString()
+  @IsOptional()
+  order_id?: string;
+
+  @IsString()
+  @IsOptional()
+  order_number?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_status?: string;
+
+  @IsString()
+  @IsOptional()
+  tracking_number?: string;
+
+  @IsString()
+  @IsOptional()
+  carrier?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_name?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_address?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_city?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_state?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_zip_code?: string;
+
+  @IsDateString()
+  @IsOptional()
+  shipped_at?: string;
+
+  @IsDateString()
+  @IsOptional()
+  delivered_at?: string;
+
+  @IsDateString()
+  @IsOptional()
+  created?: string;
+
+  @IsArray()
+  @IsOptional()
+  contents?: Array<{
+    name: string;
+    quantity: number;
+    sku?: string;
+  }>;
+
+  @IsString()
+  @IsOptional()
+  client_notes?: string;
+
+  @IsString()
+  @IsOptional()
+  notify_emails?: string;
 }
 
 // Gateway DTOs

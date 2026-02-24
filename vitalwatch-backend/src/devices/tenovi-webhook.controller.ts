@@ -17,7 +17,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { TenoviService } from './tenovi.service';
-import { TenoviMeasurementWebhookDto } from './dto/tenovi.dto';
+import { TenoviMeasurementWebhookDto, TenoviSpecialOrderWebhookDto } from './dto/tenovi.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -98,13 +98,83 @@ export class TenoviWebhookController {
     }
 
     this.logger.log('Received Tenovi fulfillment webhook');
-    
-    // Log fulfillment updates - can be extended to update device shipping status
-    return { 
-      received: true,
-      type: 'fulfillment',
-      timestamp: new Date().toISOString(),
-    };
+
+    try {
+      // Process fulfillment status updates
+      const fulfillmentData = Array.isArray(payload) ? payload : [payload];
+      const processed: string[] = [];
+
+      for (const item of fulfillmentData) {
+        if (item.hwi_device_id || item.hardware_uuid) {
+          await this.tenoviService.updateDeviceShippingStatus({
+            hwiDeviceId: item.hwi_device_id,
+            hardwareUuid: item.hardware_uuid,
+            status: item.status || item.fulfillment_status,
+            trackingNumber: item.tracking_number,
+            carrier: item.carrier,
+            shippedAt: item.shipped_at ? new Date(item.shipped_at) : undefined,
+            deliveredAt: item.delivered_at ? new Date(item.delivered_at) : undefined,
+            orderId: item.order_id,
+          });
+          processed.push(item.hwi_device_id || item.hardware_uuid);
+        }
+      }
+
+      return { 
+        received: true,
+        type: 'fulfillment',
+        processed: processed.length,
+        deviceIds: processed,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error('Error processing fulfillment webhook', error);
+      return { 
+        received: true,
+        error: 'Processing error',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  @Post('special-order')
+  @HttpCode(HttpStatus.OK)
+  async handleSpecialOrderWebhook(
+    @Body() payload: TenoviSpecialOrderWebhookDto | TenoviSpecialOrderWebhookDto[],
+    @Headers('authorization') authHeader?: string,
+  ) {
+    const webhookAuthKey = this.configService.get('tenovi.webhookAuthKey');
+
+    if (webhookAuthKey && authHeader !== webhookAuthKey) {
+      throw new UnauthorizedException('Invalid authorization');
+    }
+
+    this.logger.log('Received Tenovi special order webhook');
+
+    try {
+      const orders = Array.isArray(payload) ? payload : [payload];
+      const processed: string[] = [];
+
+      for (const order of orders) {
+        await this.tenoviService.processSpecialOrderWebhook(order);
+        processed.push(order.order_id || order.order_number || 'unknown');
+      }
+
+      return {
+        received: true,
+        type: 'special_order',
+        processed: processed.length,
+        orderIds: processed,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error('Error processing special order webhook', error);
+      return {
+        received: true,
+        error: 'Processing error',
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 }
 
@@ -218,6 +288,37 @@ export class TenoviController {
     return this.tenoviService.getDeviceStats(organizationId);
   }
 
+  // Fulfillment - Create device order for patient
+  @Post('fulfillment/create')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async createFulfillmentOrder(
+    @Body() body: {
+      shippingName: string;
+      shippingAddress: string;
+      shippingCity: string;
+      shippingState: string;
+      shippingZipCode: string;
+      notifyEmails?: string;
+      requireSignature?: boolean;
+      shipGatewayOnly?: boolean;
+      clientNotes?: string;
+      deviceTypes?: string[];
+      patientId?: string;
+    },
+  ) {
+    return this.tenoviService.createFulfillmentRequest({
+      shippingName: body.shippingName,
+      shippingAddress: body.shippingAddress,
+      shippingCity: body.shippingCity,
+      shippingState: body.shippingState,
+      shippingZipCode: body.shippingZipCode,
+      notifyEmails: body.notifyEmails,
+      requireSignature: body.requireSignature,
+      shipGatewayOnly: body.shipGatewayOnly,
+      clientNotes: body.clientNotes,
+    });
+  }
+
   // Webhooks management
   @Get('webhooks')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -228,7 +329,7 @@ export class TenoviController {
   @Post('webhooks')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async createWebhook(
-    @Body() body: { endpoint: string; event: 'MEASUREMENT' | 'FULFILLMENT' },
+    @Body() body: { endpoint: string; event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER' },
   ) {
     return this.tenoviService.createWebhook(body.endpoint, body.event);
   }
@@ -436,7 +537,7 @@ export class TenoviController {
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async testWebhooks(@Body() body: {
     webhookIds: string[];
-    event: 'MEASUREMENT' | 'FULFILLMENT';
+    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
   }) {
     return this.tenoviService.testWebhooks(body);
   }

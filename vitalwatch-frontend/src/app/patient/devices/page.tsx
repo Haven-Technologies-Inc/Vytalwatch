@@ -21,41 +21,6 @@ const sensorCodeToType: Record<string, { name: string; icon: string }> = {
   'TH': { name: 'Thermometer', icon: '🌡️' },
 };
 
-const demoDevices: TenoviHwiDevice[] = [
-  {
-    id: 'demo-1',
-    hwiDeviceId: 'HWI-BP-001234',
-    sensorCode: 'BP',
-    deviceName: 'Tenovi Blood Pressure Monitor',
-    modelNumber: 'BP-100',
-    status: 'active',
-    lastMeasurement: new Date().toISOString(),
-    shippingStatus: 'DE',
-    deliveredOn: '2025-12-01',
-  } as TenoviHwiDevice,
-  {
-    id: 'demo-2',
-    hwiDeviceId: 'HWI-WS-005678',
-    sensorCode: 'WS',
-    deviceName: 'Tenovi Weight Scale',
-    modelNumber: 'WS-200',
-    status: 'active',
-    lastMeasurement: new Date(Date.now() - 86400000).toISOString(),
-    shippingStatus: 'DE',
-    deliveredOn: '2025-12-01',
-  } as TenoviHwiDevice,
-  {
-    id: 'demo-3',
-    hwiDeviceId: 'HWI-PO-009012',
-    sensorCode: 'PO',
-    deviceName: 'Tenovi Pulse Oximeter',
-    modelNumber: 'PO-50',
-    status: 'disconnected',
-    shippingStatus: 'DE',
-    deliveredOn: '2025-12-05',
-  } as TenoviHwiDevice,
-];
-
 export default function PatientDevicesPage() {
   const { user } = useAuthStore();
   const { toast } = useToast();
@@ -72,31 +37,6 @@ export default function PatientDevicesPage() {
       return;
     }
 
-    // Check if in demo mode (flag or demo token pattern)
-    const authData = localStorage.getItem('vitalwatch-auth');
-    let isDemoMode = false;
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        const token = parsed?.state?.accessToken || '';
-        isDemoMode =
-          parsed?.state?.useDemoMode === true ||
-          token.startsWith('demo_') ||
-          token.startsWith('google_') ||
-          token.startsWith('microsoft_') ||
-          token.startsWith('apple_');
-      } catch {
-        isDemoMode = false;
-      }
-    }
-
-    // In demo mode, skip API call and use demo data directly
-    if (isDemoMode) {
-      setDevices(demoDevices);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -105,13 +45,13 @@ export default function PatientDevicesPage() {
         setDevices(response.data.tenoviDevices);
       }
     } catch (err: unknown) {
-      // Fallback to demo data on API errors
-      setDevices(demoDevices);
       const apiErr = err as { status?: number; code?: string };
       if (apiErr?.status === 401) {
-        setError('Demo mode: Showing sample devices');
+        setError('Authentication error. Please log in again.');
       } else if (apiErr?.status === 0 || apiErr?.code === 'NETWORK_ERROR') {
-        setError('Server unavailable - showing sample devices');
+        setError('Server unavailable. Please try again later.');
+      } else {
+        setError('Failed to load devices. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -123,34 +63,6 @@ export default function PatientDevicesPage() {
   }, [fetchDevices]);
 
   const handleSync = async (deviceId: string) => {
-    // Check demo mode (flag or demo token pattern)
-    const authData = localStorage.getItem('vitalwatch-auth');
-    let isDemoMode = false;
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        const token = parsed?.state?.accessToken || '';
-        isDemoMode =
-          parsed?.state?.useDemoMode === true ||
-          token.startsWith('demo_') ||
-          token.startsWith('google_') ||
-          token.startsWith('microsoft_') ||
-          token.startsWith('apple_');
-      } catch {
-        isDemoMode = false;
-      }
-    }
-    void deviceId;
-
-    if (isDemoMode) {
-      // Simulate sync in demo mode
-      setSyncing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setSyncing(false);
-      toast({ title: 'Device synced', description: 'Latest readings fetched', type: 'success' });
-      return;
-    }
-
     try {
       setSyncing(true);
       await tenoviApi.syncDevice(deviceId);

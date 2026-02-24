@@ -1,12 +1,16 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
+import { InviteCode, InviteCodeStatus } from './entities/invite-code.entity';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuthSecurityService } from './services/auth-security.service';
 
 interface JwtPayload {
   sub: string;
@@ -21,32 +25,60 @@ export interface TokenPair {
   expiresIn: number;
 }
 
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    organizationId?: string;
+    avatar?: string;
+  };
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly SALT_ROUNDS = 12;
 
   constructor(
+    @InjectRepository(InviteCode)
+    private readonly inviteCodeRepository: Repository<InviteCode>,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly authSecurityService: AuthSecurityService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<User | null> {
+  async validateUser(email: string, password: string, ip?: string): Promise<User | null> {
+    // Check rate limiting and account lockout
+    const rateLimitCheck = await this.authSecurityService.checkRateLimit(email, ip || 'unknown');
+    if (!rateLimitCheck.allowed) {
+      throw new ForbiddenException(rateLimitCheck.message || 'Too many login attempts');
+    }
+
     const user = await this.usersService.findByEmail(email);
 
     if (!user || !user.passwordHash) {
+      // Record failed attempt even for non-existent users (prevents enumeration)
+      await this.authSecurityService.recordLoginAttempt(email, ip || 'unknown', false);
       return null;
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+      await this.authSecurityService.recordLoginAttempt(email, ip || 'unknown', false);
       await this.auditService.log({
         action: 'LOGIN_FAILED',
         userId: user.id,
-        details: { reason: 'Invalid password' },
+        details: { reason: 'Invalid password', remainingAttempts: rateLimitCheck.remainingAttempts - 1 },
       });
       return null;
     }
@@ -55,10 +87,13 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
+    // Record successful login
+    await this.authSecurityService.recordLoginAttempt(email, ip || 'unknown', true);
+
     return user;
   }
 
-  async login(user: User, ip?: string): Promise<TokenPair> {
+  async login(user: User, ip?: string): Promise<LoginResponse> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -78,7 +113,18 @@ export class AuthService {
       details: { ip, role: user.role },
     });
 
-    return tokens;
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId,
+        avatar: user.avatar,
+      },
+    };
   }
 
   async register(registerDto: {
@@ -102,16 +148,29 @@ export class AuthService {
 
     // Determine role
     let role = UserRole.PATIENT;
+    let organizationId = registerDto.organizationId;
+    
     if (registerDto.role && registerDto.role !== UserRole.PATIENT) {
       // Validate invite code for non-patient roles
       if (!registerDto.inviteCode) {
         throw new BadRequestException('Invite code required for provider accounts');
       }
-      // TODO: Validate invite code
+      
+      // Validate invite code
+      const inviteValidation = await this.validateInviteCode(registerDto.inviteCode, registerDto.role);
+      if (!inviteValidation.valid) {
+        throw new BadRequestException(inviteValidation.error || 'Invalid invite code');
+      }
+      
       role = registerDto.role;
+      // Use organization from invite code if not provided
+      if (inviteValidation.organizationId && !organizationId) {
+        organizationId = inviteValidation.organizationId;
+      }
     }
 
-    // Create user
+    // Create user - set as ACTIVE for immediate login
+    // Email verification is optional but recommended
     const user = await this.usersService.create({
       email: registerDto.email,
       passwordHash,
@@ -119,12 +178,14 @@ export class AuthService {
       lastName: registerDto.lastName,
       phone: registerDto.phone,
       role,
-      status: UserStatus.PENDING,
-      organizationId: registerDto.organizationId,
+      status: UserStatus.ACTIVE,
+      organizationId: organizationId,
     });
 
-    // Send verification email
-    await this.notificationsService.sendEmailVerification(user);
+    // Send verification email (non-blocking)
+    this.notificationsService.sendEmailVerification(user).catch(err => {
+      this.logger.warn(`Failed to send verification email: ${err.message}`);
+    });
 
     // Audit log
     await this.auditService.log({
@@ -203,7 +264,12 @@ export class AuthService {
     }
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: string, token?: string): Promise<void> {
+    // Blacklist the token if provided
+    if (token) {
+      this.authSecurityService.blacklistToken(token);
+    }
+
     await this.auditService.log({
       action: 'LOGOUT',
       userId,
@@ -223,8 +289,21 @@ export class AuthService {
       throw new BadRequestException('Current password is incorrect');
     }
 
+    // Check password history
+    const historyCheck = await this.authSecurityService.validatePasswordNotReused(userId, newPassword);
+    if (!historyCheck.valid) {
+      throw new BadRequestException(historyCheck.message);
+    }
+
     const newPasswordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+    
+    // Add current password to history before updating
+    await this.authSecurityService.addPasswordToHistory(userId, user.passwordHash);
+    
     await this.usersService.updatePassword(userId, newPasswordHash);
+
+    // Revoke all existing tokens for security
+    await this.authSecurityService.revokeAllUserTokens(userId);
 
     await this.auditService.log({
       action: 'PASSWORD_CHANGED',
@@ -257,9 +336,24 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
+    // Check password history
+    const historyCheck = await this.authSecurityService.validatePasswordNotReused(user.id, newPassword);
+    if (!historyCheck.valid) {
+      throw new BadRequestException(historyCheck.message);
+    }
+
     const newPasswordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+    
+    // Add current password to history if it exists
+    if (user.passwordHash) {
+      await this.authSecurityService.addPasswordToHistory(user.id, user.passwordHash);
+    }
+    
     await this.usersService.updatePassword(user.id, newPasswordHash);
     await this.usersService.clearResetToken(user.id);
+
+    // Revoke all existing tokens for security
+    await this.authSecurityService.revokeAllUserTokens(user.id);
 
     await this.auditService.log({
       action: 'PASSWORD_RESET_COMPLETED',
@@ -471,5 +565,134 @@ export class AuthService {
     // Return user without sensitive data
     const { passwordHash, resetToken, verificationToken, magicLinkToken, ...safeUser } = user as any;
     return safeUser;
+  }
+
+  async validateInviteCode(
+    code: string,
+    requestedRole: UserRole,
+  ): Promise<{ valid: boolean; error?: string; organizationId?: string }> {
+    try {
+      const inviteCode = await this.inviteCodeRepository.findOne({
+        where: { code },
+      });
+
+      if (!inviteCode) {
+        return { valid: false, error: 'Invalid invite code' };
+      }
+
+      if (!inviteCode.isValid()) {
+        if (inviteCode.status === InviteCodeStatus.USED) {
+          return { valid: false, error: 'Invite code has already been used' };
+        }
+        if (inviteCode.status === InviteCodeStatus.EXPIRED) {
+          return { valid: false, error: 'Invite code has expired' };
+        }
+        if (inviteCode.status === InviteCodeStatus.REVOKED) {
+          return { valid: false, error: 'Invite code has been revoked' };
+        }
+        if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
+          await this.inviteCodeRepository.update(inviteCode.id, {
+            status: InviteCodeStatus.EXPIRED,
+          });
+          return { valid: false, error: 'Invite code has expired' };
+        }
+        if (inviteCode.usesCount >= inviteCode.maxUses) {
+          return { valid: false, error: 'Invite code has reached maximum uses' };
+        }
+      }
+
+      // Check if the invite code allows the requested role
+      if (inviteCode.allowedRole !== requestedRole) {
+        return {
+          valid: false,
+          error: `This invite code is for ${inviteCode.allowedRole} accounts only`,
+        };
+      }
+
+      this.logger.log(`Invite code ${code} validated successfully`);
+      return { valid: true, organizationId: inviteCode.organizationId };
+    } catch (error) {
+      this.logger.error(`Error validating invite code: ${error.message}`);
+      return { valid: false, error: 'Error validating invite code' };
+    }
+  }
+
+  async useInviteCode(code: string, userId: string): Promise<void> {
+    const inviteCode = await this.inviteCodeRepository.findOne({
+      where: { code },
+    });
+
+    if (inviteCode) {
+      await this.inviteCodeRepository.update(inviteCode.id, {
+        usesCount: inviteCode.usesCount + 1,
+        usedById: userId,
+        usedAt: new Date(),
+        status: inviteCode.usesCount + 1 >= inviteCode.maxUses
+          ? InviteCodeStatus.USED
+          : inviteCode.status,
+      });
+
+      await this.auditService.log({
+        action: 'INVITE_CODE_USED',
+        userId,
+        details: { inviteCodeId: inviteCode.id, code },
+      });
+    }
+  }
+
+  async createInviteCode(
+    creatorId: string,
+    options: {
+      allowedRole: UserRole;
+      organizationId?: string;
+      maxUses?: number;
+      expiresInDays?: number;
+      description?: string;
+    },
+  ): Promise<InviteCode> {
+    const code = this.generateInviteCode();
+    
+    const inviteCode = this.inviteCodeRepository.create({
+      code,
+      allowedRole: options.allowedRole,
+      organizationId: options.organizationId,
+      createdById: creatorId,
+      maxUses: options.maxUses || 1,
+      expiresAt: options.expiresInDays
+        ? new Date(Date.now() + options.expiresInDays * 24 * 60 * 60 * 1000)
+        : null,
+      description: options.description,
+    });
+
+    const saved = await this.inviteCodeRepository.save(inviteCode);
+
+    await this.auditService.log({
+      action: 'INVITE_CODE_CREATED',
+      userId: creatorId,
+      details: { inviteCodeId: saved.id, allowedRole: options.allowedRole },
+    });
+
+    return saved;
+  }
+
+  async revokeInviteCode(codeId: string, userId: string): Promise<void> {
+    await this.inviteCodeRepository.update(codeId, {
+      status: InviteCodeStatus.REVOKED,
+    });
+
+    await this.auditService.log({
+      action: 'INVITE_CODE_REVOKED',
+      userId,
+      details: { inviteCodeId: codeId },
+    });
+  }
+
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 }

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { config } from "@/config";
 import {
   Activity,
   Mail,
@@ -64,11 +65,41 @@ export default function RegisterPage() {
     setIsLoading(true);
     setError("");
 
-    // Simulate registration
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Map account type to role
+      const roleMap: Record<AccountType, string> = {
+        provider: "provider",
+        organization: "admin",
+        patient: "patient",
+      };
 
-    setIsLoading(false);
-    router.push("/auth/login?registered=true");
+      const response = await fetch(`${config.api.baseUrl}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || undefined,
+          role: roleMap[formData.accountType],
+          inviteCode: formData.inviteCode || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      // Registration successful - redirect to login
+      router.push("/auth/login?registered=true");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const validateStep = () => {

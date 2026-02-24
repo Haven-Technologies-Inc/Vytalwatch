@@ -72,7 +72,13 @@ import type {
   TenoviDeviceProperty,
   TenoviHardwareChange,
   TenoviWebhook,
+  TenoviFulfillmentResponse,
   AuditLog,
+  ClinicalNote,
+  SoapContent,
+  TimeTracking,
+  Consent,
+  ConsentTemplate,
 } from '@/types';
 
 // Auth API
@@ -183,11 +189,11 @@ export const patientsApi = {
     apiClient.get<ApiResponse<VitalReading[]>>(`/patients/${id}/vitals/history`, { params }),
 
   getVitalsByType: (id: string, type: string, limit?: number) =>
-    apiClient.get<ApiResponse<VitalReading[]>>(`/patients/${id}/vitals/${type}`, { params: { limit } }),
+    apiClient.get<ApiResponse<VitalReading[]>>(`/patients/${id}/vitals/${type}`, { params: limit ? { limit } : undefined }),
 
   // Alerts
   getAlerts: (id: string, status?: string) =>
-    apiClient.get<ApiResponse<Alert[]>>(`/patients/${id}/alerts`, { params: { status } }),
+    apiClient.get<ApiResponse<Alert[]>>(`/patients/${id}/alerts`, { params: status ? { status } : undefined }),
 
   getActiveAlerts: (id: string) =>
     apiClient.get<ApiResponse<Alert[]>>(`/patients/${id}/alerts/active`),
@@ -467,7 +473,7 @@ export const organizationsApi = {
 
   // Users
   getUsers: (id: string, role?: string) =>
-    apiClient.get<ApiResponse<User[]>>(`/organizations/${id}/users`, { params: { role } }),
+    apiClient.get<ApiResponse<User[]>>(`/organizations/${id}/users`, { params: role ? { role } : undefined }),
 
   addUser: (orgId: string, userId: string) =>
     apiClient.post<ApiResponse<void>>(`/organizations/${orgId}/users/${userId}`),
@@ -553,7 +559,7 @@ export const analyticsApi = {
     apiClient.get<ApiResponse<SystemAnalytics>>('/analytics/system'),
 
   exportData: (type: string, format?: string, params?: { startDate?: string; endDate?: string }) =>
-    apiClient.get<ApiResponse<{ downloadUrl: string }>>('/analytics/export', { params: { type, format, ...params } }),
+    apiClient.get<ApiResponse<{ downloadUrl: string }>>('/analytics/export', { params: { type, ...(format && { format }), ...params } }),
 };
 
 // Integrations API
@@ -748,6 +754,38 @@ export const tenoviApi = {
 
   getOrder: (orderId: string) =>
     apiClient.get<ApiResponse<TenoviOrder>>(`/tenovi/bulk-orders/${orderId}`),
+
+  // Fulfillment Requests (Individual patient device orders)
+  createFulfillmentRequest: (data: {
+    shippingName: string;
+    shippingAddress: string;
+    shippingCity: string;
+    shippingState: string;
+    shippingZipCode: string;
+    notifyEmails?: string;
+    requireSignature?: boolean;
+    shipGatewayOnly?: boolean;
+    clientNotes?: string;
+    deviceTypes?: string[];
+    patientId?: string;
+  }) => apiClient.post<ApiResponse<TenoviFulfillmentResponse>>('/tenovi/fulfillment/create', data),
+
+  // Patient device order (wrapper for fulfillment)
+  createOrder: (data: {
+    patientId: string;
+    deviceTypes: string[];
+    shippingAddress: { name: string; street: string; city: string; state: string; zipCode: string };
+    notifyEmails?: string;
+  }) => apiClient.post<ApiResponse<TenoviFulfillmentResponse>>('/tenovi/fulfillment/create', {
+    shippingName: data.shippingAddress.name,
+    shippingAddress: data.shippingAddress.street,
+    shippingCity: data.shippingAddress.city,
+    shippingState: data.shippingAddress.state,
+    shippingZipCode: data.shippingAddress.zipCode,
+    deviceTypes: data.deviceTypes,
+    patientId: data.patientId,
+    notifyEmails: data.notifyEmails,
+  }),
 };
 
 // Reports API
@@ -926,11 +964,11 @@ export const auditApi = {
 
   // Get recent activity for an organization
   getRecentActivity: (organizationId: string, limit?: number) =>
-    apiClient.get<ApiResponse<AuditLog[]>>(`/audit/recent/${organizationId}`, { params: { limit } }),
+    apiClient.get<ApiResponse<AuditLog[]>>(`/audit/recent/${organizationId}`, { params: limit ? { limit } : undefined }),
 
   // Get login history for a user
   getLoginHistory: (userId: string, limit?: number) =>
-    apiClient.get<ApiResponse<AuditLog[]>>(`/audit/login-history/${userId}`, { params: { limit } }),
+    apiClient.get<ApiResponse<AuditLog[]>>(`/audit/login-history/${userId}`, { params: limit ? { limit } : undefined }),
 
   // Get security events for an organization
   getSecurityEvents: (organizationId: string, startDate: string, endDate: string) =>
@@ -970,6 +1008,69 @@ export const usersAdminApi = {
   // Invite user
   inviteUser: (data: { email: string; role: string; organizationId?: string }) =>
     apiClient.post<ApiResponse<{ inviteId: string; expiresAt: string }>>('/users/invite', data),
+};
+
+// Clinical Notes API
+export const clinicalNotesApi = {
+  getByPatient: (patientId: string, limit?: number) =>
+    apiClient.get<ApiResponse<ClinicalNote[]>>(`/clinical-notes/patient/${patientId}`, { params: limit ? { limit } : undefined }),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<ClinicalNote>>(`/clinical-notes/${id}`),
+
+  create: (data: { patientId: string; type: string; title: string; content?: string; soapContent?: SoapContent }) =>
+    apiClient.post<ApiResponse<ClinicalNote>>('/clinical-notes', data),
+
+  update: (id: string, data: { title?: string; content?: string; soapContent?: SoapContent }) =>
+    apiClient.put<ApiResponse<ClinicalNote>>(`/clinical-notes/${id}`, data),
+
+  sign: (id: string) =>
+    apiClient.post<ApiResponse<ClinicalNote>>(`/clinical-notes/${id}/sign`),
+
+  delete: (id: string) =>
+    apiClient.delete<ApiResponse<void>>(`/clinical-notes/${id}`),
+
+  getTimeTracking: (patientId: string, startDate: string, endDate: string) =>
+    apiClient.get<ApiResponse<TimeTracking>>(`/clinical-notes/patient/${patientId}/time-tracking`, { params: { startDate, endDate } }),
+
+  createCommunicationLog: (data: { patientId: string; type: string; direction: string; summary?: string; durationMinutes?: number }) =>
+    apiClient.post<ApiResponse<ClinicalNote>>('/clinical-notes/communication-log', data),
+
+  getCommunicationLogs: (patientId: string, limit?: number) =>
+    apiClient.get<ApiResponse<ClinicalNote[]>>(`/clinical-notes/patient/${patientId}/communication-logs`, { params: limit ? { limit } : undefined }),
+};
+
+// Consents API
+export const consentsApi = {
+  getTemplates: () =>
+    apiClient.get<ApiResponse<ConsentTemplate[]>>('/consents/templates'),
+
+  getByPatient: (patientId: string) =>
+    apiClient.get<ApiResponse<Consent[]>>(`/consents/patient/${patientId}`),
+
+  getPending: (patientId: string) =>
+    apiClient.get<ApiResponse<Consent[]>>(`/consents/patient/${patientId}/pending`),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<Consent>>(`/consents/${id}`),
+
+  send: (data: { patientId: string; templateId: string; customFields?: Record<string, string> }) =>
+    apiClient.post<ApiResponse<Consent>>('/consents/send', data),
+
+  sign: (id: string, data: { signatureData: string; customFields?: Record<string, string> }) =>
+    apiClient.post<ApiResponse<Consent>>(`/consents/${id}/sign`, data),
+
+  revoke: (id: string, reason: string) =>
+    apiClient.post<ApiResponse<Consent>>(`/consents/${id}/revoke`, { reason }),
+
+  getStatus: (patientId: string, type: string) =>
+    apiClient.get<ApiResponse<{ hasConsent: boolean; consent?: Consent }>>(`/consents/patient/${patientId}/status/${type}`),
+
+  sendReminder: (consentId: string) =>
+    apiClient.post<ApiResponse<{ success: boolean; message: string }>>(`/consents/${consentId}/remind`),
+
+  seedTemplates: () =>
+    apiClient.post<ApiResponse<ConsentTemplate[]>>('/consents/seed-templates'),
 };
 
 export { apiClient, ApiError };

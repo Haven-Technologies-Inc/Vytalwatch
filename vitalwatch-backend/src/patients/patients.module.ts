@@ -8,6 +8,7 @@ import { AlertsModule } from '../alerts/alerts.module';
 import { DevicesModule } from '../devices/devices.module';
 import { AIModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuditModule } from '../audit/audit.module';
     DevicesModule,
     AIModule,
     AuditModule,
+    EmailModule,
   ],
   controllers: [PatientsController],
   providers: [PatientsService],

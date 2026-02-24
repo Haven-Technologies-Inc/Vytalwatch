@@ -19,8 +19,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
-  Loader2
+  Loader2,
+  ShoppingCart,
+  ClipboardList
 } from 'lucide-react';
+import Link from 'next/link';
 
 const sensorCodeToType: Record<string, string> = {
   'BP': 'Blood Pressure Monitor',
@@ -46,76 +49,6 @@ const statusFilters = [
   { value: 'disconnected', label: 'Disconnected' },
 ];
 
-// Demo mode detection
-const isDemoMode = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vytalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-};
-
-// Demo data for devices
-const demoDevices: TenoviHwiDevice[] = [
-  {
-    id: 'demo-1',
-    hwiDeviceId: 'HWI-001',
-    tenoviId: 'TEN-001',
-    status: 'active',
-    deviceName: 'Blood Pressure Monitor',
-    sensorCode: 'BP',
-    modelNumber: 'BP-2000',
-    patientId: 'patient-1',
-    organizationId: 'org-1',
-    connectedOn: new Date().toISOString(),
-    lastMeasurement: new Date().toISOString(),
-  },
-  {
-    id: 'demo-2',
-    hwiDeviceId: 'HWI-002',
-    tenoviId: 'TEN-002',
-    status: 'active',
-    deviceName: 'Weight Scale',
-    sensorCode: 'WS',
-    modelNumber: 'WS-3000',
-    patientId: 'patient-2',
-    organizationId: 'org-1',
-    connectedOn: new Date().toISOString(),
-    lastMeasurement: new Date().toISOString(),
-  },
-  {
-    id: 'demo-3',
-    hwiDeviceId: 'HWI-003',
-    tenoviId: 'TEN-003',
-    status: 'inactive',
-    deviceName: 'Pulse Oximeter',
-    sensorCode: 'PO',
-    modelNumber: 'PO-1000',
-    organizationId: 'org-1',
-    connectedOn: new Date().toISOString(),
-  },
-] as TenoviHwiDevice[];
-
-const demoStats: TenoviDeviceStats = {
-  total: 3,
-  active: 2,
-  inactive: 1,
-  connected: 2,
-  disconnected: 1,
-  byType: { BP: 1, WS: 1, PO: 1 },
-};
-
 export default function AdminDevicesPage() {
   const { toast } = useToast();
   const [devices, setDevices] = useState<TenoviHwiDevice[]>([]);
@@ -135,14 +68,6 @@ export default function AdminDevicesPage() {
   const [selectedOrgId, setSelectedOrgId] = useState('');
 
   const fetchDevices = useCallback(async () => {
-    // Skip API calls in demo mode
-    if (isDemoMode()) {
-      setDevices(demoDevices);
-      setStats(demoStats);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -165,10 +90,7 @@ export default function AdminDevicesPage() {
         setOrganizations(orgsRes.data.data);
       }
     } catch (err) {
-      // Fallback to demo data on API errors
-      setDevices(demoDevices);
-      setStats(demoStats);
-      setError('Demo mode: Showing sample devices');
+      setError('Failed to load devices. Please try again.');
       console.error('Error fetching devices:', err);
     } finally {
       setLoading(false);
@@ -177,15 +99,6 @@ export default function AdminDevicesPage() {
 
   const handleAssignDevice = async () => {
     if (!selectedDevice || !selectedPatientId) return;
-
-    // Simulate assign in demo mode
-    if (isDemoMode()) {
-      setShowAssignModal(false);
-      setSelectedPatientId('');
-      setSelectedOrgId('');
-      toast({ title: 'Device assigned', description: `Demo: Device ${selectedDevice.hwiDeviceId} assigned`, type: 'success' });
-      return;
-    }
     
     try {
       setAssigning(true);
@@ -204,12 +117,6 @@ export default function AdminDevicesPage() {
   };
 
   const handleUnassignDevice = useCallback(async (device: TenoviHwiDevice) => {
-    // Simulate unassign in demo mode
-    if (isDemoMode()) {
-      toast({ title: 'Device unassigned', description: `Demo: Device ${device.hwiDeviceId} unassigned`, type: 'success' });
-      return;
-    }
-
     try {
       await tenoviApi.unassignDevice(device.hwiDeviceId);
       toast({ title: 'Device unassigned', description: `Device ${device.hwiDeviceId} has been unassigned`, type: 'success' });
@@ -225,15 +132,6 @@ export default function AdminDevicesPage() {
   }, [fetchDevices]);
 
   const handleSync = async () => {
-    // Simulate sync in demo mode
-    if (isDemoMode()) {
-      setSyncing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setSyncing(false);
-      toast({ title: 'Sync complete', description: 'Demo: 3 devices synced successfully', type: 'success' });
-      return;
-    }
-
     try {
       setSyncing(true);
       const result = await tenoviApi.syncAll();
@@ -364,12 +262,20 @@ export default function AdminDevicesPage() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleSync} disabled={syncing}>
               {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              {syncing ? 'Syncing...' : 'Sync from Tenovi'}
+              {syncing ? 'Syncing...' : 'Sync'}
             </Button>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Register Device
-            </Button>
+            <Link href="/admin/devices/orders">
+              <Button variant="outline">
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Orders
+              </Button>
+            </Link>
+            <Link href="/admin/devices/order">
+              <Button>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Order Devices
+              </Button>
+            </Link>
           </div>
         </div>
 

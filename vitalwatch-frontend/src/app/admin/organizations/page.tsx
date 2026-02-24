@@ -35,26 +35,6 @@ interface Organization {
   createdAt: string;
 }
 
-// Helper to check demo mode
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vytalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-}
-
 const mockOrganizations: Organization[] = [
   { id: '1', name: 'City Clinic', type: 'Clinic', plan: 'professional', status: 'active', userCount: 5, patientCount: 120, deviceCount: 85, monthlyRevenue: 15000, createdAt: '2025-06-01' },
   { id: '2', name: 'General Hospital', type: 'Hospital', plan: 'enterprise', status: 'active', userCount: 25, patientCount: 450, deviceCount: 320, monthlyRevenue: 56250, createdAt: '2025-03-15' },
@@ -73,7 +53,7 @@ const planFilters = [
 export default function AdminOrganizationsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [organizations, setOrganizations] = useState<Organization[]>(mockOrganizations);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [planFilter, setPlanFilter] = useState('all');
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -87,12 +67,6 @@ export default function AdminOrganizationsPage() {
   const [editForm, setEditForm] = useState({ name: '', type: '', plan: '', status: '' });
 
   const fetchOrganizations = useCallback(async () => {
-    if (isDemoMode()) {
-      setOrganizations(mockOrganizations);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await organizationsApi.getAll({ limit: 100 });
@@ -109,10 +83,10 @@ export default function AdminOrganizationsPage() {
           monthlyRevenue: org.monthlyRevenue || 0,
           createdAt: typeof org.createdAt === 'string' ? org.createdAt : (org.createdAt ? new Date(org.createdAt).toISOString().split('T')[0] : ''),
         })) as Organization[];
-        setOrganizations(mapped.length > 0 ? mapped : mockOrganizations);
+        setOrganizations(mapped);
       }
     } catch {
-      setOrganizations(mockOrganizations);
+      setOrganizations([]);
     } finally {
       setLoading(false);
     }
@@ -127,13 +101,11 @@ export default function AdminOrganizationsPage() {
 
     setSaving(true);
     try {
-      if (!isDemoMode()) {
-        await organizationsApi.create({
-          name: createForm.name,
-          type: createForm.type as OrgType['type'],
-          plan: createForm.plan as OrgType['plan'],
-        });
-      }
+      await organizationsApi.create({
+        name: createForm.name,
+        type: createForm.type as OrgType['type'],
+        plan: createForm.plan as OrgType['plan'],
+      });
 
       const newOrg: Organization = {
         id: `new-${Date.now()}`,
@@ -170,14 +142,12 @@ export default function AdminOrganizationsPage() {
 
     setSaving(true);
     try {
-      if (!isDemoMode()) {
-        await organizationsApi.update(selectedOrg.id, {
-          name: editForm.name,
-          type: editForm.type as OrgType['type'],
-          plan: editForm.plan as OrgType['plan'],
-          status: editForm.status as OrgType['status'],
-        });
-      }
+      await organizationsApi.update(selectedOrg.id, {
+        name: editForm.name,
+        type: editForm.type as OrgType['type'],
+        plan: editForm.plan as OrgType['plan'],
+        status: editForm.status as OrgType['status'],
+      });
 
       setOrganizations((prev) =>
         prev.map((o) =>

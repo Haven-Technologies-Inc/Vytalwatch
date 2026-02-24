@@ -25,79 +25,6 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/useToast';
 
-// Demo data for development/demo mode
-const demoDevices: TenoviHwiDevice[] = [
-  {
-    id: 'demo-1',
-    hwid: 'HW-BP-001',
-    hardwareUuid: 'uuid-bp-001',
-    sensorCode: 'BP',
-    status: 'active',
-    lastMeasurement: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    patientId: 'patient-1',
-    patientName: 'John Doe',
-    deviceName: 'Blood Pressure Monitor',
-  },
-  {
-    id: 'demo-2',
-    hwid: 'HW-WS-002',
-    hardwareUuid: 'uuid-ws-002',
-    sensorCode: 'WS',
-    status: 'connected',
-    lastMeasurement: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    patientId: 'patient-2',
-    patientName: 'Jane Smith',
-    deviceName: 'Weight Scale',
-  },
-  {
-    id: 'demo-3',
-    hwid: 'HW-PO-003',
-    hardwareUuid: 'uuid-po-003',
-    sensorCode: 'PO',
-    status: 'inactive',
-    lastMeasurement: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    deviceName: 'Pulse Oximeter',
-  },
-  {
-    id: 'demo-4',
-    hwid: 'HW-GM-004',
-    hardwareUuid: 'uuid-gm-004',
-    sensorCode: 'GM',
-    status: 'active',
-    lastMeasurement: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    patientId: 'patient-3',
-    patientName: 'Robert Johnson',
-    deviceName: 'Glucose Meter',
-  },
-] as TenoviHwiDevice[];
-
-const demoStats: TenoviDeviceStats = {
-  total: 4,
-  active: 2,
-  connected: 1,
-  inactive: 1,
-};
-
-// Helper to detect demo mode
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vitalwatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-}
-
 const sensorCodeToType: Record<string, string> = {
   'BP': 'Blood Pressure Monitor',
   'WS': 'Weight Scale',
@@ -136,14 +63,6 @@ export default function ProviderDevicesPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const fetchDevices = useCallback(async () => {
-    // Skip API calls in demo mode
-    if (isDemoMode()) {
-      setDevices(demoDevices);
-      setStats(demoStats);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -158,10 +77,7 @@ export default function ProviderDevicesPage() {
         setStats(statsRes.data);
       }
     } catch {
-      // Fallback to demo data on API errors
-      setDevices(demoDevices);
-      setStats(demoStats);
-      setError('Demo mode: Showing sample devices');
+      setError('Failed to load devices. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -172,15 +88,6 @@ export default function ProviderDevicesPage() {
   }, [fetchDevices]);
 
   const handleSync = async () => {
-    // Simulate sync in demo mode
-    if (isDemoMode()) {
-      setSyncing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast({ title: 'Sync complete', description: 'Demo devices synced successfully', type: 'success' });
-      setSyncing(false);
-      return;
-    }
-
     try {
       setSyncing(true);
       const result = await tenoviApi.syncAll();

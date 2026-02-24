@@ -34,18 +34,6 @@ class ApiClient {
     }
   }
 
-  private isInDemoMode(): boolean {
-    if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem('vytalwatch-auth');
-    if (!stored) return false;
-    try {
-      const { state } = JSON.parse(stored);
-      return state?.useDemoMode === true;
-    } catch {
-      return false;
-    }
-  }
-
   private buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     if (params) {

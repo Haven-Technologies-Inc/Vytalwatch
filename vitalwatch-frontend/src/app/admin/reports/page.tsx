@@ -34,26 +34,6 @@ const mockReports: Report[] = [
   { id: '6', name: 'Population Health Analysis', type: 'Clinical', frequency: 'one-time', status: 'failed', createdAt: '2026-01-14T09:00:00Z', createdBy: 'Admin' },
 ];
 
-// Helper to check demo mode
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const authData = localStorage.getItem('vVytalWatch-auth');
-  if (!authData) return false;
-  try {
-    const parsed = JSON.parse(authData);
-    const token = parsed?.state?.accessToken || '';
-    return (
-      parsed?.state?.useDemoMode === true ||
-      token.startsWith('demo_') ||
-      token.startsWith('google_') ||
-      token.startsWith('microsoft_') ||
-      token.startsWith('apple_')
-    );
-  } catch {
-    return false;
-  }
-}
-
 const reportTypes = [
   { value: 'all', label: 'All Types' },
   { value: 'Financial', label: 'Financial' },
@@ -74,7 +54,7 @@ const reportTemplates = [
 
 export default function AdminReportsPage() {
   const { toast } = useToast();
-  const [reports, setReports] = useState<Report[]>(mockReports);
+  const [reports, setReports] = useState<Report[]>([]);
   const [typeFilter, setTypeFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('revenue');
@@ -84,17 +64,11 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchReports = useCallback(async () => {
-    if (isDemoMode()) {
-      setReports(mockReports);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await reportsApi.getAll({ limit: 100 });
       if (response.data?.results) {
-        const mapped = response.data.results.map((r: ReportType) => ({
+        const mapped: Report[] = response.data.results.map((r: ReportType) => ({
           id: r.id,
           name: r.title || r.name || 'Untitled Report',
           type: r.type || 'Operations',
@@ -105,10 +79,10 @@ export default function AdminReportsPage() {
           size: r.size,
           createdBy: r.createdBy || 'Admin',
         }));
-        setReports(mapped.length > 0 ? mapped : mockReports);
+        setReports(mapped);
       }
     } catch {
-      setReports(mockReports);
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -134,14 +108,12 @@ export default function AdminReportsPage() {
         'provider-performance': 'Provider Performance Report',
       };
 
-      if (!isDemoMode()) {
-        await reportsApi.generate({
-          type: selectedTemplate,
-          title: templateNames[selectedTemplate],
-          startDate: startDate?.toISOString().split('T')[0],
-          endDate: endDate?.toISOString().split('T')[0],
-        });
-      }
+      await reportsApi.generate({
+        type: selectedTemplate,
+        title: templateNames[selectedTemplate],
+        startDate: startDate?.toISOString().split('T')[0],
+        endDate: endDate?.toISOString().split('T')[0],
+      });
 
       // Add new report to list
       const newReport: Report = {
@@ -183,19 +155,15 @@ export default function AdminReportsPage() {
     }
 
     try {
-      if (!isDemoMode()) {
-        const blob = await reportsApi.download(report.id);
-        const url = window.URL.createObjectURL(blob as Blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${report.name.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        toast({ title: 'Downloading', description: report.name, type: 'info' });
-      }
+      const blob = await reportsApi.download(report.id);
+      const url = window.URL.createObjectURL(blob as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${report.name.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Failed to download report:', error);
       toast({ title: 'Error', description: 'Failed to download report. Please try again.', type: 'error' });
@@ -222,9 +190,7 @@ export default function AdminReportsPage() {
 
   const handleDeleteReport = useCallback(async (report: Report) => {
     try {
-      if (!isDemoMode()) {
-        await reportsApi.delete(report.id);
-      }
+      await reportsApi.delete(report.id);
       setReports((prev) => prev.filter((r) => r.id !== report.id));
       toast({ title: 'Report deleted', description: report.name, type: 'success' });
     } catch (error) {

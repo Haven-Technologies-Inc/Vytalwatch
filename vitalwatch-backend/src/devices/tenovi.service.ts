@@ -33,6 +33,7 @@ import {
   TenoviPaginatedResponseDto,
   TenoviPatientDto,
   TenoviHardwareChangeDto,
+  TenoviSpecialOrderWebhookDto,
 } from './dto/tenovi.dto';
 import { VitalsService } from '../vitals/vitals.service';
 import { VitalType } from '../vitals/entities/vital-reading.entity';
@@ -645,6 +646,131 @@ export class TenoviService {
     }
   }
 
+  // ==================== FULFILLMENT STATUS UPDATES ====================
+
+  async updateDeviceShippingStatus(data: {
+    hwiDeviceId?: string;
+    hardwareUuid?: string;
+    status?: string;
+    trackingNumber?: string;
+    carrier?: string;
+    shippedAt?: Date;
+    deliveredAt?: Date;
+    orderId?: string;
+  }): Promise<TenoviHwiDevice | null> {
+    let device: TenoviHwiDevice | null = null;
+
+    // Find device by hwi_device_id or hardware_uuid
+    if (data.hwiDeviceId) {
+      device = await this.findHwiDeviceByHwiId(data.hwiDeviceId);
+    } else if (data.hardwareUuid) {
+      device = await this.hwiDeviceRepository.findOne({
+        where: { hardwareUuid: data.hardwareUuid },
+      });
+    }
+
+    if (!device) {
+      this.logger.warn(`Device not found for shipping update: ${data.hwiDeviceId || data.hardwareUuid}`);
+      return null;
+    }
+
+    // Map status string to enum
+    const statusMapping: Record<string, TenoviShippingStatus> = {
+      draft: TenoviShippingStatus.DRAFT,
+      requested: TenoviShippingStatus.REQUESTED,
+      pending: TenoviShippingStatus.PENDING,
+      created: TenoviShippingStatus.CREATED,
+      on_hold: TenoviShippingStatus.ON_HOLD,
+      ready_to_ship: TenoviShippingStatus.READY_TO_SHIP,
+      shipped: TenoviShippingStatus.SHIPPED,
+      delivered: TenoviShippingStatus.DELIVERED,
+      returned: TenoviShippingStatus.RETURNED,
+      cancelled: TenoviShippingStatus.CANCELLED,
+    };
+
+    if (data.status) {
+      const normalizedStatus = data.status.toLowerCase().replace(/\s+/g, '_');
+      device.shippingStatus = statusMapping[normalizedStatus] || device.shippingStatus;
+    }
+
+    if (data.trackingNumber) {
+      device.shippingTrackingLink = data.trackingNumber;
+    }
+
+    if (data.shippedAt) {
+      device.shippedOn = data.shippedAt;
+    }
+
+    if (data.deliveredAt) {
+      device.deliveredOn = data.deliveredAt;
+      device.fulfilled = true;
+    }
+
+    if (data.orderId) {
+      device.fulfillmentMetadata = {
+        ...device.fulfillmentMetadata,
+        orderId: data.orderId,
+        carrier: data.carrier,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+
+    const saved = await this.hwiDeviceRepository.save(device);
+
+    this.logger.log(`Updated shipping status for device ${device.hwiDeviceId}: ${device.shippingStatus}`);
+
+    await this.auditService.log({
+      action: 'DEVICE_SHIPPING_UPDATED',
+      resourceType: 'tenovi_hwi_device',
+      resourceId: device.id,
+      details: {
+        hwiDeviceId: device.hwiDeviceId,
+        status: device.shippingStatus,
+        trackingNumber: data.trackingNumber,
+      },
+    });
+
+    return saved;
+  }
+
+  // ==================== SPECIAL ORDER WEBHOOK PROCESSING ====================
+
+  async processSpecialOrderWebhook(
+    payload: TenoviSpecialOrderWebhookDto,
+  ): Promise<void> {
+    this.logger.log(
+      `Processing Tenovi special order webhook: ${payload.order_id || payload.order_number}`,
+    );
+
+    // Log the special order for tracking
+    await this.auditService.log({
+      action: 'TENOVI_SPECIAL_ORDER_RECEIVED',
+      resourceType: 'tenovi_special_order',
+      resourceId: payload.order_id || payload.order_number,
+      details: {
+        orderId: payload.order_id,
+        orderNumber: payload.order_number,
+        status: payload.status,
+        shippingStatus: payload.shipping_status,
+        trackingNumber: payload.tracking_number,
+        carrier: payload.carrier,
+        shippingName: payload.shipping_name,
+        shippingAddress: payload.shipping_address,
+        shippingCity: payload.shipping_city,
+        shippingState: payload.shipping_state,
+        shippingZipCode: payload.shipping_zip_code,
+        shippedAt: payload.shipped_at,
+        deliveredAt: payload.delivered_at,
+        contents: payload.contents,
+      },
+    });
+
+    // Emit event for real-time notifications if needed
+    this.logger.log(
+      `Special order ${payload.order_id || payload.order_number} status: ${payload.shipping_status || payload.status}`,
+    );
+  }
+
   // ==================== WEBHOOK CONFIGURATION ====================
 
   async listWebhooks(): Promise<any[]> {
@@ -652,7 +778,7 @@ export class TenoviService {
     return response.data;
   }
 
-  async createWebhook(endpoint: string, event: 'MEASUREMENT' | 'FULFILLMENT'): Promise<any> {
+  async createWebhook(endpoint: string, event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'): Promise<any> {
     const response = await this.apiClient.post(`/webhooks/`, {
       endpoint,
       event,
@@ -1044,7 +1170,7 @@ export class TenoviService {
 
   async testWebhooks(params: {
     webhookIds: string[];
-    event: 'MEASUREMENT' | 'FULFILLMENT';
+    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
   }): Promise<{ tested: number; results: any[] }> {
     const payload = {
       webhook_ids: params.webhookIds,
