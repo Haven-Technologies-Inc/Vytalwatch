@@ -9,6 +9,10 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import {
+  EncryptedColumnTransformer,
+  EncryptedJsonTransformer,
+} from '../../common/crypto/encrypted-column.transformer';
 
 export enum NoteType {
   PROGRESS = 'progress',
@@ -77,10 +81,10 @@ export class ClinicalNote {
   @Column()
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', transformer: EncryptedColumnTransformer })
   content: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: EncryptedJsonTransformer })
   soapContent: SOAPContent;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -111,7 +115,7 @@ export class ClinicalNote {
   @Column({ nullable: true })
   amendedFrom: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: EncryptedColumnTransformer })
   amendmentReason: string;
 
   @Column({ nullable: true })
@@ -154,14 +158,24 @@ export class CommunicationLog {
   @Column({ type: 'enum', enum: ['inbound', 'outbound'] })
   direction: 'inbound' | 'outbound';
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: EncryptedColumnTransformer })
   summary: string;
 
   @Column({ default: 0 })
   durationMinutes: number;
 
-  @Column({ type: 'enum', enum: ['completed', 'missed', 'voicemail', 'no_answer'], default: 'completed' })
+  @Column({
+    type: 'enum',
+    enum: ['completed', 'missed', 'voicemail', 'no_answer'],
+    default: 'completed',
+  })
   outcome: 'completed' | 'missed' | 'voicemail' | 'no_answer';
+
+  @Column({ default: false })
+  interactiveFlag: boolean;
+
+  @Column('uuid', { nullable: true })
+  timeEntryId: string;
 
   @Column({ nullable: true })
   relatedNoteId: string;

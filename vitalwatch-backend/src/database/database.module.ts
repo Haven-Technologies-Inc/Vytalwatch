@@ -1,22 +1,25 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5435', 10),
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_DATABASE || 'vitalwatch',
-      entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-      synchronize: true,
-      logging: true,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) => ({
+        type: 'postgres',
+        host: cfg.get('database.host'),
+        port: cfg.get('database.port'),
+        username: cfg.get('database.username'),
+        password: cfg.get('database.password'),
+        database: cfg.get('database.database'),
+        entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        synchronize: cfg.get('app.env') !== 'production',
+        migrationsRun: cfg.get('app.env') === 'production',
+        logging: cfg.get('database.logging'),
+      }),
     }),
   ],
 })

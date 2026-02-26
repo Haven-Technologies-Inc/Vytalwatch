@@ -55,6 +55,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
   ],
   provider: [
     { name: "Dashboard", href: "/provider/dashboard", icon: LayoutDashboard },
+    { name: "RPM Monitoring", href: "/provider/rpm", icon: Activity },
     { name: "Alerts", href: "/provider/alerts", icon: AlertTriangle, badge: 12 },
     { name: "Patients", href: "/provider/patients", icon: Users },
     { name: "Devices", href: "/provider/devices", icon: Smartphone },

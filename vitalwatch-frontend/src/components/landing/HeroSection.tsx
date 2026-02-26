@@ -2,12 +2,18 @@
 import { Button } from "@/components/ui/Button";
 import { ArrowRight, Activity, Heart, Shield } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function HeroSection() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -59,11 +65,12 @@ export function HeroSection() {
     animate();
 
     return () => window.removeEventListener("resize", resize);
-  }, []);
+  }, [isMounted]);
 
   return (
     <section id="home" className="relative min-h-screen flex items-center bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 pt-20 overflow-hidden">
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-60" />
+      {isMounted && <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-60" />}
+      {!isMounted && <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem]" />}
       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
       
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-20">

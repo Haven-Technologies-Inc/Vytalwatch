@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { integrationsApi } from '@/services/api';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/hooks/useToast';
@@ -37,57 +38,67 @@ const categories = ['All', 'Payments', 'Communications', 'AI/ML', 'Devices', 'Au
 
 export default function AdminIntegrationsPage() {
   const { toast } = useToast();
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
 
+  const fetchIntegrations = useCallback(async () => {
+    try {
+      const response = await integrationsApi.list();
+      setIntegrations(response.data.data || response.data || []);
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load integrations', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchIntegrations();
+  }, [fetchIntegrations]);
+
   const handleSyncAll = async () => {
     setSyncing(true);
-    // Simulate sync
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIntegrations((prev) =>
-      prev.map((i) =>
-        i.status === 'connected'
-          ? { ...i, lastSync: new Date().toISOString() }
-          : i
-      )
-    );
-    setSyncing(false);
-    toast({ title: 'Sync complete', description: 'All integrations synced successfully', type: 'success' });
+    try {
+      await integrationsApi.syncTenoviDevices();
+      await fetchIntegrations();
+      toast({ title: 'Sync complete', description: 'All integrations synced successfully', type: 'success' });
+    } catch (error) {
+      toast({ title: 'Sync failed', description: 'Some integrations failed to sync', type: 'error' });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleConnect = async (integration: Integration) => {
     setConnecting(integration.id);
-    // Simulate connection
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIntegrations((prev) =>
-      prev.map((i) =>
-        i.id === integration.id
-          ? { ...i, status: 'connected', lastSync: new Date().toISOString() }
-          : i
-      )
-    );
-    setConnecting(null);
-    toast({ title: 'Connected', description: `${integration.name} connected successfully`, type: 'success' });
+    try {
+      await integrationsApi.enable(integration.id);
+      await fetchIntegrations();
+      toast({ title: 'Connected', description: `${integration.name} connected successfully`, type: 'success' });
+    } catch (error) {
+      toast({ title: 'Connection failed', description: `Failed to connect ${integration.name}`, type: 'error' });
+    } finally {
+      setConnecting(null);
+    }
   };
 
   const handleDisconnect = useCallback(async (integration: Integration) => {
     setConnecting(integration.id);
-    // Simulate disconnection
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIntegrations((prev) =>
-      prev.map((i) =>
-        i.id === integration.id
-          ? { ...i, status: 'disconnected', lastSync: undefined }
-          : i
-      )
-    );
-    setConnecting(null);
-    toast({ title: 'Disconnected', description: `${integration.name} has been disconnected`, type: 'success' });
-  }, [toast]);
+    try {
+      await integrationsApi.disable(integration.id);
+      await fetchIntegrations();
+      toast({ title: 'Disconnected', description: `${integration.name} has been disconnected`, type: 'success' });
+    } catch (error) {
+      toast({ title: 'Error', description: `Failed to disconnect ${integration.name}`, type: 'error' });
+    } finally {
+      setConnecting(null);
+    }
+  }, [toast, fetchIntegrations]);
 
   const handleSaveConfig = async () => {
     if (!selectedIntegration) return;

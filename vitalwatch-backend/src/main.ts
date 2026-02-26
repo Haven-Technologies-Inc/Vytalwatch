@@ -19,10 +19,31 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
-  // CORS
+  // CORS - allow multiple origins in development
+  const allowedOrigins = [
+    configService.get('app.frontendUrl'),
+    'http://localhost:3001',
+    'http://localhost:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3000',
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: configService.get('app.frontendUrl') || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      // Allow any 127.0.0.1 port (for browser preview proxies)
+      if (origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(null, false);
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
   // Global validation pipe

@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { VitalReading, VitalType } from '../vitals/entities/vital-reading.entity';
 import { Alert } from '../alerts/entities/alert.entity';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
+import { ApiOperation, ApiProvider, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
 
 export interface AIAnalysisResult {
   analysis: string;
@@ -44,7 +46,10 @@ export class AIService {
   private grokClient: OpenAI; // Grok uses OpenAI-compatible API
   private readonly RPM_SYSTEM_PROMPT: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly enterpriseLogger: EnterpriseLoggingService,
+  ) {
     this.initializeClients();
     this.RPM_SYSTEM_PROMPT = this.buildSystemPrompt();
   }
@@ -245,18 +250,36 @@ export class AIService {
       throw new Error('No AI client configured');
     }
 
-    const model = this.openai
-      ? this.configService.get('openai.model') || 'gpt-4'
-      : 'grok-2';
+    const isOpenAI = !!this.openai;
+    const model = isOpenAI ? this.configService.get('openai.model') || 'gpt-4' : 'grok-2';
+    const provider = isOpenAI ? ApiProvider.OPENAI : ApiProvider.GROK;
+    const startTime = Date.now();
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.5,
-      max_tokens: 1500,
-    });
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        max_tokens: 1500,
+      });
 
-    return response.choices[0]?.message?.content || '';
+      await this.enterpriseLogger.logAI({
+        operation: ApiOperation.AI_COMPLETION, success: true,
+        endpoint: '/chat/completions', method: 'POST',
+        durationMs: Date.now() - startTime,
+        metadata: { model, provider: provider, tokensUsed: response.usage?.total_tokens },
+      }, provider);
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error: any) {
+      await this.enterpriseLogger.logAI({
+        operation: ApiOperation.AI_COMPLETION, success: false, severity: LogSeverity.ERROR,
+        endpoint: '/chat/completions', method: 'POST',
+        durationMs: Date.now() - startTime, errorMessage: error.message,
+        metadata: { model, provider: provider },
+      }, provider);
+      throw error;
+    }
   }
 
   private buildVitalAnalysisPrompt(vital: VitalReading): string {

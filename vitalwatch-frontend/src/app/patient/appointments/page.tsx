@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +20,8 @@ import {
   ChevronRight 
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { VideoCall } from '@/components/video/VideoCall';
+import { webrtcClient, CallType, IncomingCallData } from '@/lib/webrtc';
 
 interface Appointment {
   id: string;

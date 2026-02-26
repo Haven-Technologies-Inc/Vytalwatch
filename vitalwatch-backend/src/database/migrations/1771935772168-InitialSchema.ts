@@ -1,0 +1,124 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class InitialSchema1771935772168 implements MigrationInterface {
+    name = 'InitialSchema1771935772168'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TYPE "public"."time_entries_category_enum" AS ENUM('monitoring', 'outreach', 'documentation', 'care_coordination', 'education')`);
+        await queryRunner.query(`CREATE TYPE "public"."time_entries_source_enum" AS ENUM('manual', 'assisted', 'system')`);
+        await queryRunner.query(`CREATE TYPE "public"."time_entries_status_enum" AS ENUM('draft', 'confirmed', 'billed')`);
+        await queryRunner.query(`CREATE TABLE "time_entries" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "patientId" uuid NOT NULL, "userId" uuid NOT NULL, "enrollmentId" uuid, "programType" character varying, "startAt" TIMESTAMP NOT NULL, "endAt" TIMESTAMP, "minutes" integer NOT NULL DEFAULT '0', "category" "public"."time_entries_category_enum" NOT NULL, "source" "public"."time_entries_source_enum" NOT NULL DEFAULT 'manual', "taskId" uuid, "communicationLogId" uuid, "noteId" uuid, "evidenceRefs" text, "billable" boolean NOT NULL DEFAULT true, "cptCode" character varying, "status" "public"."time_entries_status_enum" NOT NULL DEFAULT 'draft', "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_b8bc5f10269ba2fe88708904aa0" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_7b179edfc496340bb52aa6f4fa" ON "time_entries" ("userId", "createdAt") `);
+        await queryRunner.query(`CREATE INDEX "IDX_fe5c4ded8ae61869d816a15465" ON "time_entries" ("patientId", "createdAt") `);
+        await queryRunner.query(`CREATE TYPE "public"."tasks_type_enum" AS ENUM('review', 'outreach', 'escalation', 'setup', 'billing_review')`);
+        await queryRunner.query(`CREATE TYPE "public"."tasks_priority_enum" AS ENUM('low', 'medium', 'high', 'urgent')`);
+        await queryRunner.query(`CREATE TYPE "public"."tasks_status_enum" AS ENUM('pending', 'in_progress', 'completed', 'cancelled')`);
+        await queryRunner.query(`CREATE TABLE "tasks" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "patientId" uuid NOT NULL, "alertId" uuid, "enrollmentId" uuid, "type" "public"."tasks_type_enum" NOT NULL, "priority" "public"."tasks_priority_enum" NOT NULL DEFAULT 'medium', "status" "public"."tasks_status_enum" NOT NULL DEFAULT 'pending', "title" character varying NOT NULL, "description" text, "dueAt" TIMESTAMP, "assignedToUserId" uuid, "createdBy" character varying NOT NULL, "completedAt" TIMESTAMP, "completedBy" uuid, "resolution" text, "metadata" jsonb, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_8d12ff38fcc62aaba2cab748772" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_1aa2ea5bb323043bab51bbdfbc" ON "tasks" ("assignedToUserId", "status") `);
+        await queryRunner.query(`CREATE INDEX "IDX_bdb2dc49204bc5229c8cab5e17" ON "tasks" ("patientId", "status") `);
+        await queryRunner.query(`CREATE TABLE "threshold_policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "clinicId" uuid NOT NULL, "programType" character varying NOT NULL, "version" integer NOT NULL DEFAULT '1', "isActive" boolean NOT NULL DEFAULT true, "rules" jsonb NOT NULL, "effectiveFrom" TIMESTAMP NOT NULL, "effectiveTo" TIMESTAMP, "createdBy" uuid NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_3680e23497ba63477f05b2dbe6b" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_c6084d968cb7fc1b4c3e7aaf86" ON "threshold_policies" ("isActive") `);
+        await queryRunner.query(`CREATE INDEX "IDX_8541053809c82c7fff17751f38" ON "threshold_policies" ("clinicId", "programType") `);
+        await queryRunner.query(`CREATE TYPE "public"."enrollments_programtype_enum" AS ENUM('BP', 'GLUCOSE')`);
+        await queryRunner.query(`CREATE TYPE "public"."enrollments_status_enum" AS ENUM('active', 'paused', 'completed', 'cancelled')`);
+        await queryRunner.query(`CREATE TABLE "enrollments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "patientId" uuid NOT NULL, "clinicId" uuid NOT NULL, "programType" "public"."enrollments_programtype_enum" NOT NULL, "startDate" date NOT NULL, "endDate" date, "status" "public"."enrollments_status_enum" NOT NULL DEFAULT 'active', "orderingProviderId" uuid NOT NULL, "supervisingProviderId" uuid, "currentBillingPeriodStart" date NOT NULL, "currentBillingPeriodEnd" date NOT NULL, "setupCompleted" boolean NOT NULL DEFAULT false, "setupCompletedAt" TIMESTAMP, "setupNoteId" uuid, "deviceId" uuid, "diagnosisCodes" text, "metadata" jsonb, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_7c0f752f9fb68bf6ed7367ab00f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_850ae0fc626d9b1c6aa28cae24" ON "enrollments" ("clinicId", "status") `);
+        await queryRunner.query(`CREATE INDEX "IDX_172a52997ee7059344faa6c1f7" ON "enrollments" ("patientId", "programType") `);
+        await queryRunner.query(`CREATE TYPE "public"."claims_status_enum" AS ENUM('draft', 'ready', 'submitted', 'paid', 'denied', 'void')`);
+        await queryRunner.query(`CREATE TABLE "claims" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "patientId" uuid NOT NULL, "enrollmentId" uuid NOT NULL, "periodStart" date NOT NULL, "periodEnd" date NOT NULL, "programType" character varying NOT NULL, "codes" jsonb NOT NULL, "status" "public"."claims_status_enum" NOT NULL DEFAULT 'draft', "readinessChecks" jsonb NOT NULL, "supportingBundleId" uuid, "supportingBundleHash" character varying, "submittedAt" TIMESTAMP, "paidAt" TIMESTAMP, "deniedAt" TIMESTAMP, "denialReason" text, "amount" numeric(10,2), "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_96c91970c0dcb2f69fdccd0a698" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_f019aca30a997d89b0b76031c7" ON "claims" ("enrollmentId") `);
+        await queryRunner.query(`CREATE INDEX "IDX_3feefa4a032507a422e140b606" ON "claims" ("patientId", "status") `);
+        await queryRunner.query(`CREATE TYPE "public"."ai_drafts_drafttype_enum" AS ENUM('monthly_note', 'call_script', 'risk_summary', 'claim_justification', 'triage_summary')`);
+        await queryRunner.query(`CREATE TYPE "public"."ai_drafts_status_enum" AS ENUM('draft', 'reviewed', 'accepted', 'discarded')`);
+        await queryRunner.query(`CREATE TABLE "ai_drafts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "patientId" uuid NOT NULL, "enrollmentId" uuid, "programType" character varying, "draftType" "public"."ai_drafts_drafttype_enum" NOT NULL, "promptVersion" character varying NOT NULL, "modelVersion" character varying NOT NULL, "inputRefs" jsonb, "outputText" text NOT NULL, "status" "public"."ai_drafts_status_enum" NOT NULL DEFAULT 'draft', "reviewedByUserId" uuid, "reviewedAt" TIMESTAMP, "reviewNotes" text, "usedInNoteId" uuid, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_a83622f0d6fd52872e9585de51f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_ac9f1bb6114dcb51d6d1f05620" ON "ai_drafts" ("status") `);
+        await queryRunner.query(`CREATE INDEX "IDX_6046218387bd1cabd8c00e7f3d" ON "ai_drafts" ("patientId", "draftType") `);
+        await queryRunner.query(`ALTER TABLE "vital_readings" ADD "timestampDevice" TIMESTAMP`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" ADD "timestampReceived" TIMESTAMP`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" ADD "isValid" boolean NOT NULL DEFAULT true`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" ADD "isOutlier" boolean NOT NULL DEFAULT false`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" ADD "qualityScore" integer`);
+        await queryRunner.query(`ALTER TABLE "users" ADD "licenseType" character varying`);
+        await queryRunner.query(`ALTER TABLE "users" ADD "licenseNumber" character varying`);
+        await queryRunner.query(`ALTER TABLE "users" ADD "credentialingStatus" character varying`);
+        await queryRunner.query(`ALTER TABLE "communication_logs" ADD "interactiveFlag" boolean NOT NULL DEFAULT false`);
+        await queryRunner.query(`ALTER TABLE "communication_logs" ADD "timeEntryId" uuid`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" ADD "actorType" character varying`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" ADD "beforeHash" character varying`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" ADD "afterHash" character varying`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" ADD "prevAuditHash" character varying`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" ADD "auditHash" character varying`);
+        await queryRunner.query(`ALTER TYPE "public"."users_role_enum" RENAME TO "users_role_enum_old"`);
+        await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('patient', 'provider', 'nurse', 'clinical_staff', 'billing_staff', 'admin', 'superadmin', 'compliance_auditor')`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" DROP DEFAULT`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" TYPE "public"."users_role_enum" USING "role"::"text"::"public"."users_role_enum"`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'patient'`);
+        await queryRunner.query(`DROP TYPE "public"."users_role_enum_old"`);
+        await queryRunner.query(`ALTER TYPE "public"."invite_codes_allowedrole_enum" RENAME TO "invite_codes_allowedrole_enum_old"`);
+        await queryRunner.query(`CREATE TYPE "public"."invite_codes_allowedrole_enum" AS ENUM('patient', 'provider', 'nurse', 'clinical_staff', 'billing_staff', 'admin', 'superadmin', 'compliance_auditor')`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" DROP DEFAULT`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" TYPE "public"."invite_codes_allowedrole_enum" USING "allowedRole"::"text"::"public"."invite_codes_allowedrole_enum"`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" SET DEFAULT 'provider'`);
+        await queryRunner.query(`DROP TYPE "public"."invite_codes_allowedrole_enum_old"`);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TYPE "public"."invite_codes_allowedrole_enum_old" AS ENUM('patient', 'provider', 'admin', 'superadmin')`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" DROP DEFAULT`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" TYPE "public"."invite_codes_allowedrole_enum_old" USING "allowedRole"::"text"::"public"."invite_codes_allowedrole_enum_old"`);
+        await queryRunner.query(`ALTER TABLE "invite_codes" ALTER COLUMN "allowedRole" SET DEFAULT 'provider'`);
+        await queryRunner.query(`DROP TYPE "public"."invite_codes_allowedrole_enum"`);
+        await queryRunner.query(`ALTER TYPE "public"."invite_codes_allowedrole_enum_old" RENAME TO "invite_codes_allowedrole_enum"`);
+        await queryRunner.query(`CREATE TYPE "public"."users_role_enum_old" AS ENUM('patient', 'provider', 'admin', 'superadmin')`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" DROP DEFAULT`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" TYPE "public"."users_role_enum_old" USING "role"::"text"::"public"."users_role_enum_old"`);
+        await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'patient'`);
+        await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+        await queryRunner.query(`ALTER TYPE "public"."users_role_enum_old" RENAME TO "users_role_enum"`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" DROP COLUMN "auditHash"`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" DROP COLUMN "prevAuditHash"`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" DROP COLUMN "afterHash"`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" DROP COLUMN "beforeHash"`);
+        await queryRunner.query(`ALTER TABLE "audit_logs" DROP COLUMN "actorType"`);
+        await queryRunner.query(`ALTER TABLE "communication_logs" DROP COLUMN "timeEntryId"`);
+        await queryRunner.query(`ALTER TABLE "communication_logs" DROP COLUMN "interactiveFlag"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "credentialingStatus"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "licenseNumber"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "licenseType"`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" DROP COLUMN "qualityScore"`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" DROP COLUMN "isOutlier"`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" DROP COLUMN "isValid"`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" DROP COLUMN "timestampReceived"`);
+        await queryRunner.query(`ALTER TABLE "vital_readings" DROP COLUMN "timestampDevice"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_6046218387bd1cabd8c00e7f3d"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_ac9f1bb6114dcb51d6d1f05620"`);
+        await queryRunner.query(`DROP TABLE "ai_drafts"`);
+        await queryRunner.query(`DROP TYPE "public"."ai_drafts_status_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."ai_drafts_drafttype_enum"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_3feefa4a032507a422e140b606"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_f019aca30a997d89b0b76031c7"`);
+        await queryRunner.query(`DROP TABLE "claims"`);
+        await queryRunner.query(`DROP TYPE "public"."claims_status_enum"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_172a52997ee7059344faa6c1f7"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_850ae0fc626d9b1c6aa28cae24"`);
+        await queryRunner.query(`DROP TABLE "enrollments"`);
+        await queryRunner.query(`DROP TYPE "public"."enrollments_status_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."enrollments_programtype_enum"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_8541053809c82c7fff17751f38"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_c6084d968cb7fc1b4c3e7aaf86"`);
+        await queryRunner.query(`DROP TABLE "threshold_policies"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_bdb2dc49204bc5229c8cab5e17"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_1aa2ea5bb323043bab51bbdfbc"`);
+        await queryRunner.query(`DROP TABLE "tasks"`);
+        await queryRunner.query(`DROP TYPE "public"."tasks_status_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."tasks_priority_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."tasks_type_enum"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_fe5c4ded8ae61869d816a15465"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_7b179edfc496340bb52aa6f4fa"`);
+        await queryRunner.query(`DROP TABLE "time_entries"`);
+        await queryRunner.query(`DROP TYPE "public"."time_entries_status_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."time_entries_source_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."time_entries_category_enum"`);
+    }
+
+}

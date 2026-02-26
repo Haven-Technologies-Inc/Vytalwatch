@@ -6,6 +6,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SendMailClient } from 'zeptomail';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
+import { ApiOperation, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
 
 export interface EmailOptions {
   to: string | string[];
@@ -29,7 +31,10 @@ export class EmailService {
   private readonly fromEmail: string;
   private readonly fromName: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly enterpriseLogger: EnterpriseLoggingService,
+  ) {
     const zeptoToken = this.configService.get<string>('email.zeptoToken');
     
     if (zeptoToken) {
@@ -57,24 +62,32 @@ export class EmailService {
       return { success: true, messageId: `dev_${Date.now()}` };
     }
 
+    const startTime = Date.now();
     try {
       const response = await this.client.sendMail({
-        from: {
-          address: this.fromEmail,
-          name: this.fromName,
-        },
-        to: recipients.map(email => ({
-          email_address: { address: email },
-        })),
+        from: { address: this.fromEmail, name: this.fromName },
+        to: recipients.map(email => ({ email_address: { address: email } })),
         subject: options.subject,
         htmlbody: options.html,
         textbody: options.text,
       });
 
       this.logger.log(`Email sent successfully to ${recipients.join(', ')}`);
+      await this.enterpriseLogger.logEmail({
+        operation: ApiOperation.EMAIL_SEND, success: true,
+        endpoint: 'api.zeptomail.com/sendMail', method: 'POST',
+        durationMs: Date.now() - startTime,
+        metadata: { recipientCount: recipients.length, subject: options.subject, messageId: response.request_id },
+      });
       return { success: true, messageId: response.request_id };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to send email: ${error.message}`, error.stack);
+      await this.enterpriseLogger.logEmail({
+        operation: ApiOperation.EMAIL_SEND, success: false, severity: LogSeverity.ERROR,
+        endpoint: 'api.zeptomail.com/sendMail', method: 'POST',
+        durationMs: Date.now() - startTime, errorMessage: error.message,
+        metadata: { recipientCount: recipients.length, subject: options.subject },
+      });
       return { success: false, error: error.message };
     }
   }

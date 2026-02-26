@@ -97,6 +97,21 @@ export class AuditLog {
   @Column({ nullable: true })
   organizationId: string;
 
+  @Column({ nullable: true })
+  actorType: string;
+
+  @Column({ nullable: true })
+  beforeHash: string;
+
+  @Column({ nullable: true })
+  afterHash: string;
+
+  @Column({ nullable: true })
+  prevAuditHash: string;
+
+  @Column({ nullable: true })
+  auditHash: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

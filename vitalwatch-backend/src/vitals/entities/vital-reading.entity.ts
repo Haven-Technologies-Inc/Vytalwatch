@@ -7,6 +7,10 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import {
+  EncryptedJsonTransformer,
+  EncryptedColumnTransformer,
+} from '../../common/crypto/encrypted-column.transformer';
 
 export enum VitalType {
   BLOOD_PRESSURE = 'blood_pressure',
@@ -49,7 +53,7 @@ export class VitalReading {
   })
   type: VitalType;
 
-  @Column('jsonb')
+  @Column({ type: 'text', transformer: EncryptedJsonTransformer })
   values: Record<string, number>;
 
   @Column({ type: 'float', nullable: true })
@@ -75,10 +79,25 @@ export class VitalReading {
   @Index()
   recordedAt: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  timestampDevice: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  timestampReceived: Date;
+
+  @Column({ default: true })
+  isValid: boolean;
+
+  @Column({ default: false })
+  isOutlier: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  qualityScore: number;
+
   @Column({ nullable: true })
   mealContext: string; // fasting, before_meal, after_meal, bedtime
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, transformer: EncryptedColumnTransformer })
   notes: string;
 
   // Device metadata
@@ -112,8 +131,8 @@ export class VitalReading {
   @Column('uuid', { nullable: true })
   alertId: string;
 
-  // Raw data from device
-  @Column('jsonb', { nullable: true })
+  // Raw data from device (PHI - encrypted)
+  @Column({ type: 'text', nullable: true, transformer: EncryptedJsonTransformer })
   rawData: Record<string, unknown>;
 
   @CreateDateColumn()

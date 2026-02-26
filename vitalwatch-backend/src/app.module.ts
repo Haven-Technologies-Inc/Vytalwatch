@@ -37,6 +37,15 @@ import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
 import { ClinicalNotesModule } from './clinical-notes/clinical-notes.module';
 import { ConsentModule } from './consent/consent.module';
+import { TasksModule } from './tasks/tasks.module';
+import { TimeTrackingModule } from './time-tracking/time-tracking.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { ThresholdPoliciesModule } from './threshold-policies/threshold-policies.module';
+import { AIDraftsModule } from './ai-drafts/ai-drafts.module';
+import { ClaimsModule } from './claims/claims.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { RPMBatchModule } from './common/rpm-batch.module';
+import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging.module';
 
 @Module({
   imports: [
@@ -85,6 +94,15 @@ import { ConsentModule } from './consent/consent.module';
     SmsModule,
     ClinicalNotesModule,
     ConsentModule,
+    TasksModule,
+    TimeTrackingModule,
+    EnrollmentsModule,
+    ThresholdPoliciesModule,
+    AIDraftsModule,
+    ClaimsModule,
+    ScheduleModule.forRoot(),
+    RPMBatchModule,
+    EnterpriseLoggingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

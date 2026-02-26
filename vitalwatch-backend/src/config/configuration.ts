@@ -122,6 +122,14 @@ export default () => ({
     webhookAuthKey: process.env.TENOVI_WEBHOOK_AUTH_KEY,
   },
 
+  // Clearinghouse (837P Claims Submission)
+  clearinghouse: {
+    provider: process.env.CLEARINGHOUSE_PROVIDER || 'availity',
+    apiUrl: process.env.CLEARINGHOUSE_API_URL,
+    apiKey: process.env.CLEARINGHOUSE_API_KEY,
+    submitterId: process.env.CLEARINGHOUSE_SUBMITTER_ID,
+  },
+
   // Alert Thresholds
   alertThresholds: {
     bloodPressure: {

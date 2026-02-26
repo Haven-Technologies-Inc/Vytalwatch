@@ -39,6 +39,8 @@ import { VitalsService } from '../vitals/vitals.service';
 import { VitalType } from '../vitals/entities/vital-reading.entity';
 import { AuditService } from '../audit/audit.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
+import { ApiOperation, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
 
 @Injectable()
 export class TenoviService {
@@ -61,6 +63,7 @@ export class TenoviService {
     private readonly auditService: AuditService,
     private readonly alertsService: AlertsService,
     private readonly configService: ConfigService,
+    private readonly enterpriseLogger: EnterpriseLoggingService,
   ) {
     this.apiUrl = this.configService.get('tenovi.apiUrl') || 'https://api2.tenovi.com';
     this.apiKey = this.configService.get('tenovi.apiKey') || '';
@@ -75,14 +78,32 @@ export class TenoviService {
       timeout: 30000,
     });
 
+    this.apiClient.interceptors.request.use((config) => {
+      (config as any).metadata = { startTime: Date.now() };
+      return config;
+    });
+
     this.apiClient.interceptors.response.use(
-      (response) => response,
-      (error: AxiosError) => {
+      async (response) => {
+        const duration = Date.now() - ((response.config as any).metadata?.startTime || Date.now());
+        await this.enterpriseLogger.logTenovi({
+          operation: ApiOperation.DEVICE_SYNC, success: true,
+          endpoint: response.config.url, method: response.config.method?.toUpperCase(),
+          responseStatus: response.status, durationMs: duration,
+          metadata: { baseURL: response.config.baseURL },
+        });
+        return response;
+      },
+      async (error: AxiosError) => {
+        const duration = Date.now() - ((error.config as any)?.metadata?.startTime || Date.now());
+        await this.enterpriseLogger.logTenovi({
+          operation: ApiOperation.DEVICE_SYNC, success: false, severity: LogSeverity.ERROR,
+          endpoint: error.config?.url, method: error.config?.method?.toUpperCase(),
+          responseStatus: error.response?.status, durationMs: duration,
+          errorMessage: error.message, errorCode: (error.response?.data as any)?.code,
+        });
         this.logger.error(`Tenovi API error: ${error.message}`, error.response?.data);
-        throw new HttpException(
-          error.response?.data || 'Tenovi API error',
-          error.response?.status || 500,
-        );
+        throw new HttpException(error.response?.data || 'Tenovi API error', error.response?.status || 500);
       },
     );
   }

@@ -6,6 +6,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { initializeEncryptionKey } from './encrypted-column.transformer';
 
 @Injectable()
 export class EncryptionService implements OnModuleInit {
@@ -32,6 +33,8 @@ export class EncryptionService implements OnModuleInit {
       32,
       'sha256',
     );
+    // Initialize the column transformer encryption key
+    initializeEncryptionKey(key);
   }
 
   /**
