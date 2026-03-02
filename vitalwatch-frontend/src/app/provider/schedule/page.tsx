@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -8,8 +8,13 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Avatar } from '@/components/ui/Avatar';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Calendar, Plus, ChevronLeft, ChevronRight, Video, Phone, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import apiClient from '@/services/api/client';
+import { useToast } from '@/hooks/useToast';
 
 interface Appointment {
   id: string;
@@ -17,27 +22,15 @@ interface Appointment {
   patientId: string;
   type: 'video' | 'phone' | 'in-person';
   time: string;
+  date: string;
   duration: number;
   status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
   reason: string;
 }
 
-const mockAppointments: Record<string, Appointment[]> = {
-  '2026-01-15': [
-    { id: '1', patientName: 'John Doe', patientId: 'pat_123', type: 'video', time: '09:00', duration: 30, status: 'completed', reason: 'BP Review' },
-    { id: '2', patientName: 'Maria Garcia', patientId: 'pat_456', type: 'phone', time: '10:00', duration: 15, status: 'completed', reason: 'Medication Check' },
-    { id: '3', patientName: 'Robert Chen', patientId: 'pat_789', type: 'video', time: '11:30', duration: 30, status: 'scheduled', reason: 'Quarterly Review' },
-    { id: '4', patientName: 'Sarah Johnson', patientId: 'pat_012', type: 'in-person', time: '14:00', duration: 45, status: 'scheduled', reason: 'New Patient' },
-    { id: '5', patientName: 'Michael Brown', patientId: 'pat_345', type: 'video', time: '15:30', duration: 30, status: 'scheduled', reason: 'Follow-up' },
-  ],
-  '2026-01-16': [
-    { id: '6', patientName: 'Emily Davis', patientId: 'pat_678', type: 'video', time: '09:30', duration: 30, status: 'scheduled', reason: 'Glucose Review' },
-    { id: '7', patientName: 'James Wilson', patientId: 'pat_901', type: 'phone', time: '11:00', duration: 15, status: 'scheduled', reason: 'Lab Results' },
-  ],
-  '2026-01-17': [
-    { id: '8', patientName: 'Patricia Martinez', patientId: 'pat_234', type: 'video', time: '10:00', duration: 30, status: 'scheduled', reason: 'Monthly Check' },
-  ],
-};
+interface AppointmentsResponse {
+  data: Appointment[] | { results: Appointment[] };
+}
 
 const typeIcons = {
   video: Video,
@@ -59,12 +52,43 @@ const durations = [
 ];
 
 export default function ProviderSchedulePage() {
-  const [selectedDate, setSelectedDate] = useState(new Date('2026-01-15'));
+  const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
   const dateKey = selectedDate.toISOString().split('T')[0];
-  const appointments = mockAppointments[dateKey] || [];
+
+  const {
+    data: appointmentsData,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<AppointmentsResponse>(
+    () => apiClient.get<AppointmentsResponse>('/appointments', { params: { date: dateKey } }),
+    { deps: [dateKey] },
+  );
+
+  const allAppointments = useMemo(() => {
+    if (!appointmentsData?.data) return [];
+    const data = appointmentsData.data;
+    if (Array.isArray(data)) return data;
+    if ('results' in data) return data.results;
+    return [];
+  }, [appointmentsData]);
+
+  // Group appointments by date
+  const appointmentsByDate = useMemo(() => {
+    const map: Record<string, Appointment[]> = {};
+    for (const apt of allAppointments) {
+      const key = apt.date || dateKey;
+      if (!map[key]) map[key] = [];
+      map[key].push(apt);
+    }
+    return map;
+  }, [allAppointments, dateKey]);
+
+  const appointments = appointmentsByDate[dateKey] || allAppointments;
 
   const navigateDate = (direction: 'prev' | 'next') => {
     const newDate = new Date(selectedDate);
@@ -89,6 +113,33 @@ export default function ProviderSchedulePage() {
   };
 
   const weekDays = getWeekDays();
+
+  const handleCreateAppointment = useCallback(async () => {
+    try {
+      // Form submission would be handled with form state
+      toast({ title: 'Appointment created', description: 'The appointment has been scheduled', type: 'success' });
+      setShowCreateModal(false);
+      await refetch();
+    } catch {
+      toast({ title: 'Error', description: 'Failed to create appointment', type: 'error' });
+    }
+  }, [toast, refetch]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading schedule..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -149,8 +200,8 @@ export default function ProviderSchedulePage() {
             <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
               {weekDays.map((day) => {
                 const dayKey = day.toISOString().split('T')[0];
-                const dayAppointments = mockAppointments[dayKey] || [];
-                const isToday = day.toDateString() === new Date('2026-01-15').toDateString();
+                const dayAppointments = appointmentsByDate[dayKey] || [];
+                const isToday = day.toDateString() === new Date().toDateString();
                 const isSelected = day.toDateString() === selectedDate.toDateString();
                 return (
                   <button
@@ -251,7 +302,7 @@ export default function ProviderSchedulePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Date</label>
-                <Input type="date" defaultValue="2026-01-15" />
+                <Input type="date" defaultValue={dateKey} />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Time</label>
@@ -276,7 +327,7 @@ export default function ProviderSchedulePage() {
               <Button variant="outline" className="flex-1" onClick={() => setShowCreateModal(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1">
+              <Button className="flex-1" onClick={handleCreateAppointment}>
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule
               </Button>

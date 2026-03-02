@@ -4,6 +4,10 @@ import { useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { TrendChart } from '@/components/dashboard/Charts';
 import { Button } from '@/components/ui/Button';
@@ -22,36 +26,73 @@ interface AIModel {
   predictions: number;
 }
 
-const mockModels: AIModel[] = [
-  { id: '1', name: 'Risk Prediction Model', type: 'Classification', version: 'v2.3.1', status: 'active', accuracy: 94.2, lastTrained: '2026-01-10', predictions: 12450 },
-  { id: '2', name: 'Vital Anomaly Detection', type: 'Anomaly Detection', version: 'v1.8.0', status: 'active', accuracy: 91.7, lastTrained: '2026-01-08', predictions: 45230 },
-  { id: '3', name: 'Medication Adherence Predictor', type: 'Regression', version: 'v1.2.0', status: 'training', accuracy: 87.5, lastTrained: '2026-01-12', predictions: 8920 },
-  { id: '4', name: 'Readmission Risk Model', type: 'Classification', version: 'v2.0.0', status: 'active', accuracy: 89.3, lastTrained: '2026-01-05', predictions: 3210 },
-];
+interface PerformanceDataPoint {
+  name: string;
+  value: number;
+}
 
-const performanceData = [
-  { name: 'Oct', value: 88 },
-  { name: 'Nov', value: 90 },
-  { name: 'Dec', value: 91 },
-  { name: 'Jan', value: 93 },
-];
+interface ModelsResponse {
+  data: AIModel[];
+}
+
+interface PerformanceResponse {
+  data: {
+    trend: PerformanceDataPoint[];
+    predictionsToday: number;
+    avgAccuracy: number;
+    insightsThisWeek: number;
+  };
+}
 
 export default function AdminAIPage() {
   const { toast } = useToast();
-  const [models, setModels] = useState<AIModel[]>(mockModels);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isRetraining, setIsRetraining] = useState(false);
 
+  const {
+    data: modelsRes,
+    isLoading: modelsLoading,
+    error: modelsError,
+    refetch: refetchModels,
+  } = useApiQuery<ModelsResponse>(
+    () => apiClient.get<ModelsResponse>('/ai/models'),
+  );
+
+  const {
+    data: perfRes,
+    isLoading: perfLoading,
+    error: perfError,
+    refetch: refetchPerf,
+  } = useApiQuery<PerformanceResponse>(
+    () => apiClient.get<PerformanceResponse>('/ai/performance'),
+  );
+
+  const models: AIModel[] = modelsRes?.data ?? [];
+  const performanceData: PerformanceDataPoint[] = perfRes?.data?.trend ?? [];
+  const perfData = perfRes?.data;
+
+  // Local state for toggling (optimistic UI)
+  const [localModels, setLocalModels] = useState<AIModel[] | null>(null);
+  const displayModels = localModels ?? models;
+
+  // Sync localModels when API data loads
+  if (modelsRes?.data && !localModels) {
+    // Will be set on next render via the fallback above
+  }
+
   const handleRetrainAll = useCallback(async () => {
     setIsRetraining(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await apiClient.post('/ai/retrain');
       toast({ title: 'Retraining started', description: 'All models queued for retraining', type: 'success' });
+      refetchModels();
+    } catch {
+      toast({ title: 'Retrain failed', description: 'Could not start retraining', type: 'error' });
     } finally {
       setIsRetraining(false);
     }
-  }, [toast]);
+  }, [toast, refetchModels]);
 
   const handleConfigure = useCallback(() => {
     toast({ title: 'Configure AI', description: 'Opening AI configuration...', type: 'info' });
@@ -59,18 +100,18 @@ export default function AdminAIPage() {
 
   const handleToggleModel = useCallback((model: AIModel) => {
     const newStatus = model.status === 'active' ? 'inactive' : 'active';
-    setModels(prev => prev.map(m => m.id === model.id ? { ...m, status: newStatus as AIModel['status'] } : m));
+    setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: newStatus as AIModel['status'] } : m));
     toast({ title: newStatus === 'active' ? 'Model activated' : 'Model paused', description: model.name, type: 'success' });
-  }, [toast]);
+  }, [toast, models]);
 
   const handleRetrainModel = useCallback(async (model: AIModel) => {
-    setModels(prev => prev.map(m => m.id === model.id ? { ...m, status: 'training' as AIModel['status'] } : m));
+    setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: 'training' as AIModel['status'] } : m));
     toast({ title: 'Retraining started', description: model.name, type: 'info' });
     setTimeout(() => {
-      setModels(prev => prev.map(m => m.id === model.id ? { ...m, status: 'active', lastTrained: new Date().toISOString().split('T')[0] } : m));
+      setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: 'active', lastTrained: new Date().toISOString().split('T')[0] } : m));
       toast({ title: 'Retraining complete', description: model.name, type: 'success' });
     }, 3000);
-  }, [toast]);
+  }, [toast, models]);
 
   const columns: Column<AIModel>[] = [
     {
@@ -111,6 +152,25 @@ export default function AdminAIPage() {
     { key: 'lastTrained', header: 'Last Trained', render: (d: string) => new Date(d).toLocaleDateString() },
   ];
 
+  const isLoading = modelsLoading || perfLoading;
+  const error = modelsError || perfError;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading AI models..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={() => { refetchModels(); refetchPerf(); }} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -134,27 +194,27 @@ export default function AdminAIPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             title="Active Models"
-            value="4"
+            value={displayModels.filter(m => m.status === 'active').length.toString()}
             subtitle="All operational"
             icon={<Brain className="h-5 w-5" />}
           />
           <MetricCard
             title="Predictions Today"
-            value="2,847"
+            value={(perfData?.predictionsToday ?? 0).toLocaleString()}
             subtitle="+12% from yesterday"
             icon={<Zap className="h-5 w-5" />}
             trend={{ value: 12, isPositive: true }}
           />
           <MetricCard
             title="Avg Accuracy"
-            value="90.7%"
+            value={`${perfData?.avgAccuracy ?? 0}%`}
             subtitle="Across all models"
             icon={<TrendingUp className="h-5 w-5" />}
             className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
           />
           <MetricCard
             title="Insights Generated"
-            value="156"
+            value={(perfData?.insightsThisWeek ?? 0).toString()}
             subtitle="This week"
             icon={<Activity className="h-5 w-5" />}
           />
@@ -167,7 +227,7 @@ export default function AdminAIPage() {
             </div>
             <div className="p-4">
               <DataTable
-                data={models}
+                data={displayModels}
                 columns={columns}
                 onRowClick={(m) => { setSelectedModel(m); setShowModal(true); }}
                 actions={[

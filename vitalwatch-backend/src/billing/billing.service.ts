@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Subscription, SubscriptionStatus, PlanType } from './entities/subscription.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { BillingRecord, CPTCode, BillingStatus } from './entities/billing-record.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 
 export interface CreateSubscriptionDto {
@@ -74,6 +75,7 @@ export class BillingService {
     private readonly billingRecordRepository: Repository<BillingRecord>,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly dataSource: DataSource,
   ) {
     this.initializeStripe();
     this.initializePriceIds();
@@ -226,15 +228,37 @@ export class BillingService {
 
     const amount = this.CPT_RATES[dto.cptCode];
 
-    const record = this.billingRecordRepository.create({
-      ...dto,
-      billingPeriodStart,
-      billingPeriodEnd,
-      amount,
-      status: BillingStatus.PENDING,
-    });
+    // Wrap billing record creation + audit log in a single transaction
+    return this.dataSource.transaction(async (manager) => {
+      const billingRepo = manager.getRepository(BillingRecord);
+      const record = billingRepo.create({
+        ...dto,
+        billingPeriodStart,
+        billingPeriodEnd,
+        amount,
+        status: BillingStatus.PENDING,
+      });
 
-    return this.billingRecordRepository.save(record);
+      const savedRecord = await billingRepo.save(record);
+
+      // Audit log within same transaction
+      const auditRepo = manager.getRepository(AuditLog);
+      const auditEntry = auditRepo.create({
+        action: 'BILLING_RECORD_CREATED',
+        userId: dto.providerId,
+        resourceType: 'billing_record',
+        resourceId: savedRecord.id,
+        details: {
+          patientId: dto.patientId,
+          cptCode: dto.cptCode,
+          amount,
+          serviceDate: dto.serviceDate,
+        },
+      });
+      await auditRepo.save(auditEntry);
+
+      return savedRecord;
+    });
   }
 
   private async validateCPTCodeEligibility(dto: CreateBillingRecordDto): Promise<void> {

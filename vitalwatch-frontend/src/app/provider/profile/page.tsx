@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi, usersApi } from '@/services/api';
+import { useApiQuery } from '@/hooks/useApiQuery';
 import { User, Mail, Phone, Building2, Stethoscope, Edit2, Save, X, RefreshCw, Award, Calendar, Users } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
@@ -28,47 +32,128 @@ interface ProviderProfile {
   bio: string;
 }
 
+interface MeApiResponse {
+  data: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    title?: string;
+    specialty?: string;
+    npi?: string;
+    licenseNumber?: string;
+    organization?: { name: string };
+    organizationName?: string;
+    department?: string;
+    credentials?: string[];
+    yearsOfExperience?: number;
+    activePatients?: number;
+    bio?: string;
+  };
+}
+
 export default function ProviderProfilePage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  
+
+  const {
+    data: meData,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<MeApiResponse>(
+    () => authApi.getCurrentUser() as unknown as Promise<MeApiResponse>,
+  );
+
   const [profile, setProfile] = useState<ProviderProfile>({
-    firstName: user?.firstName || 'Sarah',
-    lastName: user?.lastName || 'Chen',
-    email: user?.email || 'provider@demo.com',
-    phone: '(555) 234-5678',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
     title: 'Dr.',
-    specialty: 'Internal Medicine',
-    npi: '1234567890',
-    licenseNumber: 'MD-2024-12345',
-    organization: 'VytalWatch Health Systems',
-    department: 'Primary Care',
-    credentials: ['MD', 'FACP', 'Board Certified'],
-    yearsOfExperience: 15,
-    activePatients: 127,
-    bio: 'Dr. Chen specializes in chronic disease management and preventive care with a focus on remote patient monitoring.',
+    specialty: '',
+    npi: '',
+    licenseNumber: '',
+    organization: '',
+    department: '',
+    credentials: [],
+    yearsOfExperience: 0,
+    activePatients: 0,
+    bio: '',
   });
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<ProviderProfile>(profile);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Populate profile from API response
+  useEffect(() => {
+    if (meData?.data) {
+      const d = meData.data;
+      const newProfile: ProviderProfile = {
+        firstName: d.firstName || user?.firstName || '',
+        lastName: d.lastName || user?.lastName || '',
+        email: d.email || user?.email || '',
+        phone: d.phone || '',
+        title: d.title || 'Dr.',
+        specialty: d.specialty || '',
+        npi: d.npi || '',
+        licenseNumber: d.licenseNumber || '',
+        organization: d.organization?.name || d.organizationName || '',
+        department: d.department || '',
+        credentials: d.credentials || [],
+        yearsOfExperience: d.yearsOfExperience || 0,
+        activePatients: d.activePatients || 0,
+        bio: d.bio || '',
+      };
+      setProfile(newProfile);
+      setEditedProfile(newProfile);
+    }
+  }, [meData, user]);
+
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await usersApi.updateProfile({
+        firstName: editedProfile.firstName,
+        lastName: editedProfile.lastName,
+        phone: editedProfile.phone,
+        specialty: editedProfile.specialty,
+        department: editedProfile.department,
+        bio: editedProfile.bio,
+      } as Record<string, unknown> & { firstName: string; lastName: string });
       setProfile(editedProfile);
       setIsEditing(false);
+      await refetch();
       toast({ title: 'Profile saved', description: 'Your profile has been updated', type: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save profile', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [editedProfile, toast]);
+  }, [editedProfile, toast, refetch]);
 
   const handleCancel = useCallback(() => {
     setEditedProfile(profile);
     setIsEditing(false);
   }, [profile]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading profile..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

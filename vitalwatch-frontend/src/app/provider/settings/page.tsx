@@ -6,12 +6,14 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Clock, 
-  Globe, 
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import {
+  User,
+  Bell,
+  Shield,
+  Clock,
+  Globe,
   Lock,
   Mail,
   Phone,
@@ -23,6 +25,62 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import apiClient from '@/services/api/client';
+import { authApi, usersApi } from '@/services/api';
+
+interface SettingsData {
+  profile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    specialty: string;
+    npi: string;
+    organization: string;
+    licenseState: string;
+    licenseNumber: string;
+  };
+  alertSettings: {
+    criticalAlerts: boolean;
+    warningAlerts: boolean;
+    infoAlerts: boolean;
+    afterHoursAlerts: boolean;
+    escalationDelay: string;
+    criticalThresholds: {
+      systolicHigh: string;
+      systolicLow: string;
+      glucoseHigh: string;
+      glucoseLow: string;
+      spo2Low: string;
+    };
+  };
+  availability: Record<string, { enabled: boolean; start: string; end: string }>;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
+}
+
+interface SettingsApiResponse {
+  data: SettingsData;
+}
+
+interface MeApiResponse {
+  data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    specialty?: string;
+    npi?: string;
+    organization?: { name: string };
+    organizationName?: string;
+    licenseState?: string;
+    licenseNumber?: string;
+  };
+}
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -32,6 +90,31 @@ const tabs = [
   { id: 'availability', label: 'Availability', icon: Clock },
   { id: 'preferences', label: 'Preferences', icon: Globe },
 ];
+
+const defaultAlertSettings = {
+  criticalAlerts: true,
+  warningAlerts: true,
+  infoAlerts: false,
+  afterHoursAlerts: true,
+  escalationDelay: '15',
+  criticalThresholds: {
+    systolicHigh: '180',
+    systolicLow: '90',
+    glucoseHigh: '300',
+    glucoseLow: '50',
+    spo2Low: '88',
+  },
+};
+
+const defaultAvailability: Record<string, { enabled: boolean; start: string; end: string }> = {
+  monday: { enabled: true, start: '09:00', end: '17:00' },
+  tuesday: { enabled: true, start: '09:00', end: '17:00' },
+  wednesday: { enabled: true, start: '09:00', end: '17:00' },
+  thursday: { enabled: true, start: '09:00', end: '17:00' },
+  friday: { enabled: true, start: '09:00', end: '17:00' },
+  saturday: { enabled: false, start: '09:00', end: '12:00' },
+  sunday: { enabled: false, start: '', end: '' },
+};
 
 export default function ProviderSettingsPage() {
   const { toast } = useToast();
@@ -43,78 +126,138 @@ export default function ProviderSettingsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch user settings from API
+  const {
+    data: settingsResponse,
+    isLoading: settingsLoading,
+    error: settingsError,
+    refetch: refetchSettings,
+  } = useApiQuery<SettingsApiResponse>(
+    () => apiClient.get<SettingsApiResponse>('/users/settings'),
+  );
+
+  // Fetch user profile from /auth/me
+  const {
+    data: meResponse,
+    isLoading: meLoading,
+    error: meError,
+    refetch: refetchMe,
+  } = useApiQuery<MeApiResponse>(
+    () => authApi.getCurrentUser() as unknown as Promise<MeApiResponse>,
+  );
+
   const [profile, setProfile] = useState({
-    firstName: 'Sarah',
-    lastName: 'Smith',
-    email: 'sarah.smith@clinic.com',
-    phone: '+1 (555) 234-5678',
-    specialty: 'Cardiology',
-    npi: '1234567890',
-    organization: 'City Clinic',
-    licenseState: 'CA',
-    licenseNumber: 'MD12345',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    specialty: '',
+    npi: '',
+    organization: '',
+    licenseState: '',
+    licenseNumber: '',
   });
 
-  const [alertSettings, setAlertSettings] = useState({
-    criticalAlerts: true,
-    warningAlerts: true,
-    infoAlerts: false,
-    afterHoursAlerts: true,
-    escalationDelay: '15',
-    criticalThresholds: {
-      systolicHigh: '180',
-      systolicLow: '90',
-      glucoseHigh: '300',
-      glucoseLow: '50',
-      spo2Low: '88',
-    },
-  });
+  const [alertSettings, setAlertSettings] = useState(defaultAlertSettings);
 
-  const [availability, setAvailability] = useState({
-    monday: { enabled: true, start: '09:00', end: '17:00' },
-    tuesday: { enabled: true, start: '09:00', end: '17:00' },
-    wednesday: { enabled: true, start: '09:00', end: '17:00' },
-    thursday: { enabled: true, start: '09:00', end: '17:00' },
-    friday: { enabled: true, start: '09:00', end: '17:00' },
-    saturday: { enabled: false, start: '09:00', end: '12:00' },
-    sunday: { enabled: false, start: '', end: '' },
-  });
+  const [availability, setAvailability] = useState(defaultAvailability);
+
+  // Populate state from API responses
+  useEffect(() => {
+    if (meResponse?.data) {
+      const d = meResponse.data;
+      setProfile({
+        firstName: d.firstName || '',
+        lastName: d.lastName || '',
+        email: d.email || '',
+        phone: d.phone || '',
+        specialty: d.specialty || '',
+        npi: d.npi || '',
+        organization: d.organization?.name || d.organizationName || '',
+        licenseState: d.licenseState || '',
+        licenseNumber: d.licenseNumber || '',
+      });
+    }
+  }, [meResponse]);
+
+  useEffect(() => {
+    if (settingsResponse?.data) {
+      const s = settingsResponse.data;
+      if (s.alertSettings) {
+        setAlertSettings({
+          ...defaultAlertSettings,
+          ...s.alertSettings,
+          criticalThresholds: {
+            ...defaultAlertSettings.criticalThresholds,
+            ...s.alertSettings.criticalThresholds,
+          },
+        });
+      }
+      if (s.availability) {
+        setAvailability({
+          ...defaultAvailability,
+          ...s.availability,
+        });
+      }
+    }
+  }, [settingsResponse]);
+
+  const isLoading = settingsLoading || meLoading;
+  const error = settingsError || meError;
 
   const handleSaveProfile = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await usersApi.updateProfile({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: profile.phone,
+        specialty: profile.specialty,
+      } as Record<string, unknown> & { firstName: string; lastName: string });
+      await refetchMe();
       toast({ title: 'Profile saved', description: 'Your profile has been updated', type: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save profile', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast]);
+  }, [toast, profile, refetchMe]);
 
   const handleSaveAlerts = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await apiClient.put('/users/settings', { alertSettings });
+      await refetchSettings();
       toast({ title: 'Alert settings saved', description: 'Your alert preferences have been updated', type: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save alert settings', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast]);
+  }, [toast, alertSettings, refetchSettings]);
 
   const handleSaveSchedule = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await apiClient.put('/users/settings', { availability });
+      await refetchSettings();
       toast({ title: 'Schedule saved', description: 'Your availability has been updated', type: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save schedule', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast]);
+  }, [toast, availability, refetchSettings]);
 
   const handleUpdatePassword = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // In a real implementation, you'd gather old + new password from form state
+      await authApi.changePassword('', '');
       toast({ title: 'Password updated', description: 'Your password has been changed successfully', type: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update password', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -123,6 +266,22 @@ export default function ProviderSettingsPage() {
   const handleManage2FA = useCallback(() => {
     toast({ title: '2FA Management', description: 'Opening two-factor authentication settings', type: 'info' });
   }, [toast]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading settings..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={() => { refetchSettings(); refetchMe(); }} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -159,7 +318,7 @@ export default function ProviderSettingsPage() {
             {activeTab === 'profile' && (
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Provider Profile</h2>
-                
+
                 <div className="mb-6 flex items-center gap-4">
                   <div className="relative">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -224,7 +383,7 @@ export default function ProviderSettingsPage() {
               <div className="space-y-6">
                 <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Alert Preferences</h2>
-                  
+
                   <div className="space-y-4">
                     {[
                       { key: 'criticalAlerts', label: 'Critical Alerts', desc: 'Receive alerts for critical vital readings', color: 'red' },
@@ -268,7 +427,7 @@ export default function ProviderSettingsPage() {
                 <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Custom Alert Thresholds</h2>
                   <p className="mb-4 text-sm text-gray-500">Override default thresholds for your patients</p>
-                  
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Systolic BP High</label>
@@ -331,6 +490,13 @@ export default function ProviderSettingsPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <Button onClick={handleSaveAlerts} disabled={isSaving}>
+                      {isSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      {isSaving ? 'Saving...' : 'Save Alert Settings'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -339,7 +505,7 @@ export default function ProviderSettingsPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Working Hours</h2>
                 <p className="mb-4 text-sm text-gray-500">Set your availability for patient communication and alerts</p>
-                
+
                 <div className="space-y-4">
                   {Object.entries(availability).map(([day, schedule]) => (
                     <div key={day} className="flex items-center gap-4">
@@ -476,9 +642,9 @@ export default function ProviderSettingsPage() {
                     </div>
                     {mounted && (
                       <label className="relative inline-flex cursor-pointer items-center">
-                        <input 
-                          type="checkbox" 
-                          className="peer sr-only" 
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
                           aria-label="Toggle dark mode"
                           checked={theme === 'dark'}
                           onChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

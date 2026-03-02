@@ -1,13 +1,20 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Pill, Clock, CheckCircle2, Bell, Plus, Calendar, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { useAuthStore } from '@/stores/authStore';
+import { patientsApi } from '@/services/api';
+import type { ApiResponse, Medication as ApiMedication } from '@/types';
 
 interface Medication {
   id: string;
@@ -21,62 +28,67 @@ interface Medication {
   takenToday: boolean[];
 }
 
-const mockMedications: Medication[] = [
-  {
-    id: '1',
-    name: 'Lisinopril',
-    dosage: '10mg',
-    frequency: 'Once daily',
-    schedule: ['8:00 AM'],
-    prescribedBy: 'Dr. Smith',
-    refillDate: '2026-02-15',
-    instructions: 'Take with food',
-    takenToday: [true],
-  },
-  {
-    id: '2',
-    name: 'Metformin',
-    dosage: '500mg',
-    frequency: 'Twice daily',
-    schedule: ['8:00 AM', '8:00 PM'],
-    prescribedBy: 'Dr. Johnson',
-    refillDate: '2026-02-01',
-    instructions: 'Take with meals',
-    takenToday: [true, false],
-  },
-  {
-    id: '3',
-    name: 'Aspirin',
-    dosage: '81mg',
-    frequency: 'Once daily',
-    schedule: ['9:00 AM'],
-    prescribedBy: 'Dr. Smith',
-    refillDate: '2026-03-01',
-    takenToday: [false],
-  },
-];
+function mapApiMedication(med: ApiMedication): Medication {
+  const scheduleItems = med.schedule || [];
+  return {
+    id: med.id,
+    name: med.name,
+    dosage: med.dosage,
+    frequency: med.frequency,
+    schedule: scheduleItems.map((s) => s.time),
+    prescribedBy: med.prescribedBy || 'Provider',
+    refillDate: med.refillDate ? new Date(med.refillDate).toISOString().split('T')[0] : '',
+    instructions: med.notes,
+    takenToday: scheduleItems.map((s) => s.taken ?? false),
+  };
+}
 
 export default function PatientMedicationsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [medications, setMedications] = useState<Medication[]>(mockMedications);
+  const { user } = useAuthStore();
+  const patientId = user?.id || '';
+
+  // Fetch medications from API
+  const {
+    data: medicationsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiResponse<ApiMedication[]>>(
+    () => patientsApi.getMedications(patientId),
+    { enabled: !!patientId }
+  );
+
+  // Local taken state overrides
+  const [takenOverrides, setTakenOverrides] = useState<Record<string, boolean[]>>({});
+
+  const medications = useMemo(() => {
+    const apiMeds = (medicationsResponse?.data || []).map(mapApiMedication);
+    return apiMeds.map((med) => {
+      if (takenOverrides[med.id]) {
+        return {
+          ...med,
+          takenToday: med.takenToday.map((taken, idx) =>
+            takenOverrides[med.id]?.[idx] !== undefined ? takenOverrides[med.id][idx] : taken
+          ),
+        };
+      }
+      return med;
+    });
+  }, [medicationsResponse, takenOverrides]);
+
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const handleMarkAsTaken = useCallback((medId: string, doseIndex: number, medName: string) => {
-    setMedications((prev) =>
-      prev.map((med) =>
-        med.id === medId
-          ? {
-              ...med,
-              takenToday: med.takenToday.map((taken, idx) =>
-                idx === doseIndex ? true : taken
-              ),
-            }
-          : med
-      )
-    );
+    setTakenOverrides((prev) => {
+      const existing = prev[medId] || [];
+      const updated = [...existing];
+      updated[doseIndex] = true;
+      return { ...prev, [medId]: updated };
+    });
     toast({ title: 'Medication taken', description: `${medName} marked as taken`, type: 'success' });
   }, [toast]);
 
@@ -99,13 +111,56 @@ export default function PatientMedicationsPage() {
     (sum, m) => sum + m.takenToday.filter(Boolean).length,
     0
   );
-  const adherenceRate = Math.round((takenDoses / totalDoses) * 100);
+  const adherenceRate = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
 
   const needsRefillSoon = medications.filter((m) => {
+    if (!m.refillDate) return false;
     const refillDate = new Date(m.refillDate);
     const daysUntilRefill = Math.ceil((refillDate.getTime() - Date.now()) / 86400000);
     return daysUntilRefill <= 14;
   });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading medications..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
+  if (!isLoading && medications.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Medications</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Track your medications and reminders
+              </p>
+            </div>
+            <Button onClick={() => setShowAddModal(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Medication
+            </Button>
+          </div>
+          <EmptyState
+            icon={Pill}
+            title="No medications found"
+            description="Your medications will appear here once they are added by your care team."
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -142,7 +197,7 @@ export default function PatientMedicationsPage() {
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Today's Adherence</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Today&apos;s Adherence</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{adherenceRate}%</p>
               </div>
             </div>
@@ -175,7 +230,7 @@ export default function PatientMedicationsPage() {
 
         <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Today's Schedule</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Today&apos;s Schedule</h2>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {medications.map((med) =>
@@ -197,7 +252,7 @@ export default function PatientMedicationsPage() {
                         {med.name} - {med.dosage}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {time} • {med.instructions || 'No special instructions'}
+                        {time} &bull; {med.instructions || 'No special instructions'}
                       </p>
                     </div>
                   </div>
@@ -236,14 +291,14 @@ export default function PatientMedicationsPage() {
                   <div>
                     <p className="font-medium text-gray-900 dark:text-white">{med.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {med.dosage} • {med.frequency}
+                      {med.dosage} &bull; {med.frequency}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Refill by</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {new Date(med.refillDate).toLocaleDateString()}
+                    {med.refillDate ? new Date(med.refillDate).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -275,7 +330,7 @@ export default function PatientMedicationsPage() {
                 <div>
                   <p className="text-sm text-gray-500">Refill Date</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {new Date(selectedMed.refillDate).toLocaleDateString()}
+                    {selectedMed.refillDate ? new Date(selectedMed.refillDate).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
               </div>

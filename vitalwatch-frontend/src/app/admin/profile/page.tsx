@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { useAuthStore } from '@/stores/authStore';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
 import { User, Mail, Phone, Building2, Shield, Edit2, Save, X, RefreshCw, Key, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
@@ -24,38 +28,84 @@ interface AdminProfile {
   lastLogin: string;
   accountCreated: string;
   twoFactorEnabled: boolean;
+  role?: string;
+}
+
+interface ProfileResponse {
+  data: AdminProfile;
 }
 
 export default function AdminProfilePage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  
+
+  const {
+    data: profileRes,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ProfileResponse>(
+    () => apiClient.get<ProfileResponse>('/auth/me'),
+  );
+
   const [profile, setProfile] = useState<AdminProfile>({
-    firstName: user?.firstName || 'Michael',
-    lastName: user?.lastName || 'Torres',
-    email: user?.email || 'admin@demo.com',
-    phone: '(555) 123-4567',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: '',
     title: 'System Administrator',
     department: 'IT Administration',
-    employeeId: 'EMP-2024-0001',
-    organization: 'VytalWatch Health Systems',
-    permissions: ['User Management', 'System Settings', 'Audit Logs', 'API Keys', 'Organization Management'],
+    employeeId: '',
+    organization: '',
+    permissions: [],
     lastLogin: new Date().toISOString(),
-    accountCreated: '2024-01-15T00:00:00Z',
-    twoFactorEnabled: true,
+    accountCreated: '',
+    twoFactorEnabled: false,
   });
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<AdminProfile>(profile);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Sync API data to local state
+  useEffect(() => {
+    if (profileRes?.data) {
+      const p = profileRes.data;
+      const merged: AdminProfile = {
+        firstName: p.firstName || user?.firstName || '',
+        lastName: p.lastName || user?.lastName || '',
+        email: p.email || user?.email || '',
+        phone: p.phone || '',
+        title: p.title || 'System Administrator',
+        department: p.department || 'IT Administration',
+        employeeId: p.employeeId || '',
+        organization: p.organization || '',
+        permissions: p.permissions || [],
+        lastLogin: p.lastLogin || new Date().toISOString(),
+        accountCreated: p.accountCreated || '',
+        twoFactorEnabled: p.twoFactorEnabled ?? false,
+        role: p.role || user?.role,
+      };
+      setProfile(merged);
+      setEditedProfile(merged);
+    }
+  }, [profileRes, user]);
+
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await apiClient.put('/auth/me', {
+        firstName: editedProfile.firstName,
+        lastName: editedProfile.lastName,
+        phone: editedProfile.phone,
+        title: editedProfile.title,
+        department: editedProfile.department,
+      });
       setProfile(editedProfile);
       setIsEditing(false);
       toast({ title: 'Profile saved', description: 'Your profile has been updated', type: 'success' });
+    } catch {
+      toast({ title: 'Save failed', description: 'Could not update profile', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -65,6 +115,22 @@ export default function AdminProfilePage() {
     setEditedProfile(profile);
     setIsEditing(false);
   }, [profile]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading profile..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -103,7 +169,7 @@ export default function AdminProfilePage() {
                 {profile.firstName} {profile.lastName}
               </h2>
               <p className="text-gray-500 dark:text-gray-400">{profile.title}</p>
-              <Badge variant="info" className="mt-2 capitalize">{user?.role || 'Admin'}</Badge>
+              <Badge variant="info" className="mt-2 capitalize">{profile.role || user?.role || 'Admin'}</Badge>
 
               {isEditing && (
                 <div className="mt-4 w-full">
@@ -124,15 +190,15 @@ export default function AdminProfilePage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <Phone className="h-4 w-4 text-gray-400" />
-                <span>{profile.phone}</span>
+                <span>{profile.phone || 'Not set'}</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <Building2 className="h-4 w-4 text-gray-400" />
-                <span>{profile.organization}</span>
+                <span>{profile.organization || 'Not set'}</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <Key className="h-4 w-4 text-gray-400" />
-                <span>{profile.employeeId}</span>
+                <span>{profile.employeeId || 'Not set'}</span>
               </div>
             </div>
           </div>
@@ -200,6 +266,9 @@ export default function AdminProfilePage() {
                   {profile.permissions.map((permission) => (
                     <Badge key={permission} variant="success">{permission}</Badge>
                   ))}
+                  {profile.permissions.length === 0 && (
+                    <span className="text-sm text-gray-400">No permissions assigned</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -223,11 +292,11 @@ export default function AdminProfilePage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Last Login</label>
-                  <Input value={new Date(profile.lastLogin).toLocaleString()} disabled />
+                  <Input value={profile.lastLogin ? new Date(profile.lastLogin).toLocaleString() : 'N/A'} disabled />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Account Created</label>
-                  <Input value={new Date(profile.accountCreated).toLocaleDateString()} disabled />
+                  <Input value={profile.accountCreated ? new Date(profile.accountCreated).toLocaleDateString() : 'N/A'} disabled />
                 </div>
               </div>
             </div>

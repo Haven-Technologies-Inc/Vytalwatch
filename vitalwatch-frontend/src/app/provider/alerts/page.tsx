@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AlertCard } from '@/components/dashboard/AlertCard';
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { alertsApi } from '@/services/api';
 
 interface Alert {
   id: string;
@@ -30,53 +32,23 @@ interface Alert {
   status: 'active' | 'acknowledged' | 'resolved';
 }
 
-const mockAlerts: Alert[] = [
-  {
-    id: '1',
-    severity: 'critical',
-    patient: { id: 'p1', name: 'Maria Garcia' },
-    title: 'Critical Blood Pressure',
-    message: 'Blood pressure reading of 185/110 mmHg detected. Immediate attention required.',
-    timestamp: new Date(Date.now() - 300000),
-    status: 'active',
-  },
-  {
-    id: '2',
-    severity: 'critical',
-    patient: { id: 'p2', name: 'James Lee' },
-    title: 'Hypoglycemia Alert',
-    message: 'Blood glucose reading of 45 mg/dL detected. Patient may need immediate assistance.',
-    timestamp: new Date(Date.now() - 720000),
-    status: 'active',
-  },
-  {
-    id: '3',
-    severity: 'warning',
-    patient: { id: 'p3', name: 'Susan Park' },
-    title: 'Rapid Weight Gain',
-    message: 'Weight increase of 5 lbs detected over the past 2 days. May indicate fluid retention.',
-    timestamp: new Date(Date.now() - 3600000),
-    status: 'active',
-  },
-  {
-    id: '4',
-    severity: 'warning',
-    patient: { id: 'p4', name: 'Robert Chen' },
-    title: 'No BP Reading',
-    message: 'No blood pressure reading received in 3 days. Device may be offline or patient non-compliant.',
-    timestamp: new Date(Date.now() - 7200000),
-    status: 'acknowledged',
-  },
-  {
-    id: '5',
-    severity: 'info',
-    patient: { id: 'p5', name: 'Linda Martinez' },
-    title: 'Medication Adherence Improved',
-    message: 'Patient medication adherence has improved to 95% this week.',
-    timestamp: new Date(Date.now() - 86400000),
-    status: 'resolved',
-  },
-];
+interface AlertApiItem {
+  id: string;
+  severity: 'critical' | 'warning' | 'info';
+  patient: { id: string; name: string };
+  title: string;
+  message: string;
+  timestamp: string;
+  createdAt: string;
+  status: 'active' | 'acknowledged' | 'resolved';
+}
+
+interface AlertsApiResponse {
+  data: {
+    results: AlertApiItem[];
+    total: number;
+  };
+}
 
 const severityFilters = [
   { value: 'all', label: 'All Severities' },
@@ -95,15 +67,27 @@ const statusFilters = [
 export default function ProviderAlertsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Loading / error state -- ready for API integration
-  const [isLoading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const {
+    data: alertsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<AlertsApiResponse>(
+    () => alertsApi.getAll({ limit: 100 }) as unknown as Promise<AlertsApiResponse>,
+  );
+
+  const alerts: Alert[] = useMemo(() => {
+    const items = alertsResponse?.data?.results ?? [];
+    return items.map((a) => ({
+      ...a,
+      timestamp: new Date(a.timestamp || a.createdAt),
+    }));
+  }, [alertsResponse]);
 
   const filteredAlerts = alerts.filter((alert) => {
     if (activeTab !== 'all' && alert.severity !== activeTab) return false;
@@ -120,26 +104,32 @@ export default function ProviderAlertsPage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await refetch();
       toast({ title: 'Alerts refreshed', message: 'All alert data is up to date', type: 'success' });
     } finally {
       setIsRefreshing(false);
     }
-  }, [toast]);
+  }, [toast, refetch]);
 
-  const handleAcknowledge = useCallback((id: string) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'acknowledged' as const } : a))
-    );
-    toast({ title: 'Alert acknowledged', message: 'You will be reminded if not resolved', type: 'info' });
-  }, [toast]);
+  const handleAcknowledge = useCallback(async (id: string) => {
+    try {
+      await alertsApi.acknowledge(id);
+      await refetch();
+      toast({ title: 'Alert acknowledged', message: 'You will be reminded if not resolved', type: 'info' });
+    } catch {
+      toast({ title: 'Error', message: 'Failed to acknowledge alert', type: 'error' });
+    }
+  }, [toast, refetch]);
 
-  const handleResolve = useCallback((id: string) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'resolved' as const } : a))
-    );
-    toast({ title: 'Alert resolved', message: 'Alert has been marked as resolved', type: 'success' });
-  }, [toast]);
+  const handleResolve = useCallback(async (id: string) => {
+    try {
+      await alertsApi.resolve(id, 'Resolved by provider');
+      await refetch();
+      toast({ title: 'Alert resolved', message: 'Alert has been marked as resolved', type: 'success' });
+    } catch {
+      toast({ title: 'Error', message: 'Failed to resolve alert', type: 'error' });
+    }
+  }, [toast, refetch]);
 
   const handleViewPatient = useCallback((patientId: string) => {
     router.push(`/provider/patients/${patientId}`);
@@ -158,7 +148,7 @@ export default function ProviderAlertsPage() {
       <PageWrapper
         isLoading={isLoading}
         error={error}
-        isEmpty={alerts.length === 0}
+        isEmpty={alerts.length === 0 && !isLoading && !error}
         emptyProps={{
           icon: Bell,
           title: 'No alerts',
@@ -175,9 +165,9 @@ export default function ProviderAlertsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
             >

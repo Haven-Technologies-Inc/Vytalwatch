@@ -4,21 +4,82 @@ import { useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { SimpleBarChart, DonutChart, TrendChart } from '@/components/dashboard/Charts';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  Users, 
-  Activity, 
-  DollarSign, 
-  TrendingUp, 
-  AlertTriangle, 
-  Building2, 
+import {
+  Users,
+  Activity,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+  Building2,
   Download,
   Calendar
 } from 'lucide-react';
+
+// --- API response types ---
+
+interface RevenueDataPoint {
+  name: string;
+  value: number;
+}
+
+interface RevenueResponse {
+  data: {
+    trend: RevenueDataPoint[];
+    totalRevenue: number;
+    mrrGrowth: number;
+  };
+}
+
+interface TopOrg {
+  id: string;
+  name: string;
+  patients: number;
+  revenue: number;
+  growth: number;
+}
+
+interface PlanDist {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface UserGrowthPoint {
+  name: string;
+  value: number;
+}
+
+interface OverviewResponse {
+  data: {
+    totalUsers: number;
+    usersThisMonth: number;
+    usersGrowth: number;
+    activePatients: number;
+    monthlyRevenue: number;
+    revenueGrowth: number;
+    organizations: number;
+    orgBreakdown: string;
+    userGrowth: UserGrowthPoint[];
+    planDistribution: PlanDist[];
+    topOrganizations: TopOrg[];
+    platformHealth: {
+      apiUptime: string;
+      avgResponseTime: string;
+      errorRate: string;
+      vitalsProcessed24h: number;
+      alertsGenerated24h: number;
+    };
+  };
+}
 
 const timeRanges = [
   { value: '7d', label: 'Last 7 days' },
@@ -27,42 +88,30 @@ const timeRanges = [
   { value: '1y', label: 'Last year' },
 ];
 
-const revenueData = [
-  { name: 'Jan', value: 45000 },
-  { name: 'Feb', value: 52000 },
-  { name: 'Mar', value: 48000 },
-  { name: 'Apr', value: 61000 },
-  { name: 'May', value: 55000 },
-  { name: 'Jun', value: 67000 },
-];
-
-const userGrowthData = [
-  { name: 'Jan', value: 850 },
-  { name: 'Feb', value: 920 },
-  { name: 'Mar', value: 1050 },
-  { name: 'Apr', value: 1180 },
-  { name: 'May', value: 1320 },
-  { name: 'Jun', value: 1450 },
-];
-
-const planDistribution = [
-  { name: 'Starter', value: 35, color: '#6b7280' },
-  { name: 'Professional', value: 45, color: '#3b82f6' },
-  { name: 'Enterprise', value: 20, color: '#10b981' },
-];
-
-const topOrganizations = [
-  { id: '1', name: 'General Hospital', patients: 450, revenue: 56250, growth: 12 },
-  { id: '2', name: 'Senior Care Network', patients: 280, revenue: 35000, growth: 8 },
-  { id: '3', name: 'Heart Care Center', patients: 180, revenue: 22500, growth: 15 },
-  { id: '4', name: 'City Clinic', patients: 120, revenue: 15000, growth: 5 },
-  { id: '5', name: 'Family Practice', patients: 35, revenue: 4375, growth: 22 },
-];
-
 export default function AdminAnalyticsPage() {
   const { toast } = useToast();
   const [timeRange, setTimeRange] = useState('30d');
   const [isExporting, setIsExporting] = useState(false);
+
+  const {
+    data: revenueRes,
+    isLoading: revenueLoading,
+    error: revenueError,
+    refetch: refetchRevenue,
+  } = useApiQuery<RevenueResponse>(
+    () => apiClient.get<RevenueResponse>('/analytics/revenue', { params: { range: timeRange } }),
+    { deps: [timeRange] },
+  );
+
+  const {
+    data: overviewRes,
+    isLoading: overviewLoading,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useApiQuery<OverviewResponse>(
+    () => apiClient.get<OverviewResponse>('/analytics/overview', { params: { range: timeRange } }),
+    { deps: [timeRange] },
+  );
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -74,18 +123,44 @@ export default function AdminAnalyticsPage() {
     }
   }, [toast]);
 
-  const orgColumns: Column<typeof topOrganizations[0]>[] = [
+  const overview = overviewRes?.data;
+  const revenueData: RevenueDataPoint[] = revenueRes?.data?.trend ?? [];
+  const userGrowthData: UserGrowthPoint[] = overview?.userGrowth ?? [];
+  const planDistribution: PlanDist[] = overview?.planDistribution ?? [];
+  const topOrganizations: TopOrg[] = overview?.topOrganizations ?? [];
+  const health = overview?.platformHealth;
+
+  const orgColumns: Column<TopOrg>[] = [
     { key: 'name', header: 'Organization' },
     { key: 'patients', header: 'Patients', render: (v: number) => v.toLocaleString() },
     { key: 'revenue', header: 'Monthly Revenue', render: (v: number) => `$${v.toLocaleString()}` },
-    { 
-      key: 'growth', 
-      header: 'Growth', 
+    {
+      key: 'growth',
+      header: 'Growth',
       render: (v: number) => (
         <Badge variant={v > 10 ? 'success' : 'info'}>+{v}%</Badge>
       )
     },
   ];
+
+  const isLoading = revenueLoading || overviewLoading;
+  const error = revenueError || overviewError;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading analytics..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={() => { refetchRevenue(); refetchOverview(); }} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -107,30 +182,30 @@ export default function AdminAnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             title="Total Users"
-            value="1,450"
-            subtitle="+130 this month"
+            value={(overview?.totalUsers ?? 0).toLocaleString()}
+            subtitle={`+${overview?.usersThisMonth ?? 0} this month`}
             icon={<Users className="h-5 w-5" />}
-            trend={{ value: 9.8, isPositive: true }}
+            trend={{ value: overview?.usersGrowth ?? 0, isPositive: (overview?.usersGrowth ?? 0) >= 0 }}
           />
           <MetricCard
             title="Active Patients"
-            value="1,065"
+            value={(overview?.activePatients ?? 0).toLocaleString()}
             subtitle="Across all organizations"
             icon={<Activity className="h-5 w-5" />}
             trend={{ value: 12.3, isPositive: true }}
           />
           <MetricCard
             title="Monthly Revenue"
-            value="$128,750"
+            value={`$${(overview?.monthlyRevenue ?? 0).toLocaleString()}`}
             subtitle="From all subscriptions"
             icon={<DollarSign className="h-5 w-5" />}
-            trend={{ value: 15.2, isPositive: true }}
+            trend={{ value: overview?.revenueGrowth ?? 0, isPositive: (overview?.revenueGrowth ?? 0) >= 0 }}
             className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
           />
           <MetricCard
             title="Organizations"
-            value="5"
-            subtitle="2 Enterprise, 2 Pro, 1 Starter"
+            value={(overview?.organizations ?? 0).toString()}
+            subtitle={overview?.orgBreakdown ?? ''}
             icon={<Building2 className="h-5 w-5" />}
           />
         </div>
@@ -156,25 +231,25 @@ export default function AdminAnalyticsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-lg border p-4 dark:border-gray-700">
                 <p className="text-sm text-gray-500">API Uptime</p>
-                <p className="text-2xl font-bold text-green-600">99.98%</p>
+                <p className="text-2xl font-bold text-green-600">{health?.apiUptime ?? 'N/A'}</p>
               </div>
               <div className="rounded-lg border p-4 dark:border-gray-700">
                 <p className="text-sm text-gray-500">Avg Response Time</p>
-                <p className="text-2xl font-bold text-primary">45ms</p>
+                <p className="text-2xl font-bold text-primary">{health?.avgResponseTime ?? 'N/A'}</p>
               </div>
               <div className="rounded-lg border p-4 dark:border-gray-700">
                 <p className="text-sm text-gray-500">Error Rate</p>
-                <p className="text-2xl font-bold text-green-600">0.02%</p>
+                <p className="text-2xl font-bold text-green-600">{health?.errorRate ?? 'N/A'}</p>
               </div>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border p-4 dark:border-gray-700">
                 <p className="text-sm text-gray-500">Vitals Processed (24h)</p>
-                <p className="text-2xl font-bold text-primary">24,856</p>
+                <p className="text-2xl font-bold text-primary">{(health?.vitalsProcessed24h ?? 0).toLocaleString()}</p>
               </div>
               <div className="rounded-lg border p-4 dark:border-gray-700">
                 <p className="text-sm text-gray-500">Alerts Generated (24h)</p>
-                <p className="text-2xl font-bold text-yellow-600">127</p>
+                <p className="text-2xl font-bold text-yellow-600">{(health?.alertsGenerated24h ?? 0).toLocaleString()}</p>
               </div>
             </div>
           </div>

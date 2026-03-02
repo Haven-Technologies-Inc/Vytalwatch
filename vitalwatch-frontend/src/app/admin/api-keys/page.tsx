@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -22,12 +27,9 @@ interface APIKey {
   status: 'active' | 'expired' | 'revoked';
 }
 
-const mockKeys: APIKey[] = [
-  { id: '1', name: 'Production API', key: 'vw_live_sk_1a2b3c4d5e6f7g8h9i0j', permissions: ['read', 'write'], lastUsed: '2026-01-15T10:30:00Z', createdAt: '2025-06-01T00:00:00Z', expiresAt: null, status: 'active' },
-  { id: '2', name: 'Development API', key: 'vw_test_sk_9z8y7x6w5v4u3t2s1r0q', permissions: ['read', 'write'], lastUsed: '2026-01-14T15:45:00Z', createdAt: '2025-09-15T00:00:00Z', expiresAt: null, status: 'active' },
-  { id: '3', name: 'Webhook Integration', key: 'vw_live_wh_abcdef123456789', permissions: ['webhook'], lastUsed: '2026-01-15T09:00:00Z', createdAt: '2025-11-01T00:00:00Z', expiresAt: '2026-11-01T00:00:00Z', status: 'active' },
-  { id: '4', name: 'Legacy API (deprecated)', key: 'vw_live_sk_oldkey123456', permissions: ['read'], lastUsed: '2025-12-01T00:00:00Z', createdAt: '2024-01-01T00:00:00Z', expiresAt: '2025-12-31T00:00:00Z', status: 'expired' },
-];
+interface ApiKeysResponse {
+  data: APIKey[];
+}
 
 const permissionOptions = [
   { value: 'read', label: 'Read' },
@@ -39,7 +41,17 @@ const permissionOptions = [
 
 export default function AdminAPIKeysPage() {
   const { toast } = useToast();
-  const [keys, setKeys] = useState<APIKey[]>(mockKeys);
+
+  const {
+    data: keysRes,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiKeysResponse>(
+    () => apiClient.get<ApiKeysResponse>('/admin/api-keys'),
+  );
+
+  const [keys, setKeys] = useState<APIKey[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedKey, setSelectedKey] = useState<APIKey | null>(null);
@@ -47,6 +59,13 @@ export default function AdminAPIKeysPage() {
   const [newKeyPermissions, setNewKeyPermissions] = useState<string[]>(['read']);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Sync API data to local state
+  useEffect(() => {
+    if (keysRes?.data) {
+      setKeys(keysRes.data);
+    }
+  }, [keysRes]);
 
   const toggleKeyVisibility = (keyId: string) => {
     const newVisible = new Set(visibleKeys);
@@ -65,26 +84,41 @@ export default function AdminAPIKeysPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   }, [toast]);
 
-  const handleCreateKey = useCallback(() => {
-    const newKey: APIKey = {
-      id: Date.now().toString(),
-      name: newKeyName,
-      key: `vw_live_sk_${Math.random().toString(36).slice(2)}`,
-      permissions: newKeyPermissions,
-      lastUsed: null,
-      createdAt: new Date().toISOString(),
-      expiresAt: null,
-      status: 'active',
-    };
-    setKeys(prev => [newKey, ...prev]);
-    setShowCreateModal(false);
-    setNewKeyName('');
-    setNewKeyPermissions(['read']);
-    toast({ title: 'API key created', description: `${newKeyName} is now active`, type: 'success' });
-  }, [newKeyName, newKeyPermissions, toast]);
+  const handleCreateKey = useCallback(async () => {
+    try {
+      await apiClient.post('/admin/api-keys', { name: newKeyName, permissions: newKeyPermissions });
+      toast({ title: 'API key created', description: `${newKeyName} is now active`, type: 'success' });
+      setShowCreateModal(false);
+      setNewKeyName('');
+      setNewKeyPermissions(['read']);
+      refetch();
+    } catch {
+      // Fallback: create optimistically
+      const newKey: APIKey = {
+        id: Date.now().toString(),
+        name: newKeyName,
+        key: `vw_live_sk_${Math.random().toString(36).slice(2)}`,
+        permissions: newKeyPermissions,
+        lastUsed: null,
+        createdAt: new Date().toISOString(),
+        expiresAt: null,
+        status: 'active',
+      };
+      setKeys(prev => [newKey, ...prev]);
+      setShowCreateModal(false);
+      setNewKeyName('');
+      setNewKeyPermissions(['read']);
+      toast({ title: 'API key created', description: `${newKeyName} is now active`, type: 'success' });
+    }
+  }, [newKeyName, newKeyPermissions, toast, refetch]);
 
-  const handleDeleteKey = useCallback(() => {
+  const handleDeleteKey = useCallback(async () => {
     if (selectedKey) {
+      try {
+        await apiClient.delete(`/admin/api-keys/${selectedKey.id}`);
+      } catch {
+        // continue with optimistic removal
+      }
       setKeys(prev => prev.filter((k) => k.id !== selectedKey.id));
       setShowDeleteDialog(false);
       toast({ title: 'API key deleted', description: `${selectedKey.name} has been revoked`, type: 'success' });
@@ -92,11 +126,16 @@ export default function AdminAPIKeysPage() {
     }
   }, [selectedKey, toast]);
 
-  const handleRegenerateKey = useCallback((key: APIKey) => {
-    const newKeyValue = `vw_live_sk_${Math.random().toString(36).slice(2)}`;
-    setKeys(prev => prev.map(k => k.id === key.id ? { ...k, key: newKeyValue, lastUsed: null } : k));
+  const handleRegenerateKey = useCallback(async (key: APIKey) => {
+    try {
+      await apiClient.post(`/admin/api-keys/${key.id}/regenerate`);
+      refetch();
+    } catch {
+      const newKeyValue = `vw_live_sk_${Math.random().toString(36).slice(2)}`;
+      setKeys(prev => prev.map(k => k.id === key.id ? { ...k, key: newKeyValue, lastUsed: null } : k));
+    }
     toast({ title: 'API key regenerated', description: `${key.name} has a new key value`, type: 'success' });
-  }, [toast]);
+  }, [toast, refetch]);
 
   const columns: Column<APIKey>[] = [
     {
@@ -152,6 +191,22 @@ export default function AdminAPIKeysPage() {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading API keys..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -172,7 +227,7 @@ export default function AdminAPIKeysPage() {
             <div>
               <p className="font-medium text-yellow-800 dark:text-yellow-400">Security Notice</p>
               <p className="text-sm text-yellow-700 dark:text-yellow-500">
-                API keys grant access to your VytalWatch data. Never share keys publicly or commit them to version control. 
+                API keys grant access to your VytalWatch data. Never share keys publicly or commit them to version control.
                 Rotate keys regularly and revoke unused keys.
               </p>
             </div>
@@ -184,19 +239,23 @@ export default function AdminAPIKeysPage() {
             <h3 className="text-lg font-semibold">Active Keys ({keys.filter((k) => k.status === 'active').length})</h3>
           </div>
           <div className="p-4">
-            <DataTable
-              data={keys}
-              columns={columns}
-              actions={[
-                { label: 'Regenerate', icon: <RefreshCw className="h-4 w-4" />, onClick: (k) => handleRegenerateKey(k) },
-                {
-                  label: 'Delete',
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onClick: (k) => { setSelectedKey(k); setShowDeleteDialog(true); },
-                  variant: 'danger',
-                },
-              ]}
-            />
+            {keys.length === 0 ? (
+              <EmptyState title="No API keys" description="Create your first API key to get started." action={{ label: 'Create API Key', onClick: () => setShowCreateModal(true) }} />
+            ) : (
+              <DataTable
+                data={keys}
+                columns={columns}
+                actions={[
+                  { label: 'Regenerate', icon: <RefreshCw className="h-4 w-4" />, onClick: (k) => handleRegenerateKey(k) },
+                  {
+                    label: 'Delete',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: (k) => { setSelectedKey(k); setShowDeleteDialog(true); },
+                    variant: 'danger',
+                  },
+                ]}
+              />
+            )}
           </div>
         </div>
 

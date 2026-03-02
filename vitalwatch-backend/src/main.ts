@@ -5,6 +5,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { WinstonLoggerService } from './common/logger/logger.service';
+import { PaginationInterceptor } from './common/interceptors/pagination.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -15,9 +17,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Security
-  app.use(helmet());
-  app.use(compression());
+  // Replace default NestJS logger with Winston
+  const winstonLogger = app.get(WinstonLoggerService);
+  app.useLogger(winstonLogger);
 
   // CORS - never default to wildcard in production
   const frontendUrl = configService.get<string>('app.frontendUrl');
@@ -27,6 +29,22 @@ async function bootstrap() {
     : nodeEnv === 'production'
       ? [] // Block all in production if no FRONTEND_URL is set
       : ['http://localhost:3000', 'http://localhost:3001'];
+
+  // Security — Helmet with Content Security Policy
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'", ...(frontendUrl ? frontendUrl.split(',').map((u: string) => u.trim()) : [])],
+        },
+      },
+    }),
+  );
+  app.use(compression());
 
   app.enableCors({
     origin: corsOrigin,
@@ -51,6 +69,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Global pagination interceptor
+  app.useGlobalInterceptors(new PaginationInterceptor());
 
   // API prefix (exclude root routes)
   app.setGlobalPrefix('api/v1', {

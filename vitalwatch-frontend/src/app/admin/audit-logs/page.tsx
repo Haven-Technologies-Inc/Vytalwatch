@@ -3,6 +3,11 @@
 import { useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
@@ -27,16 +32,9 @@ interface AuditLog {
   status: 'success' | 'failure';
 }
 
-const mockLogs: AuditLog[] = [
-  { id: '1', timestamp: '2026-01-15T14:32:15Z', userId: 'usr_admin', userName: 'Admin User', userRole: 'admin', action: 'UPDATE', resource: 'User', resourceId: 'usr_123', details: 'Changed user role to provider', ipAddress: '10.0.0.1', status: 'success' },
-  { id: '2', timestamp: '2026-01-15T14:30:00Z', userId: 'usr_456', userName: 'Dr. Smith', userRole: 'provider', action: 'VIEW', resource: 'Patient', resourceId: 'pat_789', details: 'Viewed patient medical records', ipAddress: '192.168.1.50', status: 'success' },
-  { id: '3', timestamp: '2026-01-15T14:28:45Z', userId: 'usr_admin', userName: 'Admin User', userRole: 'admin', action: 'DELETE', resource: 'APIKey', resourceId: 'key_old', details: 'Deleted expired API key', ipAddress: '10.0.0.1', status: 'success' },
-  { id: '4', timestamp: '2026-01-15T14:25:30Z', userId: 'usr_789', userName: 'Nurse Jones', userRole: 'provider', action: 'CREATE', resource: 'Alert', resourceId: 'alt_123', details: 'Created critical alert for patient', ipAddress: '192.168.1.25', status: 'success' },
-  { id: '5', timestamp: '2026-01-15T14:20:00Z', userId: 'unknown', userName: 'Unknown', userRole: '-', action: 'LOGIN', resource: 'Auth', details: 'Failed login attempt', ipAddress: '192.168.1.100', status: 'failure' },
-  { id: '6', timestamp: '2026-01-15T14:15:00Z', userId: 'usr_admin', userName: 'Admin User', userRole: 'admin', action: 'UPDATE', resource: 'Settings', details: 'Updated SMTP configuration', ipAddress: '10.0.0.1', status: 'success' },
-  { id: '7', timestamp: '2026-01-15T14:10:00Z', userId: 'usr_patient', userName: 'John Doe', userRole: 'patient', action: 'VIEW', resource: 'Vitals', details: 'Viewed own vital history', ipAddress: '73.45.123.89', status: 'success' },
-  { id: '8', timestamp: '2026-01-15T14:05:00Z', userId: 'system', userName: 'System', userRole: 'system', action: 'CREATE', resource: 'Report', resourceId: 'rpt_456', details: 'Generated scheduled monthly report', ipAddress: 'internal', status: 'success' },
-];
+interface AuditLogsResponse {
+  data: AuditLog[];
+}
 
 const actionFilters = [
   { value: 'all', label: 'All Actions' },
@@ -75,13 +73,23 @@ const actionColors: Record<string, string> = {
 
 export default function AdminAuditLogsPage() {
   const { toast } = useToast();
-  const [logs] = useState<AuditLog[]>(mockLogs);
   const [actionFilter, setActionFilter] = useState('all');
   const [resourceFilter, setResourceFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const {
+    data: logsRes,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<AuditLogsResponse>(
+    () => apiClient.get<AuditLogsResponse>('/audit-logs'),
+  );
+
+  const logs: AuditLog[] = logsRes?.data ?? [];
 
   const handleExportLogs = useCallback(async () => {
     setIsExporting(true);
@@ -159,6 +167,22 @@ export default function AdminAuditLogsPage() {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading audit logs..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -190,11 +214,15 @@ export default function AdminAuditLogsPage() {
             </div>
           </div>
           <div className="p-4">
-            <DataTable
-              data={filteredLogs}
-              columns={columns}
-              onRowClick={(log) => { setSelectedLog(log); setShowModal(true); }}
-            />
+            {filteredLogs.length === 0 ? (
+              <EmptyState title="No audit logs found" description="No audit logs match your current filters." />
+            ) : (
+              <DataTable
+                data={filteredLogs}
+                columns={columns}
+                onRowClick={(log) => { setSelectedLog(log); setShowModal(true); }}
+              />
+            )}
           </div>
         </div>
 

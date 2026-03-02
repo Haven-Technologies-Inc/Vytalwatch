@@ -7,6 +7,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Lock, CheckCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { authApi } from '@/services/api';
+import { ApiError } from '@/services/api/client';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -47,20 +49,15 @@ function ResetPasswordForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reset password');
-      }
-
+      await authApi.resetPassword(token!, password);
       setIsSuccess(true);
       setTimeout(() => router.push('/auth/login'), 3000);
     } catch (err) {
-      setError('Failed to reset password. The link may have expired.');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to reset password. The link may have expired.');
+      }
     } finally {
       setIsLoading(false);
     }

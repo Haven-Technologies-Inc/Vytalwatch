@@ -4,16 +4,20 @@ import { useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { TrendChart } from '@/components/dashboard/Charts';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { 
-  DollarSign, 
-  CreditCard, 
-  FileText, 
+import {
+  DollarSign,
+  CreditCard,
+  FileText,
   Download,
   Eye,
   TrendingUp,
@@ -31,22 +35,22 @@ interface Invoice {
   dueDate: string;
 }
 
-const mockInvoices: Invoice[] = [
-  { id: 'INV-001', organization: 'General Hospital', plan: 'Enterprise', amount: 56250, status: 'paid', date: '2026-01-01', dueDate: '2026-01-15' },
-  { id: 'INV-002', organization: 'Senior Care Network', plan: 'Enterprise', amount: 35000, status: 'paid', date: '2026-01-01', dueDate: '2026-01-15' },
-  { id: 'INV-003', organization: 'Heart Care Center', plan: 'Professional', amount: 22500, status: 'paid', date: '2026-01-01', dueDate: '2026-01-15' },
-  { id: 'INV-004', organization: 'City Clinic', plan: 'Professional', amount: 15000, status: 'pending', date: '2026-01-01', dueDate: '2026-01-20' },
-  { id: 'INV-005', organization: 'Family Practice', plan: 'Starter', amount: 299, status: 'pending', date: '2026-01-10', dueDate: '2026-01-25' },
-];
+interface RevenueDataPoint {
+  name: string;
+  value: number;
+}
 
-const revenueData = [
-  { name: 'Aug', value: 95000 },
-  { name: 'Sep', value: 102000 },
-  { name: 'Oct', value: 110000 },
-  { name: 'Nov', value: 118000 },
-  { name: 'Dec', value: 125000 },
-  { name: 'Jan', value: 128750 },
-];
+interface InvoicesResponse {
+  data: Invoice[];
+}
+
+interface RevenueResponse {
+  data: {
+    trend: RevenueDataPoint[];
+    totalRevenue: number;
+    mrrGrowth: number;
+  };
+}
 
 const statusFilters = [
   { value: 'all', label: 'All Status' },
@@ -57,11 +61,31 @@ const statusFilters = [
 
 export default function AdminBillingPage() {
   const { toast } = useToast();
-  const [invoices] = useState<Invoice[]>(mockInvoices);
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const {
+    data: invoicesRes,
+    isLoading: invoicesLoading,
+    error: invoicesError,
+    refetch: refetchInvoices,
+  } = useApiQuery<InvoicesResponse>(
+    () => apiClient.get<InvoicesResponse>('/billing/invoices'),
+  );
+
+  const {
+    data: revenueRes,
+    isLoading: revenueLoading,
+    error: revenueError,
+    refetch: refetchRevenue,
+  } = useApiQuery<RevenueResponse>(
+    () => apiClient.get<RevenueResponse>('/analytics/revenue'),
+  );
+
+  const invoices: Invoice[] = invoicesRes?.data ?? [];
+  const revenueData: RevenueDataPoint[] = revenueRes?.data?.trend ?? [];
 
   const handleExportReport = useCallback(async () => {
     setIsExporting(true);
@@ -82,14 +106,15 @@ export default function AdminBillingPage() {
   }, [toast]);
 
   const filteredInvoices = invoices.filter((i) => statusFilter === 'all' || i.status === statusFilter);
-  
+
   const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
   const pendingRevenue = invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0);
+  const pendingCount = invoices.filter(i => i.status === 'pending').length;
 
   const columns: Column<Invoice>[] = [
     { key: 'id', header: 'Invoice #', render: (id: string) => <span className="font-mono text-sm">{id}</span> },
-    { 
-      key: 'organization', 
+    {
+      key: 'organization',
       header: 'Organization',
       render: (_, inv) => (
         <div>
@@ -99,9 +124,9 @@ export default function AdminBillingPage() {
       )
     },
     { key: 'amount', header: 'Amount', render: (v: number) => `$${v.toLocaleString()}` },
-    { 
-      key: 'status', 
-      header: 'Status', 
+    {
+      key: 'status',
+      header: 'Status',
       render: (status: string) => {
         const variants: Record<string, 'success' | 'warning' | 'danger'> = {
           paid: 'success',
@@ -114,6 +139,25 @@ export default function AdminBillingPage() {
     { key: 'date', header: 'Date', render: (d: string) => new Date(d).toLocaleDateString() },
     { key: 'dueDate', header: 'Due Date', render: (d: string) => new Date(d).toLocaleDateString() },
   ];
+
+  const isLoading = invoicesLoading || revenueLoading;
+  const error = invoicesError || revenueError;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading billing data..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={() => { refetchInvoices(); refetchRevenue(); }} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -134,25 +178,25 @@ export default function AdminBillingPage() {
             title="Total Revenue (MTD)"
             value={`$${totalRevenue.toLocaleString()}`}
             icon={<DollarSign className="h-5 w-5" />}
-            trend={{ value: 8.5, isPositive: true }}
+            trend={{ value: revenueRes?.data?.mrrGrowth ?? 0, isPositive: true }}
             className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
           />
           <MetricCard
             title="Pending"
             value={`$${pendingRevenue.toLocaleString()}`}
-            subtitle="2 invoices"
+            subtitle={`${pendingCount} invoices`}
             icon={<FileText className="h-5 w-5" />}
             className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/20"
           />
           <MetricCard
             title="Active Subscriptions"
-            value="5"
+            value={invoices.length.toString()}
             subtitle="All organizations"
             icon={<Building2 className="h-5 w-5" />}
           />
           <MetricCard
             title="MRR Growth"
-            value="+12.5%"
+            value={`+${revenueRes?.data?.mrrGrowth ?? 0}%`}
             subtitle="vs last month"
             icon={<TrendingUp className="h-5 w-5" />}
           />

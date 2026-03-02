@@ -15,8 +15,10 @@ dotenv.config();
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_DATABASE || 'vitalwatch',
       entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-      synchronize: true,
-      logging: true,
+      migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+      migrationsRun: process.env.NODE_ENV === 'production',
+      synchronize: process.env.NODE_ENV !== 'production',
+      logging: process.env.NODE_ENV !== 'production',
     }),
   ],
 })

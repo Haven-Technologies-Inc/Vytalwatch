@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -13,6 +13,8 @@ import { DatabaseModule } from './database/database.module';
 // Common Modules
 import { CryptoModule } from './common/crypto/crypto.module';
 import { RedisModule } from './common/redis';
+import { LoggerModule } from './common/logger';
+import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
 import { HealthModule } from './health/health.module';
 
 // Feature Modules
@@ -90,6 +92,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     // Common modules
     CryptoModule,
     RedisModule,
+    LoggerModule,
     HealthModule,
 
     // Feature modules
@@ -124,4 +127,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SanitizeMiddleware).forRoutes('*');
+  }
+}

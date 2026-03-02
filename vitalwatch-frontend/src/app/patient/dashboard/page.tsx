@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -25,106 +25,154 @@ import {
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useAuthStore } from "@/stores/authStore";
+import { vitalsApi, aiApi, patientsApi } from "@/services/api";
+import type { ApiResponse, VitalReading, AIInsight, Appointment, Medication } from "@/types";
 
-// Mock vitals data
-const vitals = [
-  {
-    type: "Blood Pressure",
-    icon: Heart,
-    value: "128/82",
-    unit: "mmHg",
-    status: "normal",
-    trend: "down",
-    change: "-5 points",
-    lastReading: new Date(Date.now() - 2 * 60 * 60000),
-    color: "red",
-  },
-  {
-    type: "Oxygen Level",
-    icon: Droplet,
-    value: "98",
-    unit: "%",
-    status: "normal",
-    trend: "stable",
-    change: "No change",
-    lastReading: new Date(Date.now() - 4 * 60 * 60000),
-    color: "blue",
-  },
-  {
-    type: "Blood Glucose",
-    icon: Activity,
-    value: "108",
-    unit: "mg/dL",
-    status: "normal",
-    trend: "down",
-    change: "-12 from yesterday",
-    lastReading: new Date(Date.now() - 6 * 60 * 60000),
-    color: "purple",
-  },
-  {
-    type: "Weight",
-    icon: Scale,
-    value: "168",
-    unit: "lbs",
-    status: "warning",
-    trend: "up",
-    change: "+2 lbs this week",
-    lastReading: new Date(Date.now() - 24 * 60 * 60000),
-    color: "amber",
-  },
-];
+// Icon/color map for vital types
+const vitalMeta: Record<string, { icon: typeof Heart; color: string; label: string; unit: string }> = {
+  blood_pressure: { icon: Heart, label: "Blood Pressure", color: "red", unit: "mmHg" },
+  spo2: { icon: Droplet, label: "Oxygen Level", color: "blue", unit: "%" },
+  glucose: { icon: Activity, label: "Blood Glucose", color: "purple", unit: "mg/dL" },
+  weight: { icon: Scale, label: "Weight", color: "amber", unit: "lbs" },
+  heart_rate: { icon: Heart, label: "Heart Rate", color: "pink", unit: "bpm" },
+  temperature: { icon: Activity, label: "Temperature", color: "orange", unit: "°F" },
+};
 
+// Insight type to emoji mapping
+const insightIconMap: Record<string, string> = {
+  achievement: "🎉",
+  tip: "💡",
+  goal: "🎯",
+  trend: "📈",
+  anomaly: "⚠️",
+  recommendation: "💡",
+  warning: "⚠️",
+};
 
-const aiInsights = [
-  {
-    type: "achievement",
-    title: "Great Progress!",
-    message: "Your blood pressure has improved by 12% this month. Keep up the great work!",
-    icon: "🎉",
-  },
-  {
-    type: "tip",
-    title: "Medication Tip",
-    message: "Taking your BP meds in the morning may help with better daytime control.",
-    icon: "💡",
-  },
-  {
-    type: "goal",
-    title: "Weight Goal",
-    message: "You're on track to reach your weight goal. 8 lbs to go!",
-    icon: "🎯",
-  },
-];
-
-const appointments = [
-  {
-    title: "Virtual Check-in",
-    doctor: "Dr. Sarah Chen",
-    date: "Tomorrow, 10:00 AM",
-    type: "video",
-  },
-  {
-    title: "Lab Work",
-    doctor: "Quest Diagnostics",
-    date: "Jan 20, 9:00 AM",
-    type: "in-person",
-  },
-];
+function formatVitalValue(reading: VitalReading): string {
+  if (reading.type === "blood_pressure" && reading.values) {
+    const sys = reading.values.systolic ?? reading.values.sys;
+    const dia = reading.values.diastolic ?? reading.values.dia;
+    if (sys !== undefined && dia !== undefined) return `${sys}/${dia}`;
+  }
+  // For single-value vitals, grab the first numeric value
+  const vals = Object.values(reading.values || {});
+  return vals.length > 0 ? String(vals[0]) : "--";
+}
 
 export default function PatientDashboard() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const patientId = user?.id || "";
 
-  // Loading / error state -- ready for API integration
-  const [isLoading] = useState(false);
-  const [error] = useState<string | null>(null);
+  // Fetch latest vitals
+  const {
+    data: vitalsResponse,
+    isLoading: vitalsLoading,
+    error: vitalsError,
+    refetch: refetchVitals,
+  } = useApiQuery<ApiResponse<Record<string, VitalReading>>>(
+    () => vitalsApi.getLatest(patientId),
+    { enabled: !!patientId }
+  );
 
-  const [medications, setMedications] = useState([
-    { name: "Lisinopril 10mg", time: "8:00 AM", taken: true },
-    { name: "Metformin 500mg", time: "8:00 AM", taken: true },
-    { name: "Metformin 500mg", time: "6:00 PM", taken: false },
-    { name: "Aspirin 81mg", time: "8:00 PM", taken: false },
-  ]);
+  // Fetch AI insights
+  const {
+    data: insightsResponse,
+    isLoading: insightsLoading,
+  } = useApiQuery<ApiResponse<AIInsight[]>>(
+    () => aiApi.getInsights(patientId),
+    { enabled: !!patientId }
+  );
+
+  // Fetch upcoming appointments (limit 3)
+  const {
+    data: appointmentsResponse,
+    isLoading: appointmentsLoading,
+  } = useApiQuery<ApiResponse<Appointment[]>>(
+    () => patientsApi.getAppointments(patientId, "scheduled"),
+    { enabled: !!patientId }
+  );
+
+  // Fetch medications
+  const {
+    data: medicationsResponse,
+    isLoading: medicationsLoading,
+  } = useApiQuery<ApiResponse<Medication[]>>(
+    () => patientsApi.getMedications(patientId),
+    { enabled: !!patientId }
+  );
+
+  const isLoading = vitalsLoading || insightsLoading || appointmentsLoading || medicationsLoading;
+
+  // Transform vitals data into display format
+  const vitals = useMemo(() => {
+    const vitalsMap = vitalsResponse?.data;
+    if (!vitalsMap) return [];
+    return Object.entries(vitalsMap).map(([type, reading]) => {
+      const meta = vitalMeta[type] || { icon: Activity, color: "slate", label: type, unit: "" };
+      return {
+        type: meta.label,
+        icon: meta.icon,
+        value: formatVitalValue(reading),
+        unit: reading.unit || meta.unit,
+        status: reading.status || "normal",
+        trend: "stable" as string,
+        change: "",
+        lastReading: new Date(reading.timestamp),
+        color: meta.color,
+      };
+    });
+  }, [vitalsResponse]);
+
+  // AI insights
+  const aiInsights = useMemo(() => {
+    const insights = insightsResponse?.data;
+    if (!insights || !Array.isArray(insights)) return [];
+    return insights.slice(0, 5).map((insight) => ({
+      type: insight.type || "tip",
+      title: insight.title,
+      message: insight.message,
+      icon: insightIconMap[insight.type] || "💡",
+    }));
+  }, [insightsResponse]);
+
+  // Appointments
+  const appointments = useMemo(() => {
+    const appts = appointmentsResponse?.data;
+    if (!appts || !Array.isArray(appts)) return [];
+    return appts.slice(0, 3).map((apt) => ({
+      title: apt.notes || "Appointment",
+      doctor: apt.providerId || "Provider",
+      date: new Date(apt.scheduledAt).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+      type: apt.type === "telehealth" ? "video" : apt.type === "phone" ? "phone" : "in-person",
+    }));
+  }, [appointmentsResponse]);
+
+  // Medications with local taken state
+  const [medicationsTaken, setMedicationsTaken] = useState<Record<string, boolean[]>>({});
+
+  const medications = useMemo(() => {
+    const meds = medicationsResponse?.data;
+    if (!meds || !Array.isArray(meds)) return [];
+    return meds.flatMap((med) =>
+      (med.schedule || []).map((sched, idx) => ({
+        medId: med.id,
+        schedIdx: idx,
+        name: `${med.name} ${med.dosage}`,
+        time: sched.time,
+        taken: medicationsTaken[med.id]?.[idx] ?? sched.taken ?? false,
+      }))
+    );
+  }, [medicationsResponse, medicationsTaken]);
 
   const handleMessageCareTeam = useCallback(() => {
     router.push('/patient/messages');
@@ -144,10 +192,14 @@ export default function PatientDashboard() {
   }, [router, toast]);
 
   const handleToggleMedication = useCallback((index: number) => {
-    setMedications(prev => prev.map((med, i) => 
-      i === index ? { ...med, taken: !med.taken } : med
-    ));
     const med = medications[index];
+    if (!med) return;
+    setMedicationsTaken((prev) => {
+      const existing = prev[med.medId] || [];
+      const updated = [...existing];
+      updated[med.schedIdx] = !med.taken;
+      return { ...prev, [med.medId]: updated };
+    });
     if (!med.taken) {
       toast({ title: 'Medication marked as taken', description: med.name, type: 'success' });
     }
@@ -172,8 +224,9 @@ export default function PatientDashboard() {
     <DashboardLayout requiredRole="patient">
       <PageWrapper
         isLoading={isLoading}
-        error={error}
-        isEmpty={vitals.length === 0}
+        error={vitalsError}
+        onRetry={refetchVitals}
+        isEmpty={!isLoading && vitals.length === 0}
         emptyProps={{
           icon: ClipboardList,
           title: 'No dashboard data yet',
@@ -186,7 +239,7 @@ export default function PatientDashboard() {
         <Card className="bg-gradient-to-r from-blue-600 to-emerald-500 border-0 p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="text-white">
-              <h1 className="text-2xl font-bold">Welcome back, John!</h1>
+              <h1 className="text-2xl font-bold">Welcome back, {user?.firstName || "Patient"}!</h1>
               <p className="text-blue-100 mt-1">
                 You&apos;re doing great this week. Keep it up!
               </p>
@@ -275,22 +328,28 @@ export default function PatientDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {aiInsights.map((insight, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl"
-                  >
-                    <span className="text-2xl">{insight.icon}</span>
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-white">
-                        {insight.title}
-                      </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        {insight.message}
-                      </p>
+                {aiInsights.length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                    No insights available yet. Keep tracking your vitals!
+                  </p>
+                ) : (
+                  aiInsights.map((insight, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl"
+                    >
+                      <span className="text-2xl">{insight.icon}</span>
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-white">
+                          {insight.title}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                          {insight.message}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -310,45 +369,51 @@ export default function PatientDashboard() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {medications.map((med, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      med.taken
-                        ? "bg-emerald-50 dark:bg-emerald-900/20"
-                        : "bg-slate-50 dark:bg-slate-700/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleToggleMedication(index)}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          med.taken
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-slate-300 dark:border-slate-600 hover:border-emerald-500"
-                        }`}
-                        aria-label={med.taken ? "Mark as not taken" : "Mark as taken"}
-                      >
-                        {med.taken && <Check className="h-3 w-3" />}
-                      </button>
-                      <div>
-                        <p
-                          className={`text-sm font-medium ${
+                {medications.length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                    No medications scheduled.
+                  </p>
+                ) : (
+                  medications.map((med, index) => (
+                    <div
+                      key={`${med.medId}-${med.schedIdx}`}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        med.taken
+                          ? "bg-emerald-50 dark:bg-emerald-900/20"
+                          : "bg-slate-50 dark:bg-slate-700/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleToggleMedication(index)}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                             med.taken
-                              ? "text-emerald-700 dark:text-emerald-400"
-                              : "text-slate-900 dark:text-white"
+                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              : "border-slate-300 dark:border-slate-600 hover:border-emerald-500"
                           }`}
+                          aria-label={med.taken ? "Mark as not taken" : "Mark as taken"}
                         >
-                          {med.name}
-                        </p>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {med.time}
-                        </p>
+                          {med.taken && <Check className="h-3 w-3" />}
+                        </button>
+                        <div>
+                          <p
+                            className={`text-sm font-medium ${
+                              med.taken
+                                ? "text-emerald-700 dark:text-emerald-400"
+                                : "text-slate-900 dark:text-white"
+                            }`}
+                          >
+                            {med.name}
+                          </p>
+                          <p className="text-xs text-slate-500 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {med.time}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -368,41 +433,47 @@ export default function PatientDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              {appointments.map((apt, index) => (
-                <div
-                  key={index}
-                  onClick={() => handleViewAppointment(apt.title)}
-                  className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        apt.type === "video"
-                          ? "bg-blue-100 dark:bg-blue-900/30"
-                          : "bg-emerald-100 dark:bg-emerald-900/30"
-                      }`}
-                    >
-                      <Calendar
-                        className={`h-6 w-6 ${
+            {appointments.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                No upcoming appointments.
+              </p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {appointments.map((apt, index) => (
+                  <div
+                    key={index}
+                    onClick={() => handleViewAppointment(apt.title)}
+                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                           apt.type === "video"
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-emerald-600 dark:text-emerald-400"
+                            ? "bg-blue-100 dark:bg-blue-900/30"
+                            : "bg-emerald-100 dark:bg-emerald-900/30"
                         }`}
-                      />
+                      >
+                        <Calendar
+                          className={`h-6 w-6 ${
+                            apt.type === "video"
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-white">
+                          {apt.title}
+                        </p>
+                        <p className="text-sm text-slate-500">{apt.doctor}</p>
+                        <p className="text-xs text-slate-400 mt-1">{apt.date}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-white">
-                        {apt.title}
-                      </p>
-                      <p className="text-sm text-slate-500">{apt.doctor}</p>
-                      <p className="text-xs text-slate-400 mt-1">{apt.date}</p>
-                    </div>
+                    <ChevronRight className="h-5 w-5 text-slate-400" />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-400" />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

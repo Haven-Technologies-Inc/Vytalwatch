@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { User, Mail, Phone, MapPin, Calendar, Heart, Shield, Edit2, Save, X, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { authApi, usersApi } from '@/services/api';
+import type { ApiResponse, User as UserType } from '@/types';
 
 interface PatientProfile {
   firstName: string;
@@ -29,48 +34,111 @@ interface PatientProfile {
   primaryProvider: string;
 }
 
-const mockProfile: PatientProfile = {
-  firstName: 'John',
-  lastName: 'Doe',
-  email: 'john.doe@email.com',
-  phone: '(555) 123-4567',
-  dateOfBirth: '1958-03-15',
-  gender: 'Male',
-  address: '123 Main Street',
-  city: 'San Francisco',
-  state: 'CA',
-  zipCode: '94102',
-  emergencyContact: 'Jane Doe (Wife)',
-  emergencyPhone: '(555) 987-6543',
-  conditions: ['Hypertension', 'Type 2 Diabetes', 'Atrial Fibrillation'],
-  allergies: ['Penicillin', 'Sulfa drugs'],
-  bloodType: 'O+',
-  primaryProvider: 'Dr. Sarah Chen',
-};
+function mapUserToProfile(user: UserType): PatientProfile {
+  // The user object may have various shapes depending on the backend
+  const u = user as UserType & Record<string, unknown>;
+  return {
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
+    phone: (u.phone as string) || '',
+    dateOfBirth: u.dateOfBirth ? new Date(u.dateOfBirth as string).toISOString().split('T')[0] : '',
+    gender: (u.gender as string) || '',
+    address: (u.address as string) || '',
+    city: (u.city as string) || '',
+    state: (u.state as string) || '',
+    zipCode: (u.zipCode as string) || '',
+    emergencyContact: typeof u.emergencyContact === 'object' && u.emergencyContact
+      ? `${(u.emergencyContact as Record<string, string>).name || ''}`
+      : (u.emergencyContact as string) || '',
+    emergencyPhone: typeof u.emergencyContact === 'object' && u.emergencyContact
+      ? `${(u.emergencyContact as Record<string, string>).phone || ''}`
+      : '',
+    conditions: Array.isArray(u.conditions) ? (u.conditions as string[]) : [],
+    allergies: Array.isArray(u.allergies) ? (u.allergies as string[]) : [],
+    bloodType: (u.bloodType as string) || '',
+    primaryProvider: (u.primaryProvider as string) || '',
+  };
+}
 
 export default function PatientProfilePage() {
   const { toast } = useToast();
-  const [profile, setProfile] = useState<PatientProfile>(mockProfile);
+
+  // Fetch user profile from API
+  const {
+    data: userResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiResponse<UserType>>(
+    () => authApi.getCurrentUser(),
+    { enabled: true }
+  );
+
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<PatientProfile>(mockProfile);
+  const [editedProfile, setEditedProfile] = useState<PatientProfile | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Populate profile from API response
+  useEffect(() => {
+    if (userResponse?.data) {
+      const mapped = mapUserToProfile(userResponse.data);
+      setProfile(mapped);
+      setEditedProfile(mapped);
+    }
+  }, [userResponse]);
+
   const handleSave = useCallback(async () => {
+    if (!editedProfile) return;
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await usersApi.updateProfile({
+        firstName: editedProfile.firstName,
+        lastName: editedProfile.lastName,
+        phone: editedProfile.phone,
+      } as Partial<UserType>);
       setProfile(editedProfile);
       setIsEditing(false);
       toast({ title: 'Profile saved', description: 'Your profile has been updated', type: 'success' });
+      refetch();
+    } catch {
+      toast({ title: 'Save failed', description: 'Could not save profile changes', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [editedProfile, toast]);
+  }, [editedProfile, toast, refetch]);
 
   const handleCancel = useCallback(() => {
-    setEditedProfile(profile);
+    if (profile) {
+      setEditedProfile(profile);
+    }
     setIsEditing(false);
   }, [profile]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading your profile..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
+  if (!profile || !editedProfile) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading your profile..." />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -108,7 +176,7 @@ export default function PatientProfilePage() {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {profile.firstName} {profile.lastName}
               </h2>
-              <p className="text-gray-500">Patient ID: PAT-2024-001234</p>
+              <p className="text-gray-500">Patient</p>
               <Badge variant="success" className="mt-2">Active</Badge>
 
               {isEditing && (
@@ -130,15 +198,15 @@ export default function PatientProfilePage() {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Phone className="h-4 w-4 text-gray-400" />
-                <span>{profile.phone}</span>
+                <span>{profile.phone || 'Not set'}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <MapPin className="h-4 w-4 text-gray-400" />
-                <span>{profile.city}, {profile.state}</span>
+                <span>{profile.city && profile.state ? `${profile.city}, ${profile.state}` : 'Not set'}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="h-4 w-4 text-gray-400" />
-                <span>{new Date(profile.dateOfBirth).toLocaleDateString()}</span>
+                <span>{profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : 'Not set'}</span>
               </div>
             </div>
           </div>
@@ -183,7 +251,7 @@ export default function PatientProfilePage() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Gender</label>
-                  <Input value={profile.gender} disabled />
+                  <Input value={profile.gender || 'Not set'} disabled />
                 </div>
               </div>
 
@@ -233,29 +301,37 @@ export default function PatientProfilePage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Blood Type</label>
-                  <Input value={profile.bloodType} disabled />
+                  <Input value={profile.bloodType || 'Not set'} disabled />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Primary Provider</label>
-                  <Input value={profile.primaryProvider} disabled />
+                  <Input value={profile.primaryProvider || 'Not set'} disabled />
                 </div>
               </div>
 
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-medium">Medical Conditions</label>
                 <div className="flex flex-wrap gap-2">
-                  {profile.conditions.map((condition) => (
-                    <Badge key={condition} variant="info">{condition}</Badge>
-                  ))}
+                  {profile.conditions.length > 0 ? (
+                    profile.conditions.map((condition) => (
+                      <Badge key={condition} variant="info">{condition}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-500">No conditions listed</span>
+                  )}
                 </div>
               </div>
 
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-medium">Allergies</label>
                 <div className="flex flex-wrap gap-2">
-                  {profile.allergies.map((allergy) => (
-                    <Badge key={allergy} variant="danger">{allergy}</Badge>
-                  ))}
+                  {profile.allergies.length > 0 ? (
+                    profile.allergies.map((allergy) => (
+                      <Badge key={allergy} variant="danger">{allergy}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-500">No allergies listed</span>
+                  )}
                 </div>
               </div>
             </div>

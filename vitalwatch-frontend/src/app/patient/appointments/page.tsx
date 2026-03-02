@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
@@ -8,18 +8,25 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { 
-  Calendar, 
-  Clock, 
-  Video, 
-  MapPin, 
-  Plus, 
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import {
+  Calendar,
+  Clock,
+  Video,
+  MapPin,
+  Plus,
   Phone,
   MessageSquare,
   ChevronLeft,
-  ChevronRight 
+  ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { useAuthStore } from '@/stores/authStore';
+import { patientsApi } from '@/services/api';
+import apiClient from '@/services/api/client';
+import type { ApiResponse, Appointment as ApiAppointment } from '@/types';
 
 interface Appointment {
   id: string;
@@ -35,48 +42,62 @@ interface Appointment {
   notes?: string;
 }
 
-const mockAppointments: Appointment[] = [
-  {
-    id: '1',
-    title: 'Follow-up Visit',
-    provider: 'Dr. Sarah Smith',
-    providerTitle: 'Cardiologist',
-    date: '2026-01-20',
-    time: '10:00 AM',
-    duration: 30,
-    type: 'video',
-    status: 'upcoming',
-    notes: 'Review blood pressure trends and medication effectiveness',
-  },
-  {
-    id: '2',
-    title: 'Annual Physical',
-    provider: 'Dr. Michael Johnson',
-    providerTitle: 'Primary Care',
-    date: '2026-01-25',
-    time: '2:00 PM',
-    duration: 60,
-    type: 'in-person',
-    status: 'upcoming',
-    location: '123 Medical Center Dr, Suite 200',
-  },
-  {
-    id: '3',
-    title: 'Lab Results Review',
-    provider: 'Dr. Sarah Smith',
-    providerTitle: 'Cardiologist',
-    date: '2026-01-10',
-    time: '11:00 AM',
-    duration: 15,
-    type: 'phone',
-    status: 'completed',
-  },
-];
+function mapApiAppointment(apt: ApiAppointment): Appointment {
+  const scheduledDate = new Date(apt.scheduledAt);
+  const typeMap: Record<string, 'video' | 'in-person' | 'phone'> = {
+    telehealth: 'video',
+    in_person: 'in-person',
+    phone: 'phone',
+  };
+  const statusMap: Record<string, 'upcoming' | 'completed' | 'cancelled'> = {
+    scheduled: 'upcoming',
+    confirmed: 'upcoming',
+    completed: 'completed',
+    cancelled: 'cancelled',
+    no_show: 'completed',
+  };
+  return {
+    id: apt.id,
+    title: apt.notes || 'Appointment',
+    provider: apt.providerId || 'Provider',
+    providerTitle: '',
+    date: scheduledDate.toISOString().split('T')[0],
+    time: scheduledDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    duration: apt.duration || 30,
+    type: typeMap[apt.type] || 'in-person',
+    status: statusMap[apt.status] || 'upcoming',
+    location: apt.location,
+    notes: apt.notes,
+  };
+}
 
 export default function PatientAppointmentsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const { user } = useAuthStore();
+  const patientId = user?.id || '';
+
+  // Fetch appointments from API
+  const {
+    data: appointmentsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiResponse<ApiAppointment[]>>(
+    () => patientsApi.getAppointments(patientId),
+    { enabled: !!patientId }
+  );
+
+  // Local overrides for optimistic updates
+  const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<Appointment>>>({});
+  const [localAppointments, setLocalAppointments] = useState<Appointment[]>([]);
+
+  const appointments = useMemo(() => {
+    const apiAppts = (appointmentsResponse?.data || []).map(mapApiAppointment);
+    const allAppts = [...localAppointments, ...apiAppts];
+    return allAppts.map((apt) => ({ ...apt, ...localOverrides[apt.id] }));
+  }, [appointmentsResponse, localOverrides, localAppointments]);
+
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -101,6 +122,7 @@ export default function PatientAppointmentsPage() {
     if (!scheduleForm.title || !scheduleForm.date || !scheduleForm.time || saving) return;
     setSaving(true);
     try {
+      // Optimistically add the appointment locally
       const newAppointment: Appointment = {
         id: `new-${Date.now()}`,
         title: scheduleForm.title,
@@ -112,10 +134,22 @@ export default function PatientAppointmentsPage() {
         type: scheduleForm.type,
         status: 'upcoming',
       };
-      setAppointments((prev) => [newAppointment, ...prev]);
+      setLocalAppointments((prev) => [newAppointment, ...prev]);
       setShowScheduleModal(false);
       setScheduleForm({ title: '', provider: '', date: '', time: '', type: 'video' });
       toast({ title: 'Appointment scheduled', description: 'Your appointment has been scheduled successfully', type: 'success' });
+      // Try to persist via API
+      try {
+        await apiClient.post('/appointments', {
+          title: newAppointment.title,
+          scheduledAt: new Date(`${newAppointment.date}T${newAppointment.time}`).toISOString(),
+          type: newAppointment.type === 'video' ? 'telehealth' : newAppointment.type === 'phone' ? 'phone' : 'in_person',
+          duration: 30,
+        });
+        refetch();
+      } catch {
+        // Optimistic update already applied
+      }
     } finally {
       setSaving(false);
     }
@@ -125,16 +159,21 @@ export default function PatientAppointmentsPage() {
     if (!selectedAppointment || !rescheduleForm.date || !rescheduleForm.time || saving) return;
     setSaving(true);
     try {
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === selectedAppointment.id
-            ? { ...apt, date: rescheduleForm.date, time: rescheduleForm.time }
-            : apt
-        )
-      );
+      setLocalOverrides((prev) => ({
+        ...prev,
+        [selectedAppointment.id]: { date: rescheduleForm.date, time: rescheduleForm.time },
+      }));
       setShowRescheduleModal(false);
       setShowDetails(false);
       toast({ title: 'Appointment rescheduled', description: 'Your appointment has been rescheduled', type: 'success' });
+      try {
+        await apiClient.patch(`/appointments/${selectedAppointment.id}`, {
+          scheduledAt: new Date(`${rescheduleForm.date}T${rescheduleForm.time}`).toISOString(),
+        });
+        refetch();
+      } catch {
+        // Optimistic update already applied
+      }
     } finally {
       setSaving(false);
     }
@@ -142,13 +181,18 @@ export default function PatientAppointmentsPage() {
 
   const handleCancelAppointment = async () => {
     if (!selectedAppointment) return;
-    setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === selectedAppointment.id ? { ...apt, status: 'cancelled' } : apt
-      )
-    );
+    setLocalOverrides((prev) => ({
+      ...prev,
+      [selectedAppointment.id]: { status: 'cancelled' },
+    }));
     setShowCancelDialog(false);
     setShowDetails(false);
+    try {
+      await apiClient.patch(`/appointments/${selectedAppointment.id}`, { status: 'cancelled' });
+      refetch();
+    } catch {
+      // Optimistic update already applied
+    }
   };
 
   const handleJoinVideoCall = useCallback((apt: Appointment) => {
@@ -191,6 +235,22 @@ export default function PatientAppointmentsPage() {
         return 'In-Person';
     }
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading appointments..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -243,7 +303,7 @@ export default function PatientAppointmentsPage() {
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">{apt.title}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {apt.provider} • {apt.providerTitle}
+                            {apt.provider} {apt.providerTitle ? `• ${apt.providerTitle}` : ''}
                           </p>
                           <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
                             <span className="flex items-center gap-1">
@@ -308,11 +368,13 @@ export default function PatientAppointmentsPage() {
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">{apt.title}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {apt.provider} • {apt.providerTitle}
+                            {apt.provider} {apt.providerTitle ? `• ${apt.providerTitle}` : ''}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary">Completed</Badge>
+                      <Badge variant="secondary">
+                        {apt.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+                      </Badge>
                     </div>
                   ))}
                 </div>

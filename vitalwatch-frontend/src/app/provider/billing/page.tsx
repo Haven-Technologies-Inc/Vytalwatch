@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
@@ -8,16 +8,21 @@ import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
-import { 
-  DollarSign, 
-  FileText, 
-  Clock, 
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  DollarSign,
+  FileText,
+  Clock,
   CheckCircle2,
   Download,
   Send,
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { billingApi } from '@/services/api';
 
 interface BillingRecord {
   id: string;
@@ -30,54 +35,12 @@ interface BillingRecord {
   paidAt?: string;
 }
 
-const mockBillingRecords: BillingRecord[] = [
-  {
-    id: '1',
-    patientName: 'Maria Garcia',
-    month: '2026-01',
-    cptCodes: ['99454', '99457', '99458'],
-    amount: 156,
-    status: 'pending',
-  },
-  {
-    id: '2',
-    patientName: 'James Wilson',
-    month: '2026-01',
-    cptCodes: ['99454', '99457'],
-    amount: 115,
-    status: 'submitted',
-    submittedAt: '2026-01-10',
-  },
-  {
-    id: '3',
-    patientName: 'Susan Chen',
-    month: '2026-01',
-    cptCodes: ['99454', '99457'],
-    amount: 115,
-    status: 'paid',
-    submittedAt: '2026-01-05',
-    paidAt: '2026-01-12',
-  },
-  {
-    id: '4',
-    patientName: 'Robert Johnson',
-    month: '2025-12',
-    cptCodes: ['99454', '99457'],
-    amount: 115,
-    status: 'paid',
-    submittedAt: '2025-12-28',
-    paidAt: '2026-01-08',
-  },
-  {
-    id: '5',
-    patientName: 'Linda Martinez',
-    month: '2025-12',
-    cptCodes: ['99454'],
-    amount: 64,
-    status: 'rejected',
-    submittedAt: '2025-12-28',
-  },
-];
+interface BillingRecordsResponse {
+  data: {
+    records: BillingRecord[];
+    total: number;
+  };
+}
 
 const monthFilters = [
   { value: 'all', label: 'All Months' },
@@ -97,11 +60,23 @@ const statusFilters = [
 export default function ProviderBillingPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [records, setRecords] = useState<BillingRecord[]>(mockBillingRecords);
   const [monthFilter, setMonthFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    data: billingResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<BillingRecordsResponse>(
+    () => billingApi.getRecords({ limit: 100 }) as unknown as Promise<BillingRecordsResponse>,
+  );
+
+  const records = useMemo(() => {
+    return billingResponse?.data?.records ?? [];
+  }, [billingResponse]);
 
   const handleExportReport = useCallback(async () => {
     setIsExporting(true);
@@ -121,19 +96,19 @@ export default function ProviderBillingPage() {
     }
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setRecords(prev => prev.map(r => 
-        r.status === 'pending' ? { ...r, status: 'submitted' as const, submittedAt: new Date().toISOString().split('T')[0] } : r
-      ));
-      toast({ 
-        title: 'Claims submitted', 
-        description: `${pendingClaims.length} claims submitted successfully`, 
-        type: 'success' 
+      await Promise.all(pendingClaims.map(r => billingApi.submitBillingRecord(r.id)));
+      await refetch();
+      toast({
+        title: 'Claims submitted',
+        description: `${pendingClaims.length} claims submitted successfully`,
+        type: 'success'
       });
+    } catch {
+      toast({ title: 'Submission failed', description: 'Could not submit claims', type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
-  }, [records, toast]);
+  }, [records, toast, refetch]);
 
   const handleViewRecord = useCallback((record: BillingRecord) => {
     router.push(`/provider/billing/${record.id}`);
@@ -144,11 +119,14 @@ export default function ProviderBillingPage() {
       toast({ title: 'Cannot submit', description: 'This claim has already been submitted', type: 'warning' });
       return;
     }
-    setRecords(prev => prev.map(r => 
-      r.id === record.id ? { ...r, status: 'submitted' as const, submittedAt: new Date().toISOString().split('T')[0] } : r
-    ));
-    toast({ title: 'Claim submitted', description: `Claim for ${record.patientName} submitted`, type: 'success' });
-  }, [toast]);
+    try {
+      await billingApi.submitBillingRecord(record.id);
+      await refetch();
+      toast({ title: 'Claim submitted', description: `Claim for ${record.patientName} submitted`, type: 'success' });
+    } catch {
+      toast({ title: 'Submission failed', description: 'Could not submit claim', type: 'error' });
+    }
+  }, [toast, refetch]);
 
   const filteredRecords = records.filter((r) => {
     if (monthFilter !== 'all' && r.month !== monthFilter) return false;
@@ -220,9 +198,25 @@ export default function ProviderBillingPage() {
       key: 'submittedAt',
       header: 'Submitted',
       render: (date: string | undefined) =>
-        date ? new Date(date).toLocaleDateString() : '—',
+        date ? new Date(date).toLocaleDateString() : '\u2014',
     },
   ];
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading billing records..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

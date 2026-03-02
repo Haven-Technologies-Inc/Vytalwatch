@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle2, XCircle, Mail, Loader2 } from 'lucide-react';
+import { authApi } from '@/services/api';
+import { ApiError } from '@/services/api/client';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -23,21 +25,16 @@ function VerifyEmailContent() {
 
     const verifyEmail = async () => {
       try {
-        const response = await fetch('/api/auth/verify-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Verification failed');
-        }
-
+        await authApi.verifyEmail(token!);
         setStatus('success');
         setTimeout(() => router.push('/auth/login'), 3000);
       } catch (err) {
         setStatus('error');
-        setError('Email verification failed. The link may be invalid or expired.');
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError('Email verification failed. The link may be invalid or expired.');
+        }
       }
     };
 

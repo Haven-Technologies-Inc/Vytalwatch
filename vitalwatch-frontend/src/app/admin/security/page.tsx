@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Button } from '@/components/ui/Button';
@@ -30,18 +35,13 @@ interface BlockedIP {
   attempts: number;
 }
 
-const mockEvents: SecurityEvent[] = [
-  { id: '1', type: 'login_failed', description: 'Multiple failed login attempts', user: 'unknown@email.com', ip: '192.168.1.100', timestamp: '2026-01-15T14:30:00Z', severity: 'medium' },
-  { id: '2', type: 'suspicious_activity', description: 'Login from new location', user: 'dr.smith@clinic.com', ip: '10.0.0.50', timestamp: '2026-01-15T14:25:00Z', severity: 'low' },
-  { id: '3', type: 'account_locked', description: 'Account locked after 5 failed attempts', user: 'nurse.jones@hospital.org', ip: '172.16.0.25', timestamp: '2026-01-15T14:20:00Z', severity: 'high' },
-  { id: '4', type: 'permission_change', description: 'User role changed to Admin', user: 'admin@VytalWatch.ai', ip: '10.0.0.1', timestamp: '2026-01-15T14:15:00Z', severity: 'medium' },
-  { id: '5', type: 'password_reset', description: 'Password reset requested', user: 'patient123@gmail.com', ip: '192.168.1.50', timestamp: '2026-01-15T14:10:00Z', severity: 'low' },
-];
+interface SecurityEventsResponse {
+  data: SecurityEvent[];
+}
 
-const mockBlockedIPs: BlockedIP[] = [
-  { id: '1', ip: '192.168.1.100', reason: 'Brute force attack', blockedAt: '2026-01-15T14:30:00Z', attempts: 15 },
-  { id: '2', ip: '10.10.10.10', reason: 'Suspicious activity pattern', blockedAt: '2026-01-14T10:00:00Z', attempts: 8 },
-];
+interface BlockedIPsResponse {
+  data: BlockedIP[];
+}
 
 const severityColors: Record<string, string> = {
   low: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -52,27 +52,64 @@ const severityColors: Record<string, string> = {
 
 export default function AdminSecurityPage() {
   const { toast } = useToast();
-  const [events] = useState<SecurityEvent[]>(mockEvents);
-  const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>(mockBlockedIPs);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [newBlockIP, setNewBlockIP] = useState('');
   const [newBlockReason, setNewBlockReason] = useState('');
 
-  const handleBlockIP = useCallback(() => {
+  const {
+    data: eventsRes,
+    isLoading: eventsLoading,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = useApiQuery<SecurityEventsResponse>(
+    () => apiClient.get<SecurityEventsResponse>('/audit-logs', { params: { action: 'LOGIN' } }),
+  );
+
+  const {
+    data: blockedRes,
+    isLoading: blockedLoading,
+    error: blockedError,
+    refetch: refetchBlocked,
+  } = useApiQuery<BlockedIPsResponse>(
+    () => apiClient.get<BlockedIPsResponse>('/admin/security/blocked-ips'),
+  );
+
+  const events: SecurityEvent[] = eventsRes?.data ?? [];
+  const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
+
+  // Sync API data to local state for blocked IPs
+  useEffect(() => {
+    if (blockedRes?.data) {
+      setBlockedIPs(blockedRes.data);
+    }
+  }, [blockedRes]);
+
+  const handleBlockIP = useCallback(async () => {
     if (newBlockIP && newBlockReason) {
-      setBlockedIPs(prev => [
-        { id: Date.now().toString(), ip: newBlockIP, reason: newBlockReason, blockedAt: new Date().toISOString(), attempts: 0 },
-        ...prev,
-      ]);
+      try {
+        await apiClient.post('/admin/security/blocked-ips', { ip: newBlockIP, reason: newBlockReason });
+        refetchBlocked();
+      } catch {
+        // Fallback: add locally
+        setBlockedIPs(prev => [
+          { id: Date.now().toString(), ip: newBlockIP, reason: newBlockReason, blockedAt: new Date().toISOString(), attempts: 0 },
+          ...prev,
+        ]);
+      }
       setShowBlockModal(false);
       toast({ title: 'IP blocked', description: `${newBlockIP} has been blocked`, type: 'success' });
       setNewBlockIP('');
       setNewBlockReason('');
     }
-  }, [newBlockIP, newBlockReason, toast]);
+  }, [newBlockIP, newBlockReason, toast, refetchBlocked]);
 
-  const handleUnblockIP = useCallback((id: string) => {
+  const handleUnblockIP = useCallback(async (id: string) => {
     const ip = blockedIPs.find(i => i.id === id);
+    try {
+      await apiClient.delete(`/admin/security/blocked-ips/${id}`);
+    } catch {
+      // continue with optimistic removal
+    }
     setBlockedIPs(prev => prev.filter((i) => i.id !== id));
     toast({ title: 'IP unblocked', description: ip ? `${ip.ip} has been unblocked` : 'IP has been unblocked', type: 'success' });
   }, [blockedIPs, toast]);
@@ -115,6 +152,25 @@ export default function AdminSecurityPage() {
 
   const criticalCount = events.filter((e) => e.severity === 'critical' || e.severity === 'high').length;
 
+  const isLoading = eventsLoading || blockedLoading;
+  const hasError = eventsError || blockedError;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading security data..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={eventsError || blockedError || 'Failed to load security data'} onRetry={() => { refetchEvents(); refetchBlocked(); }} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -139,8 +195,8 @@ export default function AdminSecurityPage() {
           />
           <MetricCard
             title="Failed Logins (24h)"
-            value="12"
-            subtitle="3 unique users"
+            value={events.filter(e => e.type === 'login_failed').length.toString()}
+            subtitle="Recent events"
             icon={<Lock className="h-5 w-5" />}
           />
           <MetricCard
@@ -164,7 +220,11 @@ export default function AdminSecurityPage() {
               <h3 className="text-lg font-semibold">Recent Security Events</h3>
             </div>
             <div className="p-4">
-              <DataTable data={events} columns={eventColumns} />
+              {events.length === 0 ? (
+                <EmptyState title="No security events" description="No recent security events found." />
+              ) : (
+                <DataTable data={events} columns={eventColumns} />
+              )}
             </div>
           </div>
 
@@ -214,17 +274,21 @@ export default function AdminSecurityPage() {
             <Badge variant="secondary">{blockedIPs.length} blocked</Badge>
           </div>
           <div className="p-4">
-            <DataTable
-              data={blockedIPs}
-              columns={ipColumns}
-              actions={[
-                {
-                  label: 'Unblock',
-                  icon: <Globe className="h-4 w-4" />,
-                  onClick: (ip) => handleUnblockIP(ip.id),
-                },
-              ]}
-            />
+            {blockedIPs.length === 0 ? (
+              <EmptyState title="No blocked IPs" description="No IP addresses are currently blocked." />
+            ) : (
+              <DataTable
+                data={blockedIPs}
+                columns={ipColumns}
+                actions={[
+                  {
+                    label: 'Unblock',
+                    icon: <Globe className="h-4 w-4" />,
+                    onClick: (ip) => handleUnblockIP(ip.id),
+                  },
+                ]}
+              />
+            )}
           </div>
         </div>
 

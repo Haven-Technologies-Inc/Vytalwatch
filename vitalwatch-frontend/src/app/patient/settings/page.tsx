@@ -6,13 +6,15 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Smartphone, 
-  Moon, 
-  Globe, 
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import {
+  User,
+  Bell,
+  Shield,
+  Smartphone,
+  Moon,
+  Globe,
   Lock,
   Mail,
   Phone,
@@ -22,6 +24,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { authApi, usersApi } from '@/services/api';
+import apiClient from '@/services/api/client';
+import type { ApiResponse, User as UserType } from '@/types';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -41,14 +47,49 @@ export default function PatientSettingsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch current user data from API
+  const {
+    data: userResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiResponse<UserType>>(
+    () => authApi.getCurrentUser(),
+    { enabled: true }
+  );
+
   const [profile, setProfile] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@email.com',
-    phone: '+1 (555) 123-4567',
-    dateOfBirth: '1975-06-15',
-    address: '123 Main St, City, State 12345',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    address: '',
   });
+
+  // Populate profile from API response
+  useEffect(() => {
+    if (userResponse?.data) {
+      const u = userResponse.data as UserType & Record<string, unknown>;
+      setProfile({
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        email: u.email || '',
+        phone: (u.phone as string) || '',
+        dateOfBirth: u.dateOfBirth ? new Date(u.dateOfBirth as string).toISOString().split('T')[0] : '',
+        address: (u.address as string) || '',
+      });
+    }
+  }, [userResponse]);
+
+  // Fetch settings for notifications
+  const {
+    data: settingsResponse,
+  } = useApiQuery<ApiResponse<Record<string, unknown>>>(
+    () => apiClient.get<ApiResponse<Record<string, unknown>>>('/users/settings'),
+    { enabled: true }
+  );
 
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
@@ -60,15 +101,48 @@ export default function PatientSettingsPage() {
     weeklyReports: false,
   });
 
+  // Populate notifications from settings response
+  useEffect(() => {
+    if (settingsResponse?.data) {
+      const s = settingsResponse.data as Record<string, unknown>;
+      setNotifications((prev) => ({
+        emailAlerts: (s.emailAlerts as boolean) ?? prev.emailAlerts,
+        smsAlerts: (s.smsAlerts as boolean) ?? prev.smsAlerts,
+        pushNotifications: (s.pushNotifications as boolean) ?? prev.pushNotifications,
+        medicationReminders: (s.medicationReminders as boolean) ?? prev.medicationReminders,
+        appointmentReminders: (s.appointmentReminders as boolean) ?? prev.appointmentReminders,
+        vitalAlerts: (s.vitalAlerts as boolean) ?? prev.vitalAlerts,
+        weeklyReports: (s.weeklyReports as boolean) ?? prev.weeklyReports,
+      }));
+    }
+  }, [settingsResponse]);
+
+  // Fetch devices for settings devices tab
+  const {
+    data: devicesResponse,
+  } = useApiQuery<ApiResponse<Array<{ name: string; serial: string; status: string; battery: number }>>>(
+    () => apiClient.get<ApiResponse<Array<{ name: string; serial: string; status: string; battery: number }>>>('/devices/my-devices'),
+    { enabled: activeTab === 'devices' }
+  );
+
+  const settingsDevices = devicesResponse?.data || [];
+
   const handleSaveProfile = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await usersApi.updateProfile({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: profile.phone,
+      } as Partial<UserType>);
       toast({ title: 'Profile saved', description: 'Your profile has been updated', type: 'success' });
+      refetch();
+    } catch {
+      toast({ title: 'Save failed', description: 'Could not save profile', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast]);
+  }, [profile, toast, refetch]);
 
   const handleUpdatePassword = useCallback(async () => {
     setIsSaving(true);
@@ -83,6 +157,22 @@ export default function PatientSettingsPage() {
   const handleEnable2FA = useCallback(() => {
     toast({ title: 'Two-Factor Authentication', description: 'Setting up 2FA...', type: 'info' });
   }, [toast]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading settings..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -119,7 +209,7 @@ export default function PatientSettingsPage() {
             {activeTab === 'profile' && (
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
-                
+
                 <div className="mb-6 flex items-center gap-4">
                   <div className="relative">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -206,7 +296,7 @@ export default function PatientSettingsPage() {
             {activeTab === 'notifications' && (
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Notification Preferences</h2>
-                
+
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <h3 className="font-medium text-gray-900 dark:text-white">Delivery Methods</h3>
@@ -317,31 +407,33 @@ export default function PatientSettingsPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">Connected Devices</h2>
                 <div className="space-y-4">
-                  {[
-                    { name: 'Blood Pressure Monitor', serial: 'TEN-BP-123456', status: 'active', battery: 85 },
-                    { name: 'Weight Scale', serial: 'TEN-WS-789012', status: 'active', battery: 92 },
-                    { name: 'Pulse Oximeter', serial: 'TEN-PO-345678', status: 'offline', battery: 15 },
-                  ].map((device) => (
-                    <div key={device.serial} className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                          <Smartphone className="h-5 w-5" />
+                  {settingsDevices.length > 0 ? (
+                    settingsDevices.map((device) => (
+                      <div key={device.serial || device.name} className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                            <Smartphone className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{device.name}</p>
+                            <p className="text-sm text-gray-500">Serial: {device.serial}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{device.name}</p>
-                          <p className="text-sm text-gray-500">Serial: {device.serial}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <Badge variant={device.status === 'active' ? 'success' : 'secondary'}>
+                              {device.status}
+                            </Badge>
+                            {device.battery !== undefined && (
+                              <p className="mt-1 text-xs text-gray-500">Battery: {device.battery}%</p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <Badge variant={device.status === 'active' ? 'success' : 'secondary'}>
-                            {device.status}
-                          </Badge>
-                          <p className="mt-1 text-xs text-gray-500">Battery: {device.battery}%</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-center text-gray-500 py-8">No devices connected. Visit the Devices page to manage your devices.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -360,9 +452,9 @@ export default function PatientSettingsPage() {
                     </div>
                     {mounted && (
                       <label className="relative inline-flex cursor-pointer items-center">
-                        <input 
-                          type="checkbox" 
-                          className="peer sr-only" 
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
                           aria-label="Toggle dark mode"
                           checked={theme === 'dark'}
                           onChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
