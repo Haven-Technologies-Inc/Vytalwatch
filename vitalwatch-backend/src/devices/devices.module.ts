@@ -10,11 +10,15 @@ import {
 import { TenoviHwiDevice } from './entities/tenovi-hwi-device.entity';
 import { DevicesService } from './devices.service';
 import { TenoviService } from './tenovi.service';
+import { TenoviSyncService } from './tenovi-sync.service';
 import { DevicesController } from './devices.controller';
 import { TenoviWebhookController, TenoviController } from './tenovi-webhook.controller';
 import { VitalsModule } from '../vitals/vitals.module';
 import { AuditModule } from '../audit/audit.module';
 import { AlertsModule } from '../alerts/alerts.module';
+import { VitalReading } from '../vitals/entities/vital-reading.entity';
+import { Enrollment } from '../enrollments/entities/enrollment.entity';
+import { Task } from '../tasks/entities/task.entity';
 
 @Module({
   imports: [
@@ -24,6 +28,9 @@ import { AlertsModule } from '../alerts/alerts.module';
       TenoviWhitelistedDevice,
       TenoviGatewayProperty,
       TenoviHwiDevice,
+      VitalReading,
+      Enrollment,
+      Task,
     ]),
     ConfigModule,
     forwardRef(() => VitalsModule),
@@ -31,7 +38,7 @@ import { AlertsModule } from '../alerts/alerts.module';
     AuditModule,
   ],
   controllers: [DevicesController, TenoviWebhookController, TenoviController],
-  providers: [DevicesService, TenoviService],
+  providers: [DevicesService, TenoviService, TenoviSyncService],
   exports: [DevicesService, TenoviService],
 })
 export class DevicesModule {}

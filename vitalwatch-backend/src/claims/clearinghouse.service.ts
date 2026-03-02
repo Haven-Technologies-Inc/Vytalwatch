@@ -52,7 +52,7 @@ export class ClearinghouseService {
 
       const result = {
         transactionId: response.data.transactionId || 'TXN-' + Date.now(),
-        status: response.data.status === 'success' ? 'ACCEPTED' : 'PENDING' as const,
+        status: (response.data.status === 'success' ? 'ACCEPTED' : 'PENDING') as 'ACCEPTED' | 'PENDING',
         message: response.data.message || 'Submitted successfully',
         timestamp: new Date(),
         rawResponse: response.data,
@@ -73,7 +73,7 @@ export class ClearinghouseService {
         endpoint: '/claims/submit', method: 'POST', durationMs: Date.now() - startTime,
         errorMessage: error.message, metadata: { claimCount: claimIds.length },
       });
-      return { transactionId: 'ERR-' + Date.now(), status: 'REJECTED', message: error.message || 'Submission failed', timestamp: new Date() };
+      return { transactionId: 'ERR-' + Date.now(), status: 'REJECTED' as const, message: error.message || 'Submission failed', timestamp: new Date() };
     }
   }
 

@@ -316,6 +316,17 @@ export class TenoviService {
     return response.data;
   }
 
+  async replaceHwiDevice(
+    hwiDeviceId: string,
+    dto: AssignTenoviDeviceDto,
+  ): Promise<TenoviHwiDeviceDto> {
+    const response = await this.apiClient.put<TenoviHwiDeviceDto>(
+      `/hwi-devices/${hwiDeviceId}/`,
+      dto,
+    );
+    return response.data;
+  }
+
   async deleteHwiDevice(hwiDeviceId: string): Promise<void> {
     await this.apiClient.delete(`/hwi-devices/${hwiDeviceId}/`);
   }
@@ -799,11 +810,64 @@ export class TenoviService {
     return response.data;
   }
 
-  async createWebhook(endpoint: string, event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'): Promise<any> {
+  async createWebhook(config: {
+    endpoint: string;
+    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
+    enabledByDefault?: boolean;
+    authHeader?: string;
+    authKey?: string;
+    postAsArray?: boolean;
+  }): Promise<any> {
     const response = await this.apiClient.post(`/webhooks/`, {
-      endpoint,
-      event,
-      enabled_by_default: true,
+      endpoint: config.endpoint,
+      event: config.event,
+      enabled_by_default: config.enabledByDefault ?? true,
+      auth_header: config.authHeader,
+      auth_key: config.authKey,
+      post_as_array: config.postAsArray,
+    });
+    return response.data;
+  }
+
+  async getWebhook(webhookId: string): Promise<any> {
+    const response = await this.apiClient.get(`/webhooks/${webhookId}/`);
+    return response.data;
+  }
+
+  async updateWebhook(webhookId: string, config: {
+    endpoint?: string;
+    event?: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
+    enabledByDefault?: boolean;
+    authHeader?: string;
+    authKey?: string;
+    postAsArray?: boolean;
+  }): Promise<any> {
+    const response = await this.apiClient.patch(`/webhooks/${webhookId}/`, {
+      endpoint: config.endpoint,
+      event: config.event,
+      enabled_by_default: config.enabledByDefault,
+      auth_header: config.authHeader,
+      auth_key: config.authKey,
+      post_as_array: config.postAsArray,
+    });
+    return response.data;
+  }
+
+  async replaceWebhook(webhookId: string, config: {
+    endpoint: string;
+    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
+    enabledByDefault?: boolean;
+    authHeader?: string;
+    authKey?: string;
+    postAsArray?: boolean;
+  }): Promise<any> {
+    const response = await this.apiClient.put(`/webhooks/${webhookId}/`, {
+      endpoint: config.endpoint,
+      event: config.event,
+      enabled_by_default: config.enabledByDefault ?? true,
+      auth_header: config.authHeader,
+      auth_key: config.authKey,
+      post_as_array: config.postAsArray,
     });
     return response.data;
   }
@@ -985,6 +1049,23 @@ export class TenoviService {
     return response.data;
   }
 
+  async replaceHwiPatient(externalId: string, dto: TenoviPatientDto): Promise<TenoviPatientDto> {
+    const response = await this.apiClient.put<TenoviPatientDto>(
+      `/hwi-patients/${externalId}/`,
+      {
+        external_id: dto.external_id,
+        name: dto.name,
+        phone_number: dto.phone_number,
+        email: dto.email,
+        physician: dto.physician,
+        clinic_name: dto.clinic_name,
+        care_manager: dto.care_manager,
+        sms_opt_in: dto.sms_opt_in,
+      },
+    );
+    return response.data;
+  }
+
   async deleteHwiPatient(externalId: string): Promise<void> {
     await this.apiClient.delete(`/hwi-patients/${externalId}/`);
   }
@@ -1041,7 +1122,7 @@ export class TenoviService {
   }
 
   async unlinkGateway(gatewayId: string): Promise<void> {
-    await this.apiClient.post(`/unlink-gateway/${gatewayId}/`);
+    await this.apiClient.get(`/unlink-gateway/${gatewayId}/`);
     
     await this.auditService.log({
       action: 'TENOVI_GATEWAY_UNLINKED',
@@ -1072,6 +1153,26 @@ export class TenoviService {
       { value },
     );
     return response.data;
+  }
+
+  async createDeviceProperty(hwiDeviceId: string, key: string, value: string): Promise<any> {
+    const response = await this.apiClient.post<any>(
+      `/hwi-devices/${hwiDeviceId}/properties/`,
+      { key, value },
+    );
+    return response.data;
+  }
+
+  async replaceDeviceProperty(hwiDeviceId: string, propertyId: string, key: string, value: string): Promise<any> {
+    const response = await this.apiClient.put<any>(
+      `/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`,
+      { key, value },
+    );
+    return response.data;
+  }
+
+  async deleteDeviceProperty(hwiDeviceId: string, propertyId: string): Promise<void> {
+    await this.apiClient.delete(`/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`);
   }
 
   // ==================== BULK ORDERS ====================
@@ -1166,6 +1267,16 @@ export class TenoviService {
     });
     
     return response.data;
+  }
+
+  async cancelReplacement(replacementId: string): Promise<void> {
+    await this.apiClient.delete(`/hwi-replacements/${replacementId}/`);
+    
+    await this.auditService.log({
+      action: 'TENOVI_DEVICE_REPLACEMENT_CANCELLED',
+      resourceType: 'tenovi_replacement',
+      resourceId: replacementId,
+    });
   }
 
   // ==================== WEBHOOK RESEND/TEST ====================

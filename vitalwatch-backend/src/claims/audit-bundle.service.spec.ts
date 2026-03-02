@@ -28,13 +28,13 @@ describe('AuditBundleService', () => {
       expect(result.id).toContain('AB-');
       expect(result.hash).toContain('SHA256:');
       expect(result.claimId).toBe('CLM001');
-      expect(result.pdfBase64).toBeDefined();
+      expect(result.pdfBuffer).toBeDefined();
     });
 
     it('should include attestation in PDF', async () => {
       const data = { claim: { id: 'CLM001' }, vitals: [], timeEntries: [], notes: [], alerts: [], communications: [] };
       const result = await service.generateAuditBundle(data as any);
-      const content = Buffer.from(result.pdfBase64 || '', 'base64').toString();
+      const content = result.pdfBuffer?.toString() || '';
       expect(content).toContain('ATTESTATION');
     });
   });

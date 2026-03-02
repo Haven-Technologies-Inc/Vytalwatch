@@ -82,7 +82,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Organizations", href: "/admin/organizations", icon: Building },
-    { name: "Devices", href: "/admin/devices", icon: Smartphone },
+    { name: "Device Orders", href: "/superadmin/devices", icon: Smartphone },
     { name: "Gateways", href: "/admin/gateways", icon: Wifi },
     { name: "Billing", href: "/admin/billing", icon: CreditCard },
     { name: "Integrations", href: "/admin/integrations", icon: Zap },
@@ -90,6 +90,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
     { name: "API Logs", href: "/admin/api-logs", icon: FileText },
     { name: "API Keys", href: "/admin/api-keys", icon: Key },
     { name: "Security", href: "/admin/security", icon: Shield },
+    { name: "Staff", href: "/superadmin/staff", icon: Users },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ],
 };

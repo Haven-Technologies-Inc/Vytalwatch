@@ -742,8 +742,17 @@ export const tenoviApi = {
   listWebhooks: () =>
     apiClient.get<ApiResponse<TenoviWebhook[]>>('/tenovi/webhooks'),
 
-  createWebhook: (endpoint: string, event: 'MEASUREMENT' | 'FULFILLMENT') =>
-    apiClient.post<ApiResponse<TenoviWebhook>>('/tenovi/webhooks', { endpoint, event }),
+  getWebhook: (webhookId: string) =>
+    apiClient.get<ApiResponse<TenoviWebhook>>(`/tenovi/webhooks/${webhookId}`),
+
+  createWebhook: (config: { endpoint: string; event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'; enabledByDefault?: boolean; authHeader?: string; authKey?: string; postAsArray?: boolean }) =>
+    apiClient.post<ApiResponse<TenoviWebhook>>('/tenovi/webhooks', config),
+
+  updateWebhook: (webhookId: string, config: { endpoint?: string; event?: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'; enabledByDefault?: boolean; authHeader?: string; authKey?: string; postAsArray?: boolean }) =>
+    apiClient.patch<ApiResponse<TenoviWebhook>>(`/tenovi/webhooks/${webhookId}`, config),
+
+  deleteWebhook: (webhookId: string) =>
+    apiClient.delete<ApiResponse<void>>(`/tenovi/webhooks/${webhookId}`),
 
   resendWebhooks: (params: { webhookIds?: string[]; startDate?: string; endDate?: string; hwiDeviceId?: string }) =>
     apiClient.post<ApiResponse<{ resent: number }>>('/tenovi/webhooks/resend', params),
@@ -1239,4 +1248,21 @@ export const rpmAnalyticsApi = {
   getDashboard: (clinicId: string, startDate: string, endDate: string) => apiClient.get('/analytics/rpm/dashboard', { params: { clinicId, startDate, endDate } }),
   getProductivity: (clinicId: string, startDate: string, endDate: string) => apiClient.get('/analytics/rpm/productivity', { params: { clinicId, startDate, endDate } }),
   getCompliance: (clinicId: string) => apiClient.get('/analytics/rpm/compliance', { params: { clinicId } }),
+};
+
+// Staff Management API
+export const staffApi = {
+  createRole: (data: { name: string; description?: string; permissions: string[] }) => apiClient.post('/staff/roles', data),
+  getRoles: (params?: { status?: string; page?: number; limit?: number }) => apiClient.get('/staff/roles', { params }),
+  getRole: (id: string) => apiClient.get(`/staff/roles/${id}`),
+  updateRole: (id: string, data: any) => apiClient.put(`/staff/roles/${id}`, data),
+  deleteRole: (id: string) => apiClient.delete(`/staff/roles/${id}`),
+  createMember: (data: any) => apiClient.post('/staff/members', data),
+  getMembers: (params?: any) => apiClient.get('/staff/members', { params }),
+  getMember: (id: string) => apiClient.get(`/staff/members/${id}`),
+  getMemberByUserId: (userId: string) => apiClient.get(`/staff/members/user/${userId}`),
+  updateMember: (id: string, data: any) => apiClient.put(`/staff/members/${id}`, data),
+  deleteMember: (id: string) => apiClient.delete(`/staff/members/${id}`),
+  getPermissions: () => apiClient.get('/staff/permissions'),
+  getMyPermissions: () => apiClient.get('/staff/my-permissions'),
 };

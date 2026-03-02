@@ -18,7 +18,7 @@ export interface LogApiCallParams {
 export class EnterpriseLoggingService {
   private lastLogHash: string | null = null;
   constructor(@InjectRepository(EnterpriseApiLog) private readonly repo: Repository<EnterpriseApiLog>, private readonly config: ConfigService) {
-    this.repo.findOne({ order: { createdAt: 'DESC' }, select: ['logHash'] }).then(l => this.lastLogHash = l?.logHash || null);
+    this.repo.findOne({ where: {}, order: { createdAt: 'DESC' }, select: ['logHash'] }).then(l => this.lastLogHash = l?.logHash || null).catch(() => null);
   }
 
   private redact(obj: any): any {

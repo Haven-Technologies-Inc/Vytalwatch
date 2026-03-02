@@ -331,7 +331,7 @@ export class TenoviController {
   async createWebhook(
     @Body() body: { endpoint: string; event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER' },
   ) {
-    return this.tenoviService.createWebhook(body.endpoint, body.event);
+    return this.tenoviService.createWebhook(body);
   }
 
   // Device Measurements

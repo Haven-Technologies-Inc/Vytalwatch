@@ -46,6 +46,8 @@ import { ClaimsModule } from './claims/claims.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RPMBatchModule } from './common/rpm-batch.module';
 import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -103,6 +105,8 @@ import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging
     ScheduleModule.forRoot(),
     RPMBatchModule,
     EnterpriseLoggingModule,
+    ComplianceModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService],
