@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
@@ -10,6 +12,7 @@ import { DatabaseModule } from './database/database.module';
 
 // Common Modules
 import { CryptoModule } from './common/crypto/crypto.module';
+import { RedisModule } from './common/redis';
 import { HealthModule } from './health/health.module';
 
 // Feature Modules
@@ -38,6 +41,9 @@ import { SmsModule } from './sms/sms.module';
 import { ClinicalNotesModule } from './clinical-notes/clinical-notes.module';
 import { ConsentModule } from './consent/consent.module';
 
+// Scheduler Module
+import { SchedulerModule } from './scheduler/scheduler.module';
+
 @Module({
   imports: [
     // Configuration
@@ -53,11 +59,37 @@ import { ConsentModule } from './consent/consent.module';
       limit: 100,
     }]),
 
+    // Task scheduling (cron jobs)
+    ScheduleModule.forRoot(),
+
+    // Bull queue (Redis-backed job queue)
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: configService.get<string>('redis.host', 'localhost'),
+          port: configService.get<number>('redis.port', 6379),
+          password: configService.get<string>('redis.password') || undefined,
+        },
+        defaultJobOptions: {
+          removeOnComplete: true,
+          removeOnFail: false,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
+      }),
+      inject: [ConfigService],
+    }),
+
     // Database
     DatabaseModule,
 
     // Common modules
     CryptoModule,
+    RedisModule,
     HealthModule,
 
     // Feature modules
@@ -85,6 +117,9 @@ import { ConsentModule } from './consent/consent.module';
     SmsModule,
     ClinicalNotesModule,
     ConsentModule,
+
+    // Scheduled tasks
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

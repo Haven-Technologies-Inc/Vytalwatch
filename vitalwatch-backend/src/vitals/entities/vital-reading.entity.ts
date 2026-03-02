@@ -47,6 +47,7 @@ export class VitalReading {
     type: 'enum',
     enum: VitalType,
   })
+  @Index()
   type: VitalType;
 
   @Column('jsonb')

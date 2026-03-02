@@ -5,8 +5,9 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { VitalSignCard } from '@/components/dashboard/VitalSignCard';
 import { TrendChart } from '@/components/dashboard/Charts';
 import { Select } from '@/components/ui/Select';
+import { PageWrapper } from '@/components/ui/PageWrapper';
 import { Button } from '@/components/ui/Button';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
 const vitalTypes = [
@@ -50,6 +51,10 @@ export default function PatientVitalsPage() {
   const [timeRange, setTimeRange] = useState('7d');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Loading / error state -- ready for API integration
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -73,6 +78,17 @@ export default function PatientVitalsPage() {
 
   return (
     <DashboardLayout>
+      <PageWrapper
+        isLoading={isLoading}
+        error={error}
+        isEmpty={mockVitals.length === 0}
+        emptyProps={{
+          icon: Activity,
+          title: 'No vital readings yet',
+          description: 'Connect a device or manually log a reading to start tracking your vitals.',
+        }}
+        loadingMessage="Loading your vitals..."
+      >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -181,6 +197,7 @@ export default function PatientVitalsPage() {
           </div>
         </div>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

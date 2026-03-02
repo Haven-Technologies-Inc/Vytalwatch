@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { PageWrapper } from "@/components/ui/PageWrapper";
 import { Button } from "@/components/ui/Button";
 import {
   Users,
@@ -180,6 +181,10 @@ export default function ProviderDashboard() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Loading / error state -- ready for API integration
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -217,6 +222,18 @@ export default function ProviderDashboard() {
 
   return (
     <DashboardLayout requiredRole="provider">
+      <PageWrapper
+        isLoading={isLoading}
+        error={error}
+        isEmpty={patients.length === 0}
+        emptyProps={{
+          icon: Users,
+          title: 'No patients yet',
+          description: 'Add your first patient to start monitoring their vitals and health data.',
+          action: { label: 'Add Patient', onClick: handleAddPatient },
+        }}
+        loadingMessage="Loading provider dashboard..."
+      >
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -559,6 +576,7 @@ export default function ProviderDashboard() {
           </CardContent>
         </Card>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

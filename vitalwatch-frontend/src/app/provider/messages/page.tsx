@@ -290,7 +290,7 @@ export default function ProviderMessagesPage() {
           senderName: msg.senderName || 'Unknown',
           content: msg.content,
           timestamp: new Date(msg.createdAt),
-          read: msg.read,
+          read: msg.read ?? false,
         }));
         setConversations((prev) =>
           prev.map((conv) =>

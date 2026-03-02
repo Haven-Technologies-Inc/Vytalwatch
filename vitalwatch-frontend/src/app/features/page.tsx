@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
@@ -17,6 +18,19 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Features",
+  description:
+    "Explore VytalWatch AI's powerful RPM features: real-time vital tracking, AI predictive risk scoring, smart alerts, care team collaboration, automated billing, and population health analytics.",
+  openGraph: {
+    title: "Features - AI-Powered Remote Patient Monitoring | VytalWatch AI",
+    description:
+      "Real-time vitals, predictive AI analytics, smart alerts, and seamless care coordination. Everything you need to run a modern RPM program.",
+    url: "https://vytalwatch.com/features",
+    type: "website",
+  },
+};
 
 const features = [
   {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
@@ -16,6 +17,19 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Devices",
+  description:
+    "FDA-cleared medical devices with cellular connectivity for seamless remote patient monitoring. Blood pressure monitors, pulse oximeters, glucose meters, scales, and wearables.",
+  openGraph: {
+    title: "Medical-Grade RPM Devices - VytalWatch AI",
+    description:
+      "Explore FDA-cleared monitoring devices from Tenovi, Omron, Withings, and more. Cellular-connected for zero-friction patient setup.",
+    url: "https://vytalwatch.com/devices",
+    type: "website",
+  },
+};
 
 const deviceCategories = [
   {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
 import { MedicationsService } from './medications.service';
 import { CreateMedicationDto, UpdateMedicationDto, MarkTakenDto, MedicationQueryDto } from './dto/medication.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -90,6 +90,17 @@ export class MedicationsController {
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async discontinue(@Param('id') id: string, @Body('reason') reason: string, @CurrentUser() user: CurrentUserPayload) {
     const medication = await this.medicationsService.discontinue(id, reason, user.id);
+    return { success: true, data: medication };
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @HttpCode(HttpStatus.OK)
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    const medication = await this.medicationsService.remove(id, user.id);
     return { success: true, data: medication };
   }
 }

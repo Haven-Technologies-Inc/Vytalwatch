@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { patientsApi, tenoviApi } from '@/services/api';
+import type { Patient } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import {
   User,
@@ -156,14 +157,8 @@ export default function EnrollPatientPage() {
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
+        dateOfBirth: new Date(formData.dateOfBirth),
         conditions: formData.conditions,
-        address: {
-          street: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode,
-        },
         emergencyContact: {
           name: formData.emergencyContactName,
           phone: formData.emergencyContactPhone,
@@ -172,9 +167,19 @@ export default function EnrollPatientPage() {
         insuranceInfo: {
           provider: formData.insuranceProvider,
           policyNumber: formData.insurancePolicyNumber,
+          subscriberName: `${formData.firstName} ${formData.lastName}`,
+          subscriberDob: new Date(formData.dateOfBirth),
         },
-        notes: formData.notes,
-      });
+        ...({
+          address: {
+            street: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zipCode: formData.zipCode,
+          },
+          notes: formData.notes,
+        } as Record<string, unknown>),
+      } as Partial<Patient>);
 
       if (patientResponse.data?.id) {
         // Order devices for patient if any selected

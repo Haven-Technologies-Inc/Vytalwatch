@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -11,7 +12,9 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { VitalsService, CreateVitalDto } from './vitals.service';
+import { VitalsService } from './vitals.service';
+import { CreateVitalDto } from './dto/create-vital.dto';
+import { UpdateVitalDto } from './dto/update-vital.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -28,6 +31,16 @@ export class VitalsController {
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async create(@Body() createVitalDto: CreateVitalDto) {
     return this.vitalsService.create(createVitalDto);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateVitalDto: UpdateVitalDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.vitalsService.update(id, updateVitalDto, user.sub);
   }
 
   @Get('patient/:patientId')

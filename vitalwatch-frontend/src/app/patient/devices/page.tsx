@@ -41,8 +41,8 @@ export default function PatientDevicesPage() {
       setLoading(true);
       setError(null);
       const response = await patientsApi.getDevices(user.id);
-      if (response.data?.tenoviDevices) {
-        setDevices(response.data.tenoviDevices);
+      if ((response.data as any)?.tenoviDevices) {
+        setDevices((response.data as any).tenoviDevices);
       }
     } catch (err: unknown) {
       const apiErr = err as { status?: number; code?: string };

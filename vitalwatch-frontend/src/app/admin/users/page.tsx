@@ -89,8 +89,8 @@ export default function AdminUsersPage() {
           role: u.role as User['role'],
           status: (u.status || 'active') as User['status'],
           organization: u.organizationId,
-          lastLogin: u.lastLoginAt || '',
-          createdAt: u.createdAt || '',
+          lastLogin: u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : '',
+          createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : '',
         }));
         setUsers(mappedUsers);
       }

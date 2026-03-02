@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { PageWrapper } from "@/components/ui/PageWrapper";
 import { Button } from "@/components/ui/Button";
 import {
   Activity,
@@ -20,6 +21,7 @@ import {
   Check,
   Clock,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
@@ -112,6 +114,11 @@ const appointments = [
 export default function PatientDashboard() {
   const router = useRouter();
   const { toast } = useToast();
+
+  // Loading / error state -- ready for API integration
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
+
   const [medications, setMedications] = useState([
     { name: "Lisinopril 10mg", time: "8:00 AM", taken: true },
     { name: "Metformin 500mg", time: "8:00 AM", taken: true },
@@ -163,6 +170,17 @@ export default function PatientDashboard() {
 
   return (
     <DashboardLayout requiredRole="patient">
+      <PageWrapper
+        isLoading={isLoading}
+        error={error}
+        isEmpty={vitals.length === 0}
+        emptyProps={{
+          icon: ClipboardList,
+          title: 'No dashboard data yet',
+          description: 'Your vitals and health data will appear here once readings are available.',
+        }}
+        loadingMessage="Loading your dashboard..."
+      >
       <div className="space-y-6">
         {/* Welcome Banner */}
         <Card className="bg-gradient-to-r from-blue-600 to-emerald-500 border-0 p-6">
@@ -388,6 +406,7 @@ export default function PatientDashboard() {
           </CardContent>
         </Card>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

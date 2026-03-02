@@ -9,7 +9,8 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { AlertsService, CreateAlertDto, AlertQueryOptions } from './alerts.service';
+import { AlertsService, AlertQueryOptions } from './alerts.service';
+import { CreateAlertDto } from './dto/alert.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

@@ -3,8 +3,10 @@ export default () => ({
   app: {
     port: parseInt(process.env.PORT || '3001', 10),
     env: process.env.NODE_ENV || 'development',
+    nodeEnv: process.env.NODE_ENV || 'development',
     name: 'VytalWatch AI',
     version: '1.0.0',
+    frontendUrl: process.env.FRONTEND_URL || '',
   },
 
   // Database
@@ -111,6 +113,14 @@ export default () => ({
   grok: {
     apiKey: process.env.GROK_API_KEY,
     baseUrl: process.env.GROK_BASE_URL || 'https://api.x.ai/v1',
+  },
+
+  // InfluxDB (Time-series vital data)
+  influxdb: {
+    url: process.env.INFLUXDB_URL || 'http://localhost:8086',
+    token: process.env.INFLUXDB_TOKEN || '',
+    org: process.env.INFLUXDB_ORG || 'vitalwatch',
+    bucket: process.env.INFLUXDB_BUCKET || 'vitals',
   },
 
   // Tenovi HWI API

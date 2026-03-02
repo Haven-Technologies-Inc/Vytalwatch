@@ -267,7 +267,7 @@ export class AuthService {
   async logout(userId: string, token?: string): Promise<void> {
     // Blacklist the token if provided
     if (token) {
-      this.authSecurityService.blacklistToken(token);
+      await this.authSecurityService.blacklistToken(token);
     }
 
     await this.auditService.log({
@@ -502,20 +502,45 @@ export class AuthService {
 
   private async verifyAppleToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string }> {
     try {
-      // Apple tokens are JWTs that need to be verified with Apple's public keys
-      const decoded = this.jwtService.decode(token) as any;
-      
-      if (!decoded || !decoded.sub) {
+      const jwksClient = require('jwks-rsa');
+      const jwt = require('jsonwebtoken');
+
+      // Decode header to get the key ID (kid)
+      const decodedHeader = jwt.decode(token, { complete: true });
+      if (!decodedHeader || !decodedHeader.header?.kid) {
+        throw new BadRequestException('Invalid Apple token format');
+      }
+
+      // Fetch Apple's public keys and verify the signature
+      const client = jwksClient({
+        jwksUri: 'https://appleid.apple.com/auth/keys',
+        cache: true,
+        cacheMaxAge: 86400000, // 24 hours
+      });
+
+      const signingKey = await client.getSigningKey(decodedHeader.header.kid);
+      const publicKey = signingKey.getPublicKey();
+
+      // Verify the token with Apple's public key
+      const verified = jwt.verify(token, publicKey, {
+        algorithms: ['RS256'],
+        issuer: 'https://appleid.apple.com',
+        audience: this.configService.get('oauth.apple.clientId'),
+      });
+
+      if (!verified || !verified.sub) {
         throw new BadRequestException('Invalid Apple token');
       }
 
       return {
-        providerId: decoded.sub,
-        email: decoded.email || '',
-        firstName: decoded.firstName || '',
-        lastName: decoded.lastName || '',
+        providerId: verified.sub,
+        email: verified.email || '',
+        firstName: verified.firstName || '',
+        lastName: verified.lastName || '',
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error(`Apple token verification failed: ${error.message}`);
       throw new BadRequestException('Failed to verify Apple token');
     }
   }

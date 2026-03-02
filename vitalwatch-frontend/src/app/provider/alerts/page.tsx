@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AlertCard } from '@/components/dashboard/AlertCard';
 import { MetricCard } from '@/components/dashboard/MetricCard';
+import { PageWrapper } from '@/components/ui/PageWrapper';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
-import { 
-  AlertTriangle, 
-  AlertCircle, 
-  CheckCircle2, 
+import {
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
   Bell,
   RefreshCw,
   Settings
@@ -100,6 +101,10 @@ export default function ProviderAlertsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Loading / error state -- ready for API integration
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
+
   const filteredAlerts = alerts.filter((alert) => {
     if (activeTab !== 'all' && alert.severity !== activeTab) return false;
     if (severityFilter !== 'all' && alert.severity !== severityFilter) return false;
@@ -150,6 +155,17 @@ export default function ProviderAlertsPage() {
 
   return (
     <DashboardLayout>
+      <PageWrapper
+        isLoading={isLoading}
+        error={error}
+        isEmpty={alerts.length === 0}
+        emptyProps={{
+          icon: Bell,
+          title: 'No alerts',
+          description: 'All clear! There are no patient alerts to display at this time.',
+        }}
+        loadingMessage="Loading alerts..."
+      >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -286,6 +302,7 @@ export default function ProviderAlertsPage() {
           )}
         </div>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

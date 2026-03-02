@@ -43,6 +43,7 @@ export class EmergencyAccessController {
   }
 
   @Post('validate')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async validateAccess(
     @Body('accessId') accessId: string,
@@ -53,6 +54,7 @@ export class EmergencyAccessController {
   }
 
   @Post('revoke')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async revokeAccess(
     @Body('accessId') accessId: string,

@@ -19,11 +19,26 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
-  // CORS
+  // CORS - never default to wildcard in production
+  const frontendUrl = configService.get<string>('app.frontendUrl');
+  const nodeEnv = configService.get<string>('app.env') || 'development';
+  const corsOrigin = frontendUrl
+    ? frontendUrl.split(',').map((url: string) => url.trim())
+    : nodeEnv === 'production'
+      ? [] // Block all in production if no FRONTEND_URL is set
+      : ['http://localhost:3000', 'http://localhost:3001'];
+
   app.enableCors({
-    origin: configService.get('app.frontendUrl') || '*',
+    origin: corsOrigin,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    maxAge: 86400,
   });
+
+  if (!frontendUrl && nodeEnv === 'production') {
+    logger.warn('FRONTEND_URL is not set — CORS will block all cross-origin requests in production');
+  }
 
   // Global validation pipe
   app.useGlobalPipes(

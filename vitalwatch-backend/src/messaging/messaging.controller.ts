@@ -12,21 +12,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { MessagingService } from './messaging.service';
-
-class CreateThreadDto {
-  participantIds: string[];
-  subject?: string;
-}
-
-class SendMessageDto {
-  content: string;
-  attachments?: string[];
-}
+import { CreateThreadDto, SendMessageDto } from './dto/messaging.dto';
 
 @Controller('messages')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}
 

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, JoinColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 export enum MedicationStatus {
@@ -20,11 +20,13 @@ export enum MedicationFrequency {
 }
 
 @Entity('medications')
+@Index(['patientId', 'status'])
 export class Medication {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
+  @Index()
   patientId: string;
 
   @ManyToOne(() => User)
@@ -44,6 +46,7 @@ export class Medication {
   schedule: { time: string; taken?: boolean; takenAt?: Date }[];
 
   @Column({ type: 'enum', enum: MedicationStatus, default: MedicationStatus.ACTIVE })
+  @Index()
   status: MedicationStatus;
 
   @Column({ nullable: true })
@@ -91,6 +94,9 @@ export class Medication {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }
 
 @Entity('medication_logs')

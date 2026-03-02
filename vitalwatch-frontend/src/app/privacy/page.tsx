@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "VytalWatch AI Privacy Policy. Learn how we collect, use, and protect your personal and health information in compliance with HIPAA, GDPR, and applicable privacy laws.",
+  openGraph: {
+    title: "Privacy Policy - VytalWatch AI",
+    description:
+      "Our commitment to protecting your privacy. HIPAA and GDPR compliant data handling with AES-256 encryption and SOC 2 Type II certification.",
+    url: "https://vytalwatch.com/privacy",
+    type: "website",
+  },
+};
 
 export default function PrivacyPolicyPage() {
   return (

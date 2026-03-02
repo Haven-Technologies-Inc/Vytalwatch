@@ -270,7 +270,7 @@ export function DonutChart({
             innerRadius={innerRadius}
             outerRadius={outerRadius}
             paddingAngle={2}
-            label={showLabel ? ({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%` : false}
+            label={showLabel ? ({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%` : false}
             labelLine={showLabel}
           >
             {data.map((_, index) => (
