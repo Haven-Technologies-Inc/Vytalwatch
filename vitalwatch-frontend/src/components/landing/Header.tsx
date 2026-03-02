@@ -5,23 +5,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "next-themes";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 const navigation = [
-  { name: "Home", href: "#home" },
-  { name: "About", href: "#about" },
-  { name: "Why Choose Us", href: "#why-choose" },
-  { name: "Use Cases", href: "#use-cases" },
+  { name: "Platform", href: "#platform" },
+  { name: "Evidence", href: "#evidence" },
+  { name: "Solutions", href: "#solutions" },
+  { name: "Security", href: "#security" },
   { name: "Pricing", href: "#pricing" },
-  { name: "FAQs", href: "#faqs" },
   { name: "Devices", href: "/devices" },
 ];
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -29,114 +29,141 @@ export function Header() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <header
+    <motion.header
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
         isScrolled
-          ? "bg-slate-950/95 backdrop-blur-lg shadow-sm border-b border-slate-800/50"
-          : "bg-slate-950/30 backdrop-blur-sm"
+          ? "bg-slate-950/90 backdrop-blur-xl shadow-lg shadow-black/10 border-b border-white/5"
+          : "bg-transparent"
       )}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          {/* Logo */}
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center group">
             <Image
               src="/logo.png"
               alt="VytalWatch AI"
               width={140}
               height={48}
-              className="h-12"
-              style={{ width: 'auto', height: 'auto', maxHeight: '3rem' }}
+              className="h-10 lg:h-12 transition-transform duration-300 group-hover:scale-105"
+              style={{ width: "auto", height: "auto", maxHeight: "3rem" }}
               priority
             />
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-slate-400 hover:text-white transition-colors text-sm"
+                className="relative px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors duration-200 rounded-lg hover:bg-white/5"
               >
                 {item.name}
               </Link>
             ))}
           </div>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-4">
-            {/* Theme Toggle */}
+          <div className="flex items-center gap-3">
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? (
-                  <Sun className="h-5 w-5" />
+                  <Sun className="h-4 w-4" />
                 ) : (
-                  <Moon className="h-5 w-5" />
+                  <Moon className="h-4 w-4" />
                 )}
               </button>
             )}
 
-            {/* Auth Buttons */}
             <div className="hidden sm:flex items-center gap-3">
               <Link href="/auth/login">
-                <Button variant="ghost">Sign In</Button>
+                <Button
+                  variant="ghost"
+                  className="text-slate-300 hover:text-white hover:bg-white/5"
+                >
+                  Sign In
+                </Button>
               </Link>
               <Link href="/auth/register">
-                <Button>Start Free Trial</Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-5 shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30 transition-all duration-300"
+                  rightIcon={<ArrowRight className="h-4 w-4" />}
+                >
+                  Start Free Trial
+                </Button>
               </Link>
             </div>
 
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? (
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               ) : (
-                <Menu className="h-6 w-6" />
+                <Menu className="h-5 w-5" />
               )}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-slate-800">
-            <div className="space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="block px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-            <div className="mt-4 pt-4 border-t border-slate-800 flex gap-3 px-4">
-              <Link href="/auth/login" className="flex-1">
-                <Button variant="outline" className="w-full">Sign In</Button>
-              </Link>
-              <Link href="/auth/register" className="flex-1">
-                <Button className="w-full">Free Trial</Button>
-              </Link>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="lg:hidden overflow-hidden"
+            >
+              <div className="py-4 border-t border-white/10">
+                <div className="space-y-1">
+                  {navigation.map((item, i) => (
+                    <motion.div
+                      key={item.name}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                    >
+                      <Link
+                        href={item.href}
+                        className="block px-4 py-3 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        {item.name}
+                      </Link>
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/10 flex gap-3 px-4">
+                  <Link href="/auth/login" className="flex-1">
+                    <Button variant="outline" className="w-full border-slate-600 text-white">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register" className="flex-1">
+                    <Button className="w-full bg-blue-600 text-white">
+                      Free Trial
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
-    </header>
+    </motion.header>
   );
 }
