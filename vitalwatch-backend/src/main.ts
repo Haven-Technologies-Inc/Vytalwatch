@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
@@ -76,6 +77,33 @@ async function bootstrap() {
   // API prefix (exclude root routes)
   app.setGlobalPrefix('api/v1', {
     exclude: ['', 'health', 'favicon.ico'],
+  });
+
+  // Swagger / OpenAPI documentation
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('VytalWatch API')
+    .setDescription('Remote Patient Monitoring Platform API')
+    .setVersion('1.0')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'JWT')
+    .addTag('Auth', 'Authentication & authorization')
+    .addTag('Users', 'User management')
+    .addTag('Patients', 'Patient management')
+    .addTag('Vitals', 'Vital signs & readings')
+    .addTag('Alerts', 'Alert management')
+    .addTag('Devices', 'Device management')
+    .addTag('Billing', 'Billing & subscriptions')
+    .addTag('Analytics', 'Analytics & reporting')
+    .addTag('AI', 'AI insights & models')
+    .addTag('Messages', 'Messaging')
+    .addTag('Appointments', 'Appointments')
+    .addTag('Notifications', 'Notifications')
+    .addTag('Admin', 'Admin operations')
+    .addTag('Health', 'Health checks')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: { persistAuthorization: true },
   });
 
   const port = configService.get('app.port') || 3001;
