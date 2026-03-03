@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { VitalSignCard } from '@/components/dashboard/VitalSignCard';
 import { TrendChart } from '@/components/dashboard/Charts';
 import { Select } from '@/components/ui/Select';
+import { PageWrapper } from '@/components/ui/PageWrapper';
 import { Button } from '@/components/ui/Button';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { useAuthStore } from '@/stores/authStore';
+import { vitalsApi } from '@/services/api';
+import type { ApiResponse, VitalReading, PaginatedResponse } from '@/types';
 
 const vitalTypes = [
   { value: 'all', label: 'All Vitals' },
-  { value: 'bp', label: 'Blood Pressure' },
+  { value: 'blood_pressure', label: 'Blood Pressure' },
   { value: 'heart_rate', label: 'Heart Rate' },
   { value: 'glucose', label: 'Blood Glucose' },
   { value: 'spo2', label: 'Oxygen (SpO2)' },
@@ -20,45 +25,121 @@ const vitalTypes = [
 ];
 
 const timeRanges = [
-  { value: '7d', label: 'Last 7 Days' },
-  { value: '30d', label: 'Last 30 Days' },
-  { value: '90d', label: 'Last 90 Days' },
+  { value: '7', label: 'Last 7 Days' },
+  { value: '30', label: 'Last 30 Days' },
+  { value: '90', label: 'Last 90 Days' },
 ];
 
-const mockVitals = [
-  { type: 'bp' as const, value: '128/82', unit: 'mmHg', status: 'normal' as const, timestamp: new Date(), trend: 'down' as const },
-  { type: 'heart_rate' as const, value: '72', unit: 'bpm', status: 'normal' as const, timestamp: new Date(), trend: 'stable' as const },
-  { type: 'glucose' as const, value: '98', unit: 'mg/dL', status: 'normal' as const, timestamp: new Date(), trend: 'stable' as const },
-  { type: 'spo2' as const, value: '98', unit: '%', status: 'normal' as const, timestamp: new Date(), trend: 'stable' as const },
-  { type: 'weight' as const, value: '165', unit: 'lbs', status: 'normal' as const, timestamp: new Date(), trend: 'down' as const },
-  { type: 'temperature' as const, value: '98.6', unit: '°F', status: 'normal' as const, timestamp: new Date(), trend: 'stable' as const },
-];
+// Map vital type to display card type
+const typeToCardType: Record<string, 'bp' | 'heart_rate' | 'glucose' | 'spo2' | 'weight' | 'temperature'> = {
+  blood_pressure: 'bp',
+  heart_rate: 'heart_rate',
+  glucose: 'glucose',
+  spo2: 'spo2',
+  weight: 'weight',
+  temperature: 'temperature',
+};
 
-const mockTrendData = [
-  { date: 'Mon', systolic: 125, diastolic: 80, heartRate: 72 },
-  { date: 'Tue', systolic: 128, diastolic: 82, heartRate: 74 },
-  { date: 'Wed', systolic: 130, diastolic: 85, heartRate: 70 },
-  { date: 'Thu', systolic: 127, diastolic: 81, heartRate: 73 },
-  { date: 'Fri', systolic: 124, diastolic: 79, heartRate: 71 },
-  { date: 'Sat', systolic: 126, diastolic: 80, heartRate: 72 },
-  { date: 'Sun', systolic: 128, diastolic: 82, heartRate: 74 },
-];
+function formatVitalValue(reading: VitalReading): string {
+  if (reading.type === 'blood_pressure' && reading.values) {
+    const sys = reading.values.systolic ?? reading.values.sys;
+    const dia = reading.values.diastolic ?? reading.values.dia;
+    if (sys !== undefined && dia !== undefined) return `${sys}/${dia}`;
+  }
+  const vals = Object.values(reading.values || {});
+  return vals.length > 0 ? String(vals[0]) : '--';
+}
 
 export default function PatientVitalsPage() {
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const patientId = user?.id || '';
   const [selectedVital, setSelectedVital] = useState('all');
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('7');
+
+  // Fetch latest vitals by type
+  const {
+    data: vitalsResponse,
+    isLoading: vitalsLoading,
+    error: vitalsError,
+    refetch: refetchVitals,
+  } = useApiQuery<ApiResponse<Record<string, VitalReading>>>(
+    () => vitalsApi.getLatest(patientId),
+    { enabled: !!patientId }
+  );
+
+  // Fetch trend data
+  const trendType = selectedVital === 'all' ? 'blood_pressure' : selectedVital;
+  const {
+    data: trendsResponse,
+    isLoading: trendsLoading,
+  } = useApiQuery<ApiResponse<VitalReading[]>>(
+    () => vitalsApi.getTrends(patientId, trendType, parseInt(timeRange)),
+    { enabled: !!patientId, deps: [trendType, timeRange] }
+  );
+
+  // Fetch all vitals for history table
+  const {
+    data: historyResponse,
+  } = useApiQuery<ApiResponse<PaginatedResponse<VitalReading>>>(
+    () => vitalsApi.getAll({
+      patientId,
+      type: selectedVital !== 'all' ? selectedVital : undefined,
+    }),
+    { enabled: !!patientId, deps: [selectedVital] }
+  );
+
+  const isLoading = vitalsLoading;
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Transform latest vitals into card format
+  const displayVitals = useMemo(() => {
+    const vitalsMap = vitalsResponse?.data;
+    if (!vitalsMap) return [];
+    return Object.entries(vitalsMap)
+      .filter(([type]) => selectedVital === 'all' || type === selectedVital)
+      .map(([type, reading]) => ({
+        type: typeToCardType[type] || ('bp' as const),
+        value: formatVitalValue(reading),
+        unit: reading.unit || '',
+        status: reading.status || ('normal' as const),
+        timestamp: new Date(reading.timestamp),
+        trend: 'stable' as const,
+      }));
+  }, [vitalsResponse, selectedVital]);
+
+  // Transform trends into chart data
+  const trendData = useMemo(() => {
+    const readings = trendsResponse?.data;
+    if (!readings || !Array.isArray(readings)) return [];
+    return readings.map((r) => {
+      const date = new Date(r.timestamp).toLocaleDateString('en-US', { weekday: 'short' });
+      return {
+        date,
+        systolic: r.values?.systolic ?? r.values?.sys ?? 0,
+        diastolic: r.values?.diastolic ?? r.values?.dia ?? 0,
+        heartRate: r.values?.heartRate ?? r.values?.heart_rate ?? r.values?.value ?? 0,
+      };
+    });
+  }, [trendsResponse]);
+
+  // History readings
+  const historyReadings = useMemo(() => {
+    const paginated = historyResponse?.data;
+    if (!paginated) return [];
+    const items = paginated.data || paginated.items || paginated.results || [];
+    return items.slice(0, 10);
+  }, [historyResponse]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await refetchVitals();
       toast({ title: 'Vitals refreshed', description: 'Latest readings loaded', type: 'success' });
     } finally {
       setIsRefreshing(false);
     }
-  }, [toast]);
+  }, [refetchVitals, toast]);
 
   const handleExport = useCallback(async () => {
     toast({ title: 'Exporting data', description: 'Your vitals report is being prepared', type: 'info' });
@@ -71,8 +152,32 @@ export default function PatientVitalsPage() {
     toast({ title: 'Viewing history', description: `Showing ${vitalTypes.find(v => v.value === vitalType)?.label || vitalType} readings`, type: 'info' });
   }, [toast]);
 
+  const getVitalTypeLabel = useCallback((type: string) => {
+    const labels: Record<string, string> = {
+      blood_pressure: 'Blood Pressure',
+      heart_rate: 'Heart Rate',
+      glucose: 'Blood Glucose',
+      spo2: 'SpO2',
+      weight: 'Weight',
+      temperature: 'Temperature',
+    };
+    return labels[type] || type;
+  }, []);
+
   return (
     <DashboardLayout>
+      <PageWrapper
+        isLoading={isLoading}
+        error={vitalsError}
+        onRetry={refetchVitals}
+        isEmpty={!isLoading && displayVitals.length === 0}
+        emptyProps={{
+          icon: Activity,
+          title: 'No vital readings yet',
+          description: 'Connect a device or manually log a reading to start tracking your vitals.',
+        }}
+        loadingMessage="Loading your vitals..."
+      >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -106,20 +211,18 @@ export default function PatientVitalsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {mockVitals
-            .filter((v) => selectedVital === 'all' || v.type === selectedVital)
-            .map((vital) => (
-              <VitalSignCard
-                key={vital.type}
-                type={vital.type}
-                value={vital.value}
-                unit={vital.unit}
-                status={vital.status}
-                timestamp={vital.timestamp}
-                trend={vital.trend}
-                onViewHistory={() => handleViewHistory(vital.type)}
-              />
-            ))}
+          {displayVitals.map((vital) => (
+            <VitalSignCard
+              key={vital.type}
+              type={vital.type}
+              value={vital.value}
+              unit={vital.unit}
+              status={vital.status}
+              timestamp={vital.timestamp}
+              trend={vital.trend}
+              onViewHistory={() => handleViewHistory(vital.type === 'bp' ? 'blood_pressure' : vital.type)}
+            />
+          ))}
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
@@ -138,13 +241,19 @@ export default function PatientVitalsPage() {
               </div>
             </div>
           </div>
-          <TrendChart
-            data={mockTrendData}
-            xKey="date"
-            yKey="systolic"
-            height={300}
-            normalRange={{ min: 90, max: 140 }}
-          />
+          {trendsLoading ? (
+            <div className="flex h-[300px] items-center justify-center text-gray-500">Loading trend data...</div>
+          ) : trendData.length > 0 ? (
+            <TrendChart
+              data={trendData}
+              xKey="date"
+              yKey="systolic"
+              height={300}
+              normalRange={{ min: 90, max: 140 }}
+            />
+          ) : (
+            <div className="flex h-[300px] items-center justify-center text-gray-500">No trend data available for this period.</div>
+          )}
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
@@ -160,27 +269,44 @@ export default function PatientVitalsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {[...Array(5)].map((_, i) => (
-                  <tr key={i}>
-                    <td className="py-3 text-gray-900 dark:text-white">
-                      {new Date(Date.now() - i * 86400000).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 text-gray-600 dark:text-gray-400">Blood Pressure</td>
-                    <td className="py-3 font-medium text-gray-900 dark:text-white">
-                      {128 - i}/{82 - i} mmHg
-                    </td>
-                    <td className="py-3">
-                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                        Normal
-                      </span>
+                {historyReadings.length > 0 ? (
+                  historyReadings.map((reading, i) => (
+                    <tr key={reading.id || i}>
+                      <td className="py-3 text-gray-900 dark:text-white">
+                        {new Date(reading.timestamp).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 text-gray-600 dark:text-gray-400">
+                        {getVitalTypeLabel(reading.type)}
+                      </td>
+                      <td className="py-3 font-medium text-gray-900 dark:text-white">
+                        {formatVitalValue(reading)} {reading.unit}
+                      </td>
+                      <td className="py-3">
+                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${
+                          reading.status === 'critical'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            : reading.status === 'warning'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        }`}>
+                          {reading.status ? reading.status.charAt(0).toUpperCase() + reading.status.slice(1) : 'Normal'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-gray-500">
+                      No reading history available.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

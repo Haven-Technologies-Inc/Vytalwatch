@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "VytalWatch AI Terms of Service. Review the terms governing use of our AI-powered remote patient monitoring platform, subscription plans, and HIPAA compliance commitments.",
+  openGraph: {
+    title: "Terms of Service - VytalWatch AI",
+    description:
+      "Terms and conditions for using VytalWatch AI's remote patient monitoring platform, including subscription, data handling, and compliance policies.",
+    url: "https://vytalwatch.com/terms",
+    type: "website",
+  },
+};
 
 export default function TermsOfServicePage() {
   return (

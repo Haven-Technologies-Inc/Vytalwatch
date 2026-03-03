@@ -6,18 +6,9 @@ import { VitalReading, VitalType, VitalStatus } from '../vitals/entities/vital-r
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
+import { CreateAlertDto } from './dto/alert.dto';
 
-export interface CreateAlertDto {
-  patientId: string;
-  providerId?: string;
-  type: AlertType;
-  severity: AlertSeverity;
-  title: string;
-  message: string;
-  vitalReadingId?: string;
-  deviceId?: string;
-  metadata?: Record<string, any>;
-}
+export { CreateAlertDto };
 
 export interface AlertQueryOptions {
   patientId?: string;

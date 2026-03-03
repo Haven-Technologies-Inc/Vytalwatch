@@ -65,6 +65,7 @@ export class Alert {
     enum: AlertSeverity,
     default: AlertSeverity.WARNING,
   })
+  @Index()
   severity: AlertSeverity;
 
   @Column({
@@ -72,6 +73,7 @@ export class Alert {
     enum: AlertStatus,
     default: AlertStatus.ACTIVE,
   })
+  @Index()
   status: AlertStatus;
 
   @Column()
@@ -152,6 +154,7 @@ export class Alert {
   metadata: Record<string, any>;
 
   @CreateDateColumn()
+  @Index()
   createdAt: Date;
 
   @UpdateDateColumn()

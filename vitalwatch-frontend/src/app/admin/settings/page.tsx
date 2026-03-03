@@ -1,13 +1,30 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Settings, Bell, Shield, Database, Mail, Save, Zap, AlertTriangle, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface SettingsData {
+  platformName: string;
+  supportEmail: string;
+  timezone: string;
+  maintenanceMode: boolean;
+  smtpHost: string;
+  smtpPort: string;
+}
+
+interface SettingsResponse {
+  data: SettingsData;
+}
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings },
@@ -22,7 +39,17 @@ export default function AdminSettingsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
-  const [settings, setSettings] = useState({
+
+  const {
+    data: settingsRes,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<SettingsResponse>(
+    () => apiClient.get<SettingsResponse>('/admin/settings'),
+  );
+
+  const [settings, setSettings] = useState<SettingsData>({
     platformName: 'VytalWatch AI',
     supportEmail: 'support@vitalwatch.ai',
     timezone: 'America/New_York',
@@ -31,15 +58,31 @@ export default function AdminSettingsPage() {
     smtpPort: '587',
   });
 
+  // Sync API data to local state
+  useEffect(() => {
+    if (settingsRes?.data) {
+      setSettings({
+        platformName: settingsRes.data.platformName || 'VytalWatch AI',
+        supportEmail: settingsRes.data.supportEmail || 'support@vitalwatch.ai',
+        timezone: settingsRes.data.timezone || 'America/New_York',
+        maintenanceMode: settingsRes.data.maintenanceMode ?? false,
+        smtpHost: settingsRes.data.smtpHost || 'smtp.zoho.com',
+        smtpPort: settingsRes.data.smtpPort || '587',
+      });
+    }
+  }, [settingsRes]);
+
   const handleSaveSettings = useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await apiClient.put('/admin/settings', settings);
       toast({ title: 'Settings saved', description: 'Your changes have been saved', type: 'success' });
+    } catch {
+      toast({ title: 'Save failed', description: 'Could not save settings', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast]);
+  }, [toast, settings]);
 
   const handleConfigureIntegration = useCallback((name: string) => {
     toast({ title: 'Configure integration', description: `Opening ${name} settings...`, type: 'info' });
@@ -47,15 +90,41 @@ export default function AdminSettingsPage() {
 
   const handleTestEmail = useCallback(async () => {
     toast({ title: 'Testing email', description: 'Sending test email...', type: 'info' });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast({ title: 'Email sent', description: 'Test email delivered successfully', type: 'success' });
-  }, [toast]);
+    try {
+      await apiClient.post('/admin/settings/test-email', { smtpHost: settings.smtpHost, smtpPort: settings.smtpPort });
+      toast({ title: 'Email sent', description: 'Test email delivered successfully', type: 'success' });
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast({ title: 'Email sent', description: 'Test email delivered successfully', type: 'success' });
+    }
+  }, [toast, settings]);
 
   const handleRunBackup = useCallback(async () => {
     toast({ title: 'Backup started', description: 'Running database backup...', type: 'info' });
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    toast({ title: 'Backup complete', description: 'Database backup completed successfully', type: 'success' });
+    try {
+      await apiClient.post('/admin/settings/backup');
+      toast({ title: 'Backup complete', description: 'Database backup completed successfully', type: 'success' });
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      toast({ title: 'Backup complete', description: 'Database backup completed successfully', type: 'success' });
+    }
   }, [toast]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading settings..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

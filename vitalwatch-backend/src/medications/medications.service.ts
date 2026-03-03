@@ -165,6 +165,26 @@ export class MedicationsService {
     return this.medicationRepository.save(medication);
   }
 
+  async remove(id: string, userId: string): Promise<Medication> {
+    const medication = await this.findOne(id);
+
+    // Soft-delete: set status to 'discontinued' and record deletedAt timestamp
+    medication.status = MedicationStatus.DISCONTINUED;
+    medication.deletedAt = new Date();
+
+    const saved = await this.medicationRepository.save(medication);
+
+    await this.auditService.log({
+      action: 'MEDICATION_DELETED',
+      userId,
+      resourceType: 'medication',
+      resourceId: id,
+      details: { softDeleted: true, patientId: medication.patientId, name: medication.name },
+    });
+
+    return saved;
+  }
+
   async getAdherence(patientId: string, days: number = 30): Promise<{ rate: number; taken: number; total: number }> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);

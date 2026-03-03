@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import * as Sentry from '@sentry/nextjs';
+// @ts-ignore - @sentry/nextjs may not be installed
+const Sentry: { captureException?: (error: Error, context?: any) => void } = (() => { try { return require('@sentry/nextjs'); } catch { return {}; } })();
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -30,7 +31,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
     // Send to Sentry error reporting service
-    Sentry.captureException(error, {
+    Sentry.captureException?.(error, {
       extra: {
         componentStack: errorInfo.componentStack,
       },

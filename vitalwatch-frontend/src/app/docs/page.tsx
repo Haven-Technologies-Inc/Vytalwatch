@@ -1,18 +1,32 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
-import { 
-  Book, 
-  Code, 
-  Zap, 
-  Shield, 
-  Settings, 
+import {
+  Book,
+  Code,
+  Zap,
+  Shield,
+  Settings,
   ArrowRight,
   Search,
   FileText,
   Video,
   MessageSquare
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Documentation",
+  description:
+    "Comprehensive documentation for VytalWatch AI. Getting started guides, API reference, device integration, billing and CPT codes, AI analytics, and security best practices.",
+  openGraph: {
+    title: "VytalWatch AI Documentation - Guides, API Reference & More",
+    description:
+      "Everything you need to implement and optimize your remote patient monitoring program. Quick start guides, API docs, device setup, and compliance resources.",
+    url: "https://vytalwatch.com/docs",
+    type: "website",
+  },
+};
 
 const docCategories = [
   {

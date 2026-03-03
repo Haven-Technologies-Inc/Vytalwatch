@@ -237,6 +237,59 @@ export class InfluxDBService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async getVitalSummary(
+    patientId: string,
+    period: 'daily' | 'weekly' | 'monthly' = 'daily',
+    type?: string,
+  ): Promise<any[]> {
+    const periodMap: Record<string, { range: string; window: string }> = {
+      daily: { range: '-1d', window: '1h' },
+      weekly: { range: '-7d', window: '6h' },
+      monthly: { range: '-30d', window: '1d' },
+    };
+
+    const { range, window } = periodMap[period];
+
+    let fluxQuery = `
+      from(bucket: "${this.bucket}")
+        |> range(start: ${range})
+        |> filter(fn: (r) => r._measurement == "vital_reading")
+        |> filter(fn: (r) => r.patientId == "${patientId}")
+    `;
+
+    if (type) {
+      fluxQuery += `|> filter(fn: (r) => r.type == "${type}")`;
+    }
+
+    fluxQuery += `
+        |> aggregateWindow(every: ${window}, fn: mean, createEmpty: false)
+        |> yield(name: "mean")
+    `;
+
+    const results: any[] = [];
+
+    return new Promise((resolve, reject) => {
+      this.queryApi.queryRows(fluxQuery, {
+        next(row, tableMeta) {
+          const record = tableMeta.toObject(row);
+          results.push({
+            timestamp: new Date(record._time),
+            field: record._field,
+            value: record._value,
+            type: record.type,
+            patientId: record.patientId,
+          });
+        },
+        error(error) {
+          reject(error);
+        },
+        complete() {
+          resolve(results);
+        },
+      });
+    });
+  }
+
   async deletePatientVitals(patientId: string): Promise<void> {
     // Note: Delete API requires InfluxDB 2.x with delete permissions
     // For now, log the request - implement when delete API is configured

@@ -51,6 +51,7 @@ export class VitalReading {
     type: 'enum',
     enum: VitalType,
   })
+  @Index()
   type: VitalType;
 
   @Column({ type: 'text', transformer: EncryptedJsonTransformer })

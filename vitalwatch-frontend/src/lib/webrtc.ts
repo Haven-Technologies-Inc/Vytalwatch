@@ -21,7 +21,9 @@ export interface WebRTCCallbacks {
   onError?: (error: Error) => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { config } from '@/config';
+
+const API_URL = config.api.baseUrl.replace('/api/v1', '');
 
 const DEFAULT_ICE_SERVERS: RTCConfiguration = {
   iceServers: [

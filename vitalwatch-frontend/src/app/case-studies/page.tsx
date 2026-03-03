@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Users, DollarSign, Heart, Building2, Stethoscope } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Case Studies",
+  description:
+    "See how 150+ healthcare organizations reduced readmissions by up to 42% and generated millions in RPM revenue with VytalWatch AI. Real results from real providers.",
+  openGraph: {
+    title: "Customer Success Stories - VytalWatch AI Case Studies",
+    description:
+      "Discover how health systems, cardiology practices, and primary care networks transformed patient outcomes with AI-powered remote patient monitoring.",
+    url: "https://vytalwatch.com/case-studies",
+    type: "website",
+  },
+};
 
 const caseStudies = [
   {

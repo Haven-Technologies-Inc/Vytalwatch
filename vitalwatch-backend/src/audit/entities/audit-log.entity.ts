@@ -70,9 +70,11 @@ export class AuditLog {
   id: string;
 
   @Column({ type: 'varchar', length: 100 })
+  @Index()
   action: string;
 
   @Column({ nullable: true })
+  @Index()
   userId: string;
 
   @ManyToOne(() => User, { nullable: true })
@@ -113,5 +115,6 @@ export class AuditLog {
   auditHash: string;
 
   @CreateDateColumn()
+  @Index()
   createdAt: Date;
 }

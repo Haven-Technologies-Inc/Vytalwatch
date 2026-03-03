@@ -46,6 +46,7 @@ export class Device {
   id: string;
 
   @Column()
+  @Index()
   patientId: string;
 
   @ManyToOne(() => User)
@@ -62,6 +63,7 @@ export class Device {
   vendor: DeviceVendor;
 
   @Column({ type: 'enum', enum: DeviceStatus, default: DeviceStatus.INACTIVE })
+  @Index()
   status: DeviceStatus;
 
   @Column()

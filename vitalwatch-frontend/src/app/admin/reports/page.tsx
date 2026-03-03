@@ -74,9 +74,9 @@ export default function AdminReportsPage() {
           type: r.type || 'Operations',
           frequency: 'one-time' as const,
           status: (r.status || 'completed') as Report['status'],
-          createdAt: r.createdAt || '',
-          completedAt: r.completedAt,
-          size: r.size,
+          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : '',
+          completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : undefined,
+          size: r.size != null ? String(r.size) : undefined,
           createdBy: r.createdBy || 'Admin',
         }));
         setReports(mapped);

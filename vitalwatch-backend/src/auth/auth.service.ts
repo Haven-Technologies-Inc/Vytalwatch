@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { InviteCode, InviteCodeStatus } from './entities/invite-code.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthSecurityService } from './services/auth-security.service';
@@ -54,6 +55,7 @@ export class AuthService {
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly authSecurityService: AuthSecurityService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async validateUser(email: string, password: string, ip?: string): Promise<User | null> {
@@ -149,19 +151,19 @@ export class AuthService {
     // Determine role
     let role = UserRole.PATIENT;
     let organizationId = registerDto.organizationId;
-    
+
     if (registerDto.role && registerDto.role !== UserRole.PATIENT) {
       // Validate invite code for non-patient roles
       if (!registerDto.inviteCode) {
         throw new BadRequestException('Invite code required for provider accounts');
       }
-      
+
       // Validate invite code
       const inviteValidation = await this.validateInviteCode(registerDto.inviteCode, registerDto.role);
       if (!inviteValidation.valid) {
         throw new BadRequestException(inviteValidation.error || 'Invalid invite code');
       }
-      
+
       role = registerDto.role;
       // Use organization from invite code if not provided
       if (inviteValidation.organizationId && !organizationId) {
@@ -169,32 +171,66 @@ export class AuthService {
       }
     }
 
-    // Create user - set as ACTIVE for immediate login
-    // Email verification is optional but recommended
-    const user = await this.usersService.create({
-      email: registerDto.email,
-      passwordHash,
-      firstName: registerDto.firstName,
-      lastName: registerDto.lastName,
-      phone: registerDto.phone,
-      role,
-      status: UserStatus.ACTIVE,
-      organizationId: organizationId,
+    // Wrap user creation + invite code usage + audit log in a single transaction
+    const user = await this.dataSource.transaction(async (manager) => {
+      // Create user within transaction
+      const userRepo = manager.getRepository(User);
+      const newUser = userRepo.create({
+        email: registerDto.email,
+        passwordHash,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        phone: registerDto.phone,
+        role,
+        status: UserStatus.ACTIVE,
+        organizationId: organizationId,
+        verificationToken: this.generateVerificationToken(),
+      });
+      const savedUser = await userRepo.save(newUser);
+
+      // Use invite code within same transaction
+      if (registerDto.inviteCode && role !== UserRole.PATIENT) {
+        const inviteRepo = manager.getRepository(InviteCode);
+        const inviteCode = await inviteRepo.findOne({
+          where: { code: registerDto.inviteCode },
+        });
+
+        if (inviteCode) {
+          await inviteRepo.update(inviteCode.id, {
+            usesCount: inviteCode.usesCount + 1,
+            usedById: savedUser.id,
+            usedAt: new Date(),
+            status: inviteCode.usesCount + 1 >= inviteCode.maxUses
+              ? InviteCodeStatus.USED
+              : inviteCode.status,
+          });
+        }
+      }
+
+      // Audit log within same transaction
+      const auditRepo = manager.getRepository(AuditLog);
+      const auditEntry = auditRepo.create({
+        action: 'USER_REGISTERED',
+        userId: savedUser.id,
+        details: { role, email: savedUser.email },
+      });
+      await auditRepo.save(auditEntry);
+
+      return savedUser;
     });
 
-    // Send verification email (non-blocking)
+    // Send verification email (non-blocking, outside transaction)
     this.notificationsService.sendEmailVerification(user).catch(err => {
       this.logger.warn(`Failed to send verification email: ${err.message}`);
     });
 
-    // Audit log
-    await this.auditService.log({
-      action: 'USER_REGISTERED',
-      userId: user.id,
-      details: { role, email: user.email },
-    });
-
     return user;
+  }
+
+  private generateVerificationToken(): string {
+    return Array.from({ length: 32 }, () =>
+      Math.random().toString(36).charAt(2)
+    ).join('');
   }
 
   async validateOAuthLogin(profile: {
@@ -267,7 +303,7 @@ export class AuthService {
   async logout(userId: string, token?: string): Promise<void> {
     // Blacklist the token if provided
     if (token) {
-      this.authSecurityService.blacklistToken(token);
+      await this.authSecurityService.blacklistToken(token);
     }
 
     await this.auditService.log({
@@ -502,20 +538,45 @@ export class AuthService {
 
   private async verifyAppleToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string }> {
     try {
-      // Apple tokens are JWTs that need to be verified with Apple's public keys
-      const decoded = this.jwtService.decode(token) as any;
-      
-      if (!decoded || !decoded.sub) {
+      const jwksClient = require('jwks-rsa');
+      const jwt = require('jsonwebtoken');
+
+      // Decode header to get the key ID (kid)
+      const decodedHeader = jwt.decode(token, { complete: true });
+      if (!decodedHeader || !decodedHeader.header?.kid) {
+        throw new BadRequestException('Invalid Apple token format');
+      }
+
+      // Fetch Apple's public keys and verify the signature
+      const client = jwksClient({
+        jwksUri: 'https://appleid.apple.com/auth/keys',
+        cache: true,
+        cacheMaxAge: 86400000, // 24 hours
+      });
+
+      const signingKey = await client.getSigningKey(decodedHeader.header.kid);
+      const publicKey = signingKey.getPublicKey();
+
+      // Verify the token with Apple's public key
+      const verified = jwt.verify(token, publicKey, {
+        algorithms: ['RS256'],
+        issuer: 'https://appleid.apple.com',
+        audience: this.configService.get('oauth.apple.clientId'),
+      });
+
+      if (!verified || !verified.sub) {
         throw new BadRequestException('Invalid Apple token');
       }
 
       return {
-        providerId: decoded.sub,
-        email: decoded.email || '',
-        firstName: decoded.firstName || '',
-        lastName: decoded.lastName || '',
+        providerId: verified.sub,
+        email: verified.email || '',
+        firstName: verified.firstName || '',
+        lastName: verified.lastName || '',
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error(`Apple token verification failed: ${error.message}`);
       throw new BadRequestException('Failed to verify Apple token');
     }
   }

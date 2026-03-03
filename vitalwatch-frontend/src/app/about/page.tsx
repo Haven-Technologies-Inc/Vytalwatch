@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
@@ -13,6 +14,19 @@ import {
   Twitter,
   ArrowRight,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "About Us",
+  description:
+    "Learn about VytalWatch AI's mission to transform healthcare through AI-powered remote patient monitoring. 500K+ patients monitored, 150+ healthcare partners, and 40% readmission reduction.",
+  openGraph: {
+    title: "About VytalWatch AI - Transforming Healthcare, One Patient at a Time",
+    description:
+      "We're on a mission to make proactive, AI-powered healthcare accessible to every patient and provider. Discover our story, values, and leadership team.",
+    url: "https://vytalwatch.com/about",
+    type: "website",
+  },
+};
 
 const stats = [
   { value: "500K+", label: "Patients Monitored" },

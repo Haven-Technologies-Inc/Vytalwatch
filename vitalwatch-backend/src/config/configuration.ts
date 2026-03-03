@@ -3,8 +3,10 @@ export default () => ({
   app: {
     port: parseInt(process.env.PORT || '3001', 10),
     env: process.env.NODE_ENV || 'development',
+    nodeEnv: process.env.NODE_ENV || 'development',
     name: 'VytalWatch AI',
     version: '1.0.0',
+    frontendUrl: process.env.FRONTEND_URL || '',
   },
 
   // Database
@@ -13,7 +15,7 @@ export default () => ({
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_DATABASE || 'vitalwatch',
     synchronize: process.env.NODE_ENV !== 'production',
     logging: process.env.NODE_ENV === 'development',
@@ -28,7 +30,7 @@ export default () => ({
 
   // JWT
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-key-change-in-production',
+    secret: process.env.JWT_SECRET || '',
     accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
     refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
@@ -38,19 +40,19 @@ export default () => ({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/auth/google/callback',
+      callbackUrl: process.env.GOOGLE_CALLBACK_URL || '',
     },
     microsoft: {
       clientId: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      callbackUrl: process.env.MICROSOFT_CALLBACK_URL || 'http://localhost:3001/auth/microsoft/callback',
+      callbackUrl: process.env.MICROSOFT_CALLBACK_URL || '',
     },
     apple: {
       clientId: process.env.APPLE_CLIENT_ID,
       teamId: process.env.APPLE_TEAM_ID,
       keyId: process.env.APPLE_KEY_ID,
       privateKey: process.env.APPLE_PRIVATE_KEY,
-      callbackUrl: process.env.APPLE_CALLBACK_URL || 'http://localhost:3001/auth/apple/callback',
+      callbackUrl: process.env.APPLE_CALLBACK_URL || '',
     },
   },
 
@@ -77,7 +79,7 @@ export default () => ({
   turn: {
     url: process.env.TURN_SERVER_URL || 'turn:localhost:3478',
     username: process.env.TURN_USERNAME || 'vitalwatch',
-    credential: process.env.TURN_PASSWORD || 'VitalWatch2024!',
+    credential: process.env.TURN_PASSWORD || '',
     realm: process.env.TURN_REALM || 'vitalwatch.local',
     ttl: parseInt(process.env.TURN_TTL || '3600', 10),
   },
@@ -111,6 +113,14 @@ export default () => ({
   grok: {
     apiKey: process.env.GROK_API_KEY,
     baseUrl: process.env.GROK_BASE_URL || 'https://api.x.ai/v1',
+  },
+
+  // InfluxDB (Time-series vital data)
+  influxdb: {
+    url: process.env.INFLUXDB_URL || 'http://localhost:8086',
+    token: process.env.INFLUXDB_TOKEN || '',
+    org: process.env.INFLUXDB_ORG || 'vitalwatch',
+    bucket: process.env.INFLUXDB_BUCKET || 'vitals',
   },
 
   // Tenovi HWI API

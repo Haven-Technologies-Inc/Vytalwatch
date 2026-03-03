@@ -3,6 +3,11 @@
 import { useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { apiClient } from '@/services/api/client';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { Select } from '@/components/ui/Select';
@@ -27,16 +32,9 @@ interface APILog {
   responseBody?: string;
 }
 
-const mockLogs: APILog[] = [
-  { id: '1', timestamp: '2026-01-15T14:32:15Z', method: 'POST', endpoint: '/api/v1/vitals', status: 201, duration: 45, userId: 'usr_123', ip: '192.168.1.1', userAgent: 'VytalWatch/2.0' },
-  { id: '2', timestamp: '2026-01-15T14:32:10Z', method: 'GET', endpoint: '/api/v1/patients/p_456/vitals', status: 200, duration: 120, userId: 'usr_456', ip: '10.0.0.5', userAgent: 'Mozilla/5.0' },
-  { id: '3', timestamp: '2026-01-15T14:32:05Z', method: 'POST', endpoint: '/api/v1/alerts', status: 201, duration: 89, ip: '172.16.0.1', userAgent: 'VytalWatch/2.0' },
-  { id: '4', timestamp: '2026-01-15T14:31:58Z', method: 'GET', endpoint: '/api/v1/users/me', status: 401, duration: 12, ip: '192.168.1.50', userAgent: 'Mozilla/5.0' },
-  { id: '5', timestamp: '2026-01-15T14:31:50Z', method: 'PUT', endpoint: '/api/v1/patients/p_789', status: 200, duration: 156, userId: 'usr_789', ip: '10.0.0.10', userAgent: 'Mozilla/5.0' },
-  { id: '6', timestamp: '2026-01-15T14:31:45Z', method: 'DELETE', endpoint: '/api/v1/notifications/n_123', status: 204, duration: 34, userId: 'usr_123', ip: '192.168.1.1', userAgent: 'Mozilla/5.0' },
-  { id: '7', timestamp: '2026-01-15T14:31:40Z', method: 'POST', endpoint: '/api/v1/auth/login', status: 500, duration: 2500, ip: '192.168.1.100', userAgent: 'Mozilla/5.0' },
-  { id: '8', timestamp: '2026-01-15T14:31:35Z', method: 'GET', endpoint: '/api/v1/analytics/dashboard', status: 200, duration: 890, userId: 'usr_admin', ip: '10.0.0.1', userAgent: 'Mozilla/5.0' },
-];
+interface ApiLogsResponse {
+  data: APILog[];
+}
 
 const methodColors: Record<string, string> = {
   GET: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -63,13 +61,23 @@ const methodFilters = [
 
 export default function AdminAPILogsPage() {
   const { toast } = useToast();
-  const [logs] = useState<APILog[]>(mockLogs);
   const [statusFilter, setStatusFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState<APILog | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const {
+    data: logsRes,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<ApiLogsResponse>(
+    () => apiClient.get<ApiLogsResponse>('/admin/api-logs'),
+  );
+
+  const logs: APILog[] = logsRes?.data ?? [];
 
   const handleExportLogs = useCallback(async () => {
     setIsExporting(true);
@@ -91,8 +99,8 @@ export default function AdminAPILogsPage() {
     return true;
   });
 
-  const successRate = Math.round((logs.filter((l) => l.status < 400).length / logs.length) * 100);
-  const avgDuration = Math.round(logs.reduce((sum, l) => sum + l.duration, 0) / logs.length);
+  const successRate = logs.length ? Math.round((logs.filter((l) => l.status < 400).length / logs.length) * 100) : 0;
+  const avgDuration = logs.length ? Math.round(logs.reduce((sum, l) => sum + l.duration, 0) / logs.length) : 0;
   const errorCount = logs.filter((l) => l.status >= 400).length;
 
   const columns: Column<APILog>[] = [
@@ -130,6 +138,22 @@ export default function AdminAPILogsPage() {
     { key: 'ip', header: 'IP Address' },
   ];
 
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading API logs..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -163,12 +187,16 @@ export default function AdminAPILogsPage() {
             </div>
           </div>
           <div className="p-4">
-            <DataTable
-              data={filteredLogs}
-              columns={columns}
-              onRowClick={(log) => { setSelectedLog(log); setShowModal(true); }}
-              actions={[{ label: 'View', icon: <Eye className="h-4 w-4" />, onClick: (log) => { setSelectedLog(log); setShowModal(true); } }]}
-            />
+            {filteredLogs.length === 0 ? (
+              <EmptyState title="No logs found" description="No API logs match your current filters." />
+            ) : (
+              <DataTable
+                data={filteredLogs}
+                columns={columns}
+                onRowClick={(log) => { setSelectedLog(log); setShowModal(true); }}
+                actions={[{ label: 'View', icon: <Eye className="h-4 w-4" />, onClick: (log) => { setSelectedLog(log); setShowModal(true); } }]}
+              />
+            )}
           </div>
         </div>
 

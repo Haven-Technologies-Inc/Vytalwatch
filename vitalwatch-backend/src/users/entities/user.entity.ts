@@ -145,6 +145,10 @@ export class User {
   @Column({ nullable: true })
   passwordChangedAt: Date;
 
+  // Refresh token rotation version
+  @Column({ default: 0 })
+  refreshTokenVersion: number;
+
   // Token fields
   @Column({ nullable: true })
   verificationToken: string;

@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Send, Search, Paperclip, MoreVertical, Phone, Video, User, X, File as FileIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { VideoCall, IncomingCallModal } from '@/components/video';
 import { webrtcClient, IncomingCallData, CallType } from '@/lib/webrtc';
 import { socketClient } from '@/lib/socket';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { messagingApi } from '@/services/api';
+import type { ApiResponse, PaginatedResponse, MessageThread, Message as ApiMessage } from '@/types';
 
-interface Message {
+interface LocalMessage {
   id: string;
   senderId: string;
   senderName: string;
@@ -31,82 +36,114 @@ interface Conversation {
   lastMessage: string;
   lastMessageTime: Date;
   unreadCount: number;
-  messages: Message[];
+  messages: LocalMessage[];
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
+function mapThreadToConversation(thread: MessageThread, currentUserId: string): Conversation {
+  const otherParticipant = thread.participants?.find((p) => p.id !== currentUserId) || thread.participants?.[0];
+  const lastMsg = thread.lastMessage;
+  return {
+    id: thread.id,
     participant: {
-      id: 'dr1',
-      name: 'Dr. Sarah Smith',
-      role: 'Cardiologist',
+      id: otherParticipant?.id || '',
+      name: otherParticipant?.name || otherParticipant?.firstName
+        ? `${otherParticipant.firstName} ${otherParticipant.lastName || ''}`.trim()
+        : 'Unknown',
+      role: otherParticipant?.role || '',
     },
-    lastMessage: 'Your blood pressure readings look good. Keep up the great work!',
-    lastMessageTime: new Date(Date.now() - 3600000),
-    unreadCount: 1,
-    messages: [
-      {
-        id: 'm1',
-        senderId: 'patient',
-        senderName: 'You',
-        content: 'Hi Dr. Smith, I wanted to ask about my latest BP readings.',
-        timestamp: new Date(Date.now() - 7200000),
-        read: true,
-      },
-      {
-        id: 'm2',
-        senderId: 'dr1',
-        senderName: 'Dr. Sarah Smith',
-        content: 'Your blood pressure readings look good. Keep up the great work!',
-        timestamp: new Date(Date.now() - 3600000),
-        read: false,
-      },
-    ],
-  },
-  {
-    id: '2',
-    participant: {
-      id: 'dr2',
-      name: 'Dr. Michael Johnson',
-      role: 'Primary Care',
-    },
-    lastMessage: 'See you at your appointment next week.',
-    lastMessageTime: new Date(Date.now() - 86400000),
-    unreadCount: 0,
-    messages: [
-      {
-        id: 'm3',
-        senderId: 'dr2',
-        senderName: 'Dr. Michael Johnson',
-        content: 'See you at your appointment next week.',
-        timestamp: new Date(Date.now() - 86400000),
-        read: true,
-      },
-    ],
-  },
-  {
-    id: '3',
-    participant: {
-      id: 'nurse1',
-      name: 'Nurse Lisa',
-      role: 'Care Coordinator',
-    },
-    lastMessage: 'I\'ve scheduled your lab work for Friday.',
-    lastMessageTime: new Date(Date.now() - 172800000),
-    unreadCount: 0,
+    lastMessage: lastMsg?.content || thread.subject || '',
+    lastMessageTime: new Date(thread.lastMessageAt || thread.updatedAt || thread.createdAt),
+    unreadCount: thread.unreadCount || 0,
     messages: [],
-  },
-];
+  };
+}
+
+function mapApiMessage(msg: ApiMessage): LocalMessage {
+  return {
+    id: msg.id,
+    senderId: msg.senderId,
+    senderName: msg.senderName || msg.sender?.name || msg.sender?.firstName || 'Unknown',
+    content: msg.content,
+    timestamp: new Date(msg.createdAt),
+    read: msg.read ?? (msg.readBy && msg.readBy.length > 0) ?? false,
+  };
+}
 
 export default function PatientMessagesPage() {
   const { toast } = useToast();
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(mockConversations[0]);
+  const currentUserId = (() => {
+    try {
+      const authData = localStorage.getItem('vytalwatch-auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed?.state?.user?.id || 'patient';
+      }
+    } catch { /* ignore */ }
+    return 'patient';
+  })();
+
+  // Fetch threads from API
+  const {
+    data: threadsResponse,
+    isLoading: threadsLoading,
+    error: threadsError,
+    refetch: refetchThreads,
+  } = useApiQuery<ApiResponse<PaginatedResponse<MessageThread>>>(
+    () => messagingApi.getThreads(),
+    { enabled: true }
+  );
+
+  const apiConversations = useMemo(() => {
+    const paginated = threadsResponse?.data;
+    if (!paginated) return [];
+    const threads = paginated.data || paginated.items || paginated.results || [];
+    return threads.map((t) => mapThreadToConversation(t, currentUserId));
+  }, [threadsResponse, currentUserId]);
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Record<string, LocalMessage[]>>({});
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync API conversations into state
+  useEffect(() => {
+    if (apiConversations.length > 0) {
+      setConversations(apiConversations);
+      if (!selectedConversation && apiConversations.length > 0) {
+        setSelectedConversation(apiConversations[0]);
+      }
+    }
+  }, [apiConversations, selectedConversation]);
+
+  // Fetch messages when selecting a conversation
+  useEffect(() => {
+    if (!selectedConversation) return;
+    const threadId = selectedConversation.id;
+    if (threadMessages[threadId]) return; // Already loaded
+
+    const loadMessages = async () => {
+      try {
+        const response = await messagingApi.getMessages(threadId);
+        const paginated = response?.data;
+        if (paginated) {
+          const msgs = (paginated.data || paginated.items || paginated.results || []).map(mapApiMessage);
+          setThreadMessages((prev) => ({ ...prev, [threadId]: msgs }));
+        }
+      } catch {
+        // Messages will remain empty
+      }
+    };
+    loadMessages();
+  }, [selectedConversation, threadMessages]);
+
+  // Get messages for current conversation
+  const currentMessages = useMemo(() => {
+    if (!selectedConversation) return [];
+    return threadMessages[selectedConversation.id] || [];
+  }, [selectedConversation, threadMessages]);
 
   // Initialize socket connection for video calls
   useEffect(() => {
@@ -153,27 +190,40 @@ export default function PatientMessagesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const handleSendMessage = useCallback(() => {
+  const handleSendMessage = useCallback(async () => {
     if (!newMessage.trim() || !selectedConversation) return;
-    
-    const newMsg: Message = {
+
+    const newMsg: LocalMessage = {
       id: `m-${Date.now()}`,
-      senderId: 'patient',
+      senderId: currentUserId,
       senderName: 'You',
       content: newMessage.trim(),
       timestamp: new Date(),
       read: true,
     };
-    
-    setConversations(prev => prev.map(c => 
-      c.id === selectedConversation.id 
-        ? { ...c, messages: [...c.messages, newMsg], lastMessage: newMsg.content, lastMessageTime: new Date() }
-        : c
-    ));
-    setSelectedConversation(prev => prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev);
+
+    // Optimistic update
+    setThreadMessages((prev) => ({
+      ...prev,
+      [selectedConversation.id]: [...(prev[selectedConversation.id] || []), newMsg],
+    }));
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === selectedConversation.id
+          ? { ...c, lastMessage: newMsg.content, lastMessageTime: new Date() }
+          : c
+      )
+    );
     setNewMessage('');
     toast({ title: 'Message sent', description: `Sent to ${selectedConversation.participant.name}`, type: 'success' });
-  }, [newMessage, selectedConversation, toast]);
+
+    // Send via API
+    try {
+      await messagingApi.sendMessage(selectedConversation.id, newMsg.content);
+    } catch {
+      // Optimistic update already applied
+    }
+  }, [newMessage, selectedConversation, currentUserId, toast]);
 
   // Video call state
   const [showVideoCall, setShowVideoCall] = useState(false);
@@ -200,8 +250,8 @@ export default function PatientMessagesPage() {
         await webrtcClient.call(selectedConversation.participant.id, 'Patient', 'audio');
       } catch (err) {
         setShowVideoCall(false);
-        toast({ 
-          title: 'Call Failed', 
+        toast({
+          title: 'Call Failed',
           description: err instanceof Error ? err.message : 'Unable to initiate call. Please check your connection.',
           type: 'error'
         });
@@ -218,8 +268,8 @@ export default function PatientMessagesPage() {
         await webrtcClient.call(selectedConversation.participant.id, 'Patient', 'video');
       } catch (err) {
         setShowVideoCall(false);
-        toast({ 
-          title: 'Call Failed', 
+        toast({
+          title: 'Call Failed',
           description: err instanceof Error ? err.message : 'Unable to start video call. Please check your connection.',
           type: 'error'
         });
@@ -265,6 +315,22 @@ export default function PatientMessagesPage() {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  if (threadsLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading messages..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (threadsError) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={threadsError} onRetry={refetchThreads} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -283,43 +349,47 @@ export default function PatientMessagesPage() {
           </div>
 
           <div className="overflow-y-auto">
-            {filteredConversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                onClick={() => setSelectedConversation(conversation)}
-                className={cn(
-                  'flex cursor-pointer items-center gap-3 border-b border-gray-100 p-4 transition-colors dark:border-gray-800',
-                  selectedConversation?.id === conversation.id
-                    ? 'bg-primary/5'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                )}
-              >
-                <div className="relative">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <User className="h-6 w-6" />
-                  </div>
-                  {conversation.unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
-                      {conversation.unreadCount}
-                    </span>
+            {filteredConversations.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">No conversations found</div>
+            ) : (
+              filteredConversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  onClick={() => setSelectedConversation(conversation)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 border-b border-gray-100 p-4 transition-colors dark:border-gray-800',
+                    selectedConversation?.id === conversation.id
+                      ? 'bg-primary/5'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                   )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {conversation.participant.name}
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      {formatTime(conversation.lastMessageTime)}
-                    </span>
+                >
+                  <div className="relative">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <User className="h-6 w-6" />
+                    </div>
+                    {conversation.unreadCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
+                        {conversation.unreadCount}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500">{conversation.participant.role}</p>
-                  <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">
-                    {conversation.lastMessage}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-gray-900 dark:text-white truncate">
+                        {conversation.participant.name}
+                      </p>
+                      <span className="text-xs text-gray-500">
+                        {formatTime(conversation.lastMessageTime)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{conversation.participant.role}</p>
+                    <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">
+                      {conversation.lastMessage}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -352,18 +422,18 @@ export default function PatientMessagesPage() {
 
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
-                {selectedConversation.messages.map((message) => (
+                {currentMessages.map((message) => (
                   <div
                     key={message.id}
                     className={cn(
                       'flex',
-                      message.senderId === 'patient' ? 'justify-end' : 'justify-start'
+                      message.senderId === currentUserId ? 'justify-end' : 'justify-start'
                     )}
                   >
                     <div
                       className={cn(
                         'max-w-[70%] rounded-2xl px-4 py-2',
-                        message.senderId === 'patient'
+                        message.senderId === currentUserId
                           ? 'bg-primary text-white'
                           : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
                       )}
@@ -372,7 +442,7 @@ export default function PatientMessagesPage() {
                       <p
                         className={cn(
                           'mt-1 text-xs',
-                          message.senderId === 'patient' ? 'text-white/70' : 'text-gray-500'
+                          message.senderId === currentUserId ? 'text-white/70' : 'text-gray-500'
                         )}
                       >
                         {formatTime(message.timestamp)}

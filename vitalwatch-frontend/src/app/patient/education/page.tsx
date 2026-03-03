@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { useToast } from '@/hooks/useToast';
-import { 
-  BookOpen, 
-  Play, 
-  Clock, 
-  Search, 
-  Heart, 
-  Pill, 
+import {
+  BookOpen,
+  Play,
+  Clock,
+  Search,
+  Heart,
+  Pill,
   Activity,
   Apple,
   CheckCircle2
@@ -37,9 +38,9 @@ const categories = [
   { id: 'nutrition', label: 'Nutrition', icon: Apple },
 ];
 
-const mockArticles: Article[] = [
-  { id: '1', title: 'Understanding Your Blood Pressure Readings', description: 'Learn what systolic and diastolic numbers mean and when to be concerned.', category: 'vitals', type: 'article', duration: '5 min read', completed: true },
-  { id: '2', title: 'Managing Hypertension Through Lifestyle Changes', description: 'Practical tips for lowering blood pressure naturally.', category: 'heart', type: 'video', duration: '8 min', completed: true },
+const staticArticles: Article[] = [
+  { id: '1', title: 'Understanding Your Blood Pressure Readings', description: 'Learn what systolic and diastolic numbers mean and when to be concerned.', category: 'vitals', type: 'article', duration: '5 min read', completed: false },
+  { id: '2', title: 'Managing Hypertension Through Lifestyle Changes', description: 'Practical tips for lowering blood pressure naturally.', category: 'heart', type: 'video', duration: '8 min', completed: false },
   { id: '3', title: 'Taking Your Medications Safely', description: 'Important guidelines for managing multiple medications.', category: 'medication', type: 'article', duration: '6 min read', completed: false },
   { id: '4', title: 'Heart-Healthy Diet Basics', description: 'Simple dietary changes that can improve your heart health.', category: 'nutrition', type: 'video', duration: '12 min', completed: false },
   { id: '5', title: 'Recognizing Warning Signs', description: 'When to seek immediate medical attention for your condition.', category: 'heart', type: 'article', duration: '4 min read', completed: false },
@@ -50,18 +51,28 @@ export default function PatientEducationPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [articles, setArticles] = useState<Article[]>(mockArticles);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simulate initial loading state, then show static content
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setArticles(staticArticles);
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleArticleClick = useCallback((article: Article) => {
     if (!article.completed) {
-      setArticles(prev => prev.map(a => 
+      setArticles(prev => prev.map(a =>
         a.id === article.id ? { ...a, completed: true } : a
       ));
     }
-    toast({ 
-      title: article.type === 'video' ? 'Playing video' : 'Opening article', 
-      description: article.title, 
-      type: 'info' 
+    toast({
+      title: article.type === 'video' ? 'Playing video' : 'Opening article',
+      description: article.title,
+      type: 'info'
     });
   }, [toast]);
 
@@ -72,7 +83,15 @@ export default function PatientEducationPage() {
   });
 
   const completedCount = articles.filter((a) => a.completed).length;
-  const progress = Math.round((completedCount / articles.length) * 100);
+  const progress = articles.length > 0 ? Math.round((completedCount / articles.length) * 100) : 0;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading educational content..." />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -86,7 +105,7 @@ export default function PatientEducationPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-500">Your Progress</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedCount} of {mockArticles.length} completed</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedCount} of {articles.length} completed</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="h-3 w-48 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">

@@ -1,8 +1,22 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, Clock, ArrowRight, User } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description:
+    "Insights, guides, and best practices for remote patient monitoring and healthcare innovation. Stay updated with the latest in RPM, AI diagnostics, and patient care.",
+  openGraph: {
+    title: "VytalWatch AI Blog - RPM Insights & Healthcare Innovation",
+    description:
+      "Expert articles on remote patient monitoring, AI in healthcare, billing compliance, and patient engagement strategies.",
+    url: "https://vytalwatch.com/blog",
+    type: "website",
+  },
+};
 
 const blogPosts = [
   {

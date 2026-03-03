@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { PageWrapper } from "@/components/ui/PageWrapper";
 import { Button } from "@/components/ui/Button";
 import {
   Users,
@@ -23,173 +24,198 @@ import {
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import apiClient from "@/services/api/client";
 
-// Mock data
-const stats = [
-  {
-    title: "Total Patients",
-    value: "47",
-    change: "+3 this week",
-    changeType: "positive",
-    icon: Users,
-    color: "blue",
-  },
-  {
-    title: "Active Alerts",
-    value: "12",
-    change: "3 critical",
-    changeType: "warning",
-    icon: AlertTriangle,
-    color: "red",
-  },
-  {
-    title: "Adherence Rate",
-    value: "89%",
-    change: "+4% vs last month",
-    changeType: "positive",
-    icon: TrendingUp,
-    color: "emerald",
-  },
-  {
-    title: "Monthly Revenue",
-    value: "$5,875",
-    change: "47 × $125",
-    changeType: "neutral",
-    icon: DollarSign,
-    color: "purple",
-  },
-];
+// ---------- API response types ----------
 
-const alerts = [
-  {
-    id: "1",
-    patient: { name: "Maria Garcia", avatar: null },
-    type: "Blood Pressure",
-    value: "185/110 mmHg",
-    severity: "critical",
-    time: new Date(Date.now() - 5 * 60000),
-  },
-  {
-    id: "2",
-    patient: { name: "James Lee", avatar: null },
-    type: "Glucose",
-    value: "45 mg/dL",
-    severity: "critical",
-    time: new Date(Date.now() - 12 * 60000),
-  },
-  {
-    id: "3",
-    patient: { name: "Susan Park", avatar: null },
-    type: "Weight",
-    value: "+5 lbs in 2 days",
-    severity: "warning",
-    time: new Date(Date.now() - 60 * 60000),
-  },
-  {
-    id: "4",
-    patient: { name: "Robert Chen", avatar: null },
-    type: "No Reading",
-    value: "3 days",
-    severity: "warning",
-    time: new Date(Date.now() - 2 * 60 * 60000),
-  },
-];
+interface ProviderStatsResponse {
+  data: {
+    totalPatients: number;
+    activeAlerts: number;
+    criticalAlerts: number;
+    adherenceRate: number;
+    adherenceChange: number;
+    monthlyRevenue: number;
+    patientChange: number;
+  };
+}
 
-const patients = [
-  {
-    id: "1",
-    name: "Maria Garcia",
-    age: 68,
-    conditions: ["CHF", "Hypertension"],
-    riskScore: 87,
-    lastVitals: { bp: "142/88", glucose: "126", weight: "168 lbs" },
-    lastReading: new Date(Date.now() - 2 * 60 * 60000),
-    status: "critical",
-  },
-  {
-    id: "2",
-    name: "James Lee",
-    age: 54,
-    conditions: ["Diabetes", "Obesity"],
-    riskScore: 72,
-    lastVitals: { bp: "138/86", glucose: "185", weight: "224 lbs" },
-    lastReading: new Date(Date.now() - 4 * 60 * 60000),
-    status: "warning",
-  },
-  {
-    id: "3",
-    name: "Susan Park",
-    age: 72,
-    conditions: ["CHF", "CKD"],
-    riskScore: 65,
-    lastVitals: { bp: "128/78", glucose: "102", weight: "156 lbs" },
-    lastReading: new Date(Date.now() - 6 * 60 * 60000),
-    status: "warning",
-  },
-  {
-    id: "4",
-    name: "Robert Chen",
-    age: 61,
-    conditions: ["Hypertension"],
-    riskScore: 35,
-    lastVitals: { bp: "122/76", glucose: "95", weight: "182 lbs" },
-    lastReading: new Date(Date.now() - 8 * 60 * 60000),
-    status: "normal",
-  },
-  {
-    id: "5",
-    name: "Linda Martinez",
-    age: 59,
-    conditions: ["Diabetes"],
-    riskScore: 28,
-    lastVitals: { bp: "118/74", glucose: "108", weight: "145 lbs" },
-    lastReading: new Date(Date.now() - 12 * 60 * 60000),
-    status: "normal",
-  },
-];
+interface DashboardAlert {
+  id: string;
+  patient: { name: string; avatar: string | null };
+  type: string;
+  value: string;
+  severity: "critical" | "warning" | "info";
+  time: string;
+}
 
-const aiInsights = [
-  {
-    type: "prediction",
-    icon: Brain,
-    title: "CHF Risk Alert",
-    message: "3 patients showing early signs of fluid retention. Consider proactive intervention.",
-    confidence: 89,
-    color: "purple",
-  },
-  {
-    type: "recommendation",
-    icon: Lightbulb,
-    title: "Medication Suggestion",
-    message: "Maria Garcia's BP could improve with morning dosing based on her patterns.",
-    confidence: 82,
-    color: "amber",
-  },
-  {
-    type: "achievement",
-    icon: Target,
-    title: "Quality Metric",
-    message: "Your diabetes cohort has 15% better A1C control than regional average.",
-    confidence: 95,
-    color: "emerald",
-  },
-];
+interface AlertsResponse {
+  data: {
+    results: DashboardAlert[];
+  };
+}
+
+interface DashboardPatient {
+  id: string;
+  name: string;
+  age: number;
+  conditions: string[];
+  riskScore: number;
+  lastVitals: { bp: string; glucose: string; weight: string };
+  lastReading: string;
+  status: "critical" | "warning" | "normal";
+}
+
+interface PatientsResponse {
+  data: {
+    results: DashboardPatient[];
+  };
+}
+
+interface DashboardInsight {
+  type: string;
+  title: string;
+  message: string;
+  confidence: number;
+  color: string;
+}
+
+interface InsightsResponse {
+  data: DashboardInsight[];
+}
+
+// ---------- Icon/color mapping helpers ----------
+
+const insightIconMap: Record<string, typeof Brain> = {
+  prediction: Brain,
+  recommendation: Lightbulb,
+  achievement: Target,
+};
+
+const statIcons = [Users, AlertTriangle, TrendingUp, DollarSign];
+const statColors = ["blue", "red", "emerald", "purple"];
 
 export default function ProviderDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // ---- API calls ----
+  const {
+    data: statsData,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useApiQuery<ProviderStatsResponse>(
+    () => apiClient.get<ProviderStatsResponse>("/analytics/provider-stats"),
+  );
+
+  const {
+    data: alertsData,
+    isLoading: alertsLoading,
+    error: alertsError,
+    refetch: refetchAlerts,
+  } = useApiQuery<AlertsResponse>(
+    () => apiClient.get<AlertsResponse>("/alerts", { params: { limit: 5 } }),
+  );
+
+  const {
+    data: patientsData,
+    isLoading: patientsLoading,
+    error: patientsError,
+    refetch: refetchPatients,
+  } = useApiQuery<PatientsResponse>(
+    () => apiClient.get<PatientsResponse>("/patients", { params: { limit: 10 } }),
+  );
+
+  const {
+    data: insightsData,
+    refetch: refetchInsights,
+  } = useApiQuery<InsightsResponse>(
+    () => apiClient.get<InsightsResponse>("/ai/insights"),
+  );
+
+  // ---- Derived data ----
+
+  const isLoading = statsLoading || alertsLoading || patientsLoading;
+  const error = statsError || alertsError || patientsError;
+
+  const stats = useMemo(() => {
+    const s = statsData?.data;
+    if (!s) return [];
+    return [
+      {
+        title: "Total Patients",
+        value: String(s.totalPatients ?? 0),
+        change: `+${s.patientChange ?? 0} this week`,
+        changeType: "positive" as const,
+        icon: statIcons[0],
+        color: statColors[0],
+      },
+      {
+        title: "Active Alerts",
+        value: String(s.activeAlerts ?? 0),
+        change: `${s.criticalAlerts ?? 0} critical`,
+        changeType: "warning" as const,
+        icon: statIcons[1],
+        color: statColors[1],
+      },
+      {
+        title: "Adherence Rate",
+        value: `${s.adherenceRate ?? 0}%`,
+        change: `+${s.adherenceChange ?? 0}% vs last month`,
+        changeType: "positive" as const,
+        icon: statIcons[2],
+        color: statColors[2],
+      },
+      {
+        title: "Monthly Revenue",
+        value: `$${(s.monthlyRevenue ?? 0).toLocaleString()}`,
+        change: `${s.totalPatients ?? 0} patients`,
+        changeType: "neutral" as const,
+        icon: statIcons[3],
+        color: statColors[3],
+      },
+    ];
+  }, [statsData]);
+
+  const alerts = useMemo(() => {
+    const results = alertsData?.data?.results ?? [];
+    return results.map((a) => ({
+      ...a,
+      time: new Date(a.time),
+    }));
+  }, [alertsData]);
+
+  const patients = useMemo(() => {
+    const results = patientsData?.data?.results ?? [];
+    return results.map((p) => ({
+      ...p,
+      lastReading: new Date(p.lastReading),
+    }));
+  }, [patientsData]);
+
+  const aiInsights = useMemo(() => {
+    const data = insightsData?.data ?? [];
+    return data.map((i) => ({
+      ...i,
+      icon: insightIconMap[i.type] || Brain,
+      color: i.color || "purple",
+    }));
+  }, [insightsData]);
+
+  // ---- Handlers ----
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Simulate API refresh
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await Promise.all([refetchStats(), refetchAlerts(), refetchPatients(), refetchInsights()]);
       toast({ title: "Dashboard refreshed", description: "All data is up to date" });
     } finally {
       setIsRefreshing(false);
     }
-  }, [toast]);
+  }, [toast, refetchStats, refetchAlerts, refetchPatients, refetchInsights]);
 
   const handleAddPatient = () => {
     router.push("/provider/patients?action=add");
@@ -217,6 +243,18 @@ export default function ProviderDashboard() {
 
   return (
     <DashboardLayout requiredRole="provider">
+      <PageWrapper
+        isLoading={isLoading}
+        error={error}
+        isEmpty={patients.length === 0 && !isLoading && !error}
+        emptyProps={{
+          icon: Users,
+          title: 'No patients yet',
+          description: 'Add your first patient to start monitoring their vitals and health data.',
+          action: { label: 'Add Patient', onClick: handleAddPatient },
+        }}
+        loadingMessage="Loading provider dashboard..."
+      >
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -229,8 +267,8 @@ export default function ProviderDashboard() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />}
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -326,27 +364,27 @@ export default function ProviderDashboard() {
                           {formatRelativeTime(alert.time)}
                         </span>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleViewPatient(alert.id)}
                             title="View patient"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleCallPatient(alert.patient.name)}
                             title="Call patient"
                           >
                             <Phone className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleAcknowledgeAlert(alert.id)}
                             title="Acknowledge alert"
@@ -420,7 +458,7 @@ export default function ProviderDashboard() {
             <div className="flex items-center justify-between">
               <CardTitle>Patient Overview</CardTitle>
               <div className="flex gap-2">
-                <select 
+                <select
                   aria-label="Filter patients by risk level"
                   title="Filter patients"
                   className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
@@ -526,24 +564,24 @@ export default function ProviderDashboard() {
                     </td>
                     <td className="table-cell">
                       <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleViewPatient(patient.id)}
                           title="View patient details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleMessagePatient(patient.id, patient.name)}
                           title="Message patient"
                         >
                           <MessageSquare className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleCallPatient(patient.name)}
                           title="Call patient"
@@ -559,6 +597,7 @@ export default function ProviderDashboard() {
           </CardContent>
         </Card>
       </div>
+      </PageWrapper>
     </DashboardLayout>
   );
 }

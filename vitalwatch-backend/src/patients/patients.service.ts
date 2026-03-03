@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole, UserStatus, OnboardingStep } from '../users/entities/user.entity';
+import { Appointment } from '../appointments/entities/appointment.entity';
 import { VitalsService } from '../vitals/vitals.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { DevicesService } from '../devices/devices.service';
@@ -23,6 +24,8 @@ export class PatientsService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Appointment)
+    private readonly appointmentRepository: Repository<Appointment>,
     private readonly vitalsService: VitalsService,
     private readonly alertsService: AlertsService,
     private readonly devicesService: DevicesService,
@@ -383,8 +386,15 @@ export class PatientsService {
   ) {
     await this.findOne(patientId, user);
 
-    // Return mock appointments - in production, use Appointments entity
-    return [];
+    const query = this.appointmentRepository.createQueryBuilder('appointment')
+      .where('appointment.patientId = :patientId', { patientId })
+      .orderBy('appointment.scheduledAt', 'DESC');
+
+    if (_status) {
+      query.andWhere('appointment.status = :status', { status: _status });
+    }
+
+    return query.getMany();
   }
 
   private checkAccess(patient: User, user: CurrentUserPayload): void {

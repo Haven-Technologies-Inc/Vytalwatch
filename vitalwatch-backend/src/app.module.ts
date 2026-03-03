@@ -1,6 +1,8 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
@@ -10,6 +12,9 @@ import { DatabaseModule } from './database/database.module';
 
 // Common Modules
 import { CryptoModule } from './common/crypto/crypto.module';
+import { RedisModule } from './common/redis';
+import { LoggerModule } from './common/logger';
+import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
 import { HealthModule } from './health/health.module';
 
 // Feature Modules
@@ -43,11 +48,13 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { ThresholdPoliciesModule } from './threshold-policies/threshold-policies.module';
 import { AIDraftsModule } from './ai-drafts/ai-drafts.module';
 import { ClaimsModule } from './claims/claims.module';
-import { ScheduleModule } from '@nestjs/schedule';
 import { RPMBatchModule } from './common/rpm-batch.module';
 import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { StaffModule } from './staff/staff.module';
+
+// Scheduler Module
+import { SchedulerModule } from './scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -64,11 +71,38 @@ import { StaffModule } from './staff/staff.module';
       limit: 100,
     }]),
 
+    // Task scheduling (cron jobs)
+    ScheduleModule.forRoot(),
+
+    // Bull queue (Redis-backed job queue)
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: configService.get<string>('redis.host', 'localhost'),
+          port: configService.get<number>('redis.port', 6379),
+          password: configService.get<string>('redis.password') || undefined,
+        },
+        defaultJobOptions: {
+          removeOnComplete: true,
+          removeOnFail: false,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
+      }),
+      inject: [ConfigService],
+    }),
+
     // Database
     DatabaseModule,
 
     // Common modules
     CryptoModule,
+    RedisModule,
+    LoggerModule,
     HealthModule,
 
     // Feature modules
@@ -102,13 +136,19 @@ import { StaffModule } from './staff/staff.module';
     ThresholdPoliciesModule,
     AIDraftsModule,
     ClaimsModule,
-    ScheduleModule.forRoot(),
     RPMBatchModule,
     EnterpriseLoggingModule,
     ComplianceModule,
     StaffModule,
+
+    // Scheduled tasks
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SanitizeMiddleware).forRoutes('*');
+  }
+}

@@ -3,10 +3,21 @@
  * Centralized configuration management
  */
 
+function getApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_API_URL must be set in production');
+    }
+    return 'http://localhost:3001';
+  }
+  return url;
+}
+
 export const config = {
   // API Configuration
   api: {
-    baseUrl: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001') + '/api/v1',
+    baseUrl: getApiUrl() + '/api/v1',
     timeout: 30000,
   },
 

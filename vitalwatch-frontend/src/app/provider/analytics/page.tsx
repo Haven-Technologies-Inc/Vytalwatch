@@ -1,20 +1,57 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { TrendChart, SimpleBarChart, DonutChart } from '@/components/dashboard/Charts';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { 
-  Users, 
-  Activity, 
-  TrendingUp, 
-  DollarSign, 
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import {
+  Users,
+  Activity,
+  TrendingUp,
+  DollarSign,
   Download,
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import apiClient from '@/services/api/client';
+
+interface AnalyticsOverview {
+  data: {
+    totalPatients: number;
+    patientChange: number;
+    readingsThisMonth: number;
+    readingsChange: number;
+    avgAdherenceRate: number;
+    adherenceChange: number;
+    monthlyRevenue: number;
+    revenueSubtitle: string;
+    patientGrowth: Array<{ month: string; patients: number }>;
+    readingsData: Array<{ date: string; readings: number }>;
+    alertDistribution: Array<{ name: string; value: number; color: string }>;
+    conditionBreakdown: Array<{ condition: string; count: number }>;
+    adherenceData: Array<{ day: string; adherence: number }>;
+    kpis: {
+      readmissionRate: number;
+      readmissionChange: number;
+      avgResponseTime: number;
+      responseTimeUnit: string;
+      patientSatisfaction: number;
+    };
+    billingSummary: Array<{
+      cptCode: string;
+      description: string;
+      patientsEligible: number;
+      rate: number;
+      potentialRevenue: number;
+    }>;
+    billingTotal: number;
+  };
+}
 
 const timeRanges = [
   { value: '7d', label: 'Last 7 Days' },
@@ -23,53 +60,63 @@ const timeRanges = [
   { value: '12m', label: 'Last 12 Months' },
 ];
 
-const mockPatientGrowth = Array.from({ length: 12 }, (_, i) => ({
-  month: new Date(2025, i).toLocaleDateString('en-US', { month: 'short' }),
-  patients: 20 + Math.floor(i * 2.5 + Math.random() * 5),
-}));
-
-const mockReadingsData = Array.from({ length: 30 }, (_, i) => ({
-  date: new Date(Date.now() - (29 - i) * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  readings: 150 + Math.floor(Math.random() * 100),
-}));
-
-const mockAlertDistribution = [
-  { name: 'Critical', value: 12, color: '#EF4444' },
-  { name: 'Warning', value: 35, color: '#F59E0B' },
-  { name: 'Info', value: 53, color: '#3B82F6' },
-];
-
-const mockConditionBreakdown = [
-  { condition: 'Hypertension', count: 28 },
-  { condition: 'Diabetes', count: 22 },
-  { condition: 'CHF', count: 15 },
-  { condition: 'COPD', count: 12 },
-  { condition: 'Other', count: 8 },
-];
-
-const mockAdherenceData = Array.from({ length: 7 }, (_, i) => ({
-  day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-  adherence: 75 + Math.floor(Math.random() * 20),
-}));
-
 export default function ProviderAnalyticsPage() {
   const { toast } = useToast();
   const [timeRange, setTimeRange] = useState('30d');
   const [isExporting, setIsExporting] = useState(false);
 
+  const {
+    data: analyticsData,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<AnalyticsOverview>(
+    () => apiClient.get<AnalyticsOverview>('/analytics/overview', { params: { range: timeRange } }),
+    { deps: [timeRange] },
+  );
+
+  const d = analyticsData?.data;
+
+  const patientGrowth = d?.patientGrowth ?? [];
+  const readingsData = d?.readingsData ?? [];
+  const alertDistribution = d?.alertDistribution ?? [];
+  const conditionBreakdown = d?.conditionBreakdown ?? [];
+  const adherenceData = d?.adherenceData ?? [];
+  const kpis = d?.kpis;
+  const billingSummary = d?.billingSummary ?? [];
+  const billingTotal = d?.billingTotal ?? 0;
+
   const handleExportReport = useCallback(async () => {
     setIsExporting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast({ 
-        title: 'Report exported', 
+      await apiClient.get('/analytics/export', { params: { format: 'csv', range: timeRange } });
+      toast({
+        title: 'Report exported',
         description: 'Analytics report has been downloaded',
-        type: 'success' 
+        type: 'success'
       });
+    } catch {
+      toast({ title: 'Export failed', description: 'Could not export report', type: 'error' });
     } finally {
       setIsExporting(false);
     }
-  }, [toast]);
+  }, [toast, timeRange]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading analytics..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -88,8 +135,8 @@ export default function ProviderAnalyticsPage() {
               onChange={setTimeRange}
               className="w-40"
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleExportReport}
               disabled={isExporting}
             >
@@ -106,27 +153,27 @@ export default function ProviderAnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             title="Total Patients"
-            value="47"
+            value={String(d?.totalPatients ?? 0)}
             icon={<Users className="h-5 w-5" />}
-            trend={{ direction: 'up', value: '+3 this month', positive: true }}
+            trend={{ direction: 'up', value: `+${d?.patientChange ?? 0} this month`, positive: true }}
           />
           <MetricCard
             title="Readings This Month"
-            value="4,238"
+            value={(d?.readingsThisMonth ?? 0).toLocaleString()}
             icon={<Activity className="h-5 w-5" />}
-            trend={{ direction: 'up', value: '+12% vs last month', positive: true }}
+            trend={{ direction: 'up', value: `+${d?.readingsChange ?? 0}% vs last month`, positive: true }}
           />
           <MetricCard
             title="Avg. Adherence Rate"
-            value="89%"
+            value={`${d?.avgAdherenceRate ?? 0}%`}
             icon={<TrendingUp className="h-5 w-5" />}
-            trend={{ direction: 'up', value: '+4% vs last month', positive: true }}
+            trend={{ direction: 'up', value: `+${d?.adherenceChange ?? 0}% vs last month`, positive: true }}
           />
           <MetricCard
             title="Monthly Revenue"
-            value="$5,875"
+            value={`$${(d?.monthlyRevenue ?? 0).toLocaleString()}`}
             icon={<DollarSign className="h-5 w-5" />}
-            subtitle="47 patients × $125 avg"
+            subtitle={d?.revenueSubtitle}
           />
         </div>
 
@@ -136,7 +183,7 @@ export default function ProviderAnalyticsPage() {
               Patient Growth
             </h2>
             <SimpleBarChart
-              data={mockPatientGrowth}
+              data={patientGrowth}
               xKey="month"
               yKey="patients"
               color="#0066FF"
@@ -149,7 +196,7 @@ export default function ProviderAnalyticsPage() {
               Daily Readings
             </h2>
             <TrendChart
-              data={mockReadingsData}
+              data={readingsData}
               xKey="date"
               yKey="readings"
               type="area"
@@ -163,11 +210,11 @@ export default function ProviderAnalyticsPage() {
               Alert Distribution
             </h2>
             <DonutChart
-              data={mockAlertDistribution}
+              data={alertDistribution}
               dataKey="value"
               nameKey="name"
               height={280}
-              colors={['#EF4444', '#F59E0B', '#3B82F6']}
+              colors={alertDistribution.map((d) => d.color).length > 0 ? alertDistribution.map((d) => d.color) : ['#EF4444', '#F59E0B', '#3B82F6']}
             />
           </div>
 
@@ -176,7 +223,7 @@ export default function ProviderAnalyticsPage() {
               Patients by Condition
             </h2>
             <SimpleBarChart
-              data={mockConditionBreakdown}
+              data={conditionBreakdown}
               xKey="condition"
               yKey="count"
               color="#8B5CF6"
@@ -191,7 +238,7 @@ export default function ProviderAnalyticsPage() {
               Weekly Adherence
             </h2>
             <SimpleBarChart
-              data={mockAdherenceData}
+              data={adherenceData}
               xKey="day"
               yKey="adherence"
               color="#10B981"
@@ -206,17 +253,17 @@ export default function ProviderAnalyticsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-lg bg-green-50 p-4 dark:bg-green-950/20">
                 <p className="text-sm text-green-600 dark:text-green-400">Readmission Rate</p>
-                <p className="mt-1 text-2xl font-bold text-green-700 dark:text-green-300">8%</p>
-                <p className="mt-1 text-xs text-green-600">↓ 14% from baseline</p>
+                <p className="mt-1 text-2xl font-bold text-green-700 dark:text-green-300">{kpis?.readmissionRate ?? 0}%</p>
+                <p className="mt-1 text-xs text-green-600">{'\u2193'} {kpis?.readmissionChange ?? 0}% from baseline</p>
               </div>
               <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950/20">
                 <p className="text-sm text-blue-600 dark:text-blue-400">Avg. Response Time</p>
-                <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-300">12 min</p>
+                <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-300">{kpis?.avgResponseTime ?? 0} {kpis?.responseTimeUnit ?? 'min'}</p>
                 <p className="mt-1 text-xs text-blue-600">To critical alerts</p>
               </div>
               <div className="rounded-lg bg-purple-50 p-4 dark:bg-purple-950/20">
                 <p className="text-sm text-purple-600 dark:text-purple-400">Patient Satisfaction</p>
-                <p className="mt-1 text-2xl font-bold text-purple-700 dark:text-purple-300">4.8/5</p>
+                <p className="mt-1 text-2xl font-bold text-purple-700 dark:text-purple-300">{kpis?.patientSatisfaction ?? 0}/5</p>
                 <p className="mt-1 text-xs text-purple-600">Based on surveys</p>
               </div>
             </div>
@@ -239,32 +286,20 @@ export default function ProviderAnalyticsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                <tr>
-                  <td className="py-3 font-medium">99454</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-400">Device supply (16+ days)</td>
-                  <td className="py-3 text-right">42</td>
-                  <td className="py-3 text-right">$64</td>
-                  <td className="py-3 text-right font-medium">$2,688</td>
-                </tr>
-                <tr>
-                  <td className="py-3 font-medium">99457</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-400">First 20 min clinical review</td>
-                  <td className="py-3 text-right">47</td>
-                  <td className="py-3 text-right">$51</td>
-                  <td className="py-3 text-right font-medium">$2,397</td>
-                </tr>
-                <tr>
-                  <td className="py-3 font-medium">99458</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-400">Additional 20 min</td>
-                  <td className="py-3 text-right">19</td>
-                  <td className="py-3 text-right">$41</td>
-                  <td className="py-3 text-right font-medium">$779</td>
-                </tr>
+                {billingSummary.map((row) => (
+                  <tr key={row.cptCode}>
+                    <td className="py-3 font-medium">{row.cptCode}</td>
+                    <td className="py-3 text-gray-600 dark:text-gray-400">{row.description}</td>
+                    <td className="py-3 text-right">{row.patientsEligible}</td>
+                    <td className="py-3 text-right">${row.rate}</td>
+                    <td className="py-3 text-right font-medium">${row.potentialRevenue.toLocaleString()}</td>
+                  </tr>
+                ))}
               </tbody>
               <tfoot>
                 <tr className="border-t border-gray-200 dark:border-gray-700">
                   <td colSpan={4} className="pt-3 text-right font-semibold">Total Potential:</td>
-                  <td className="pt-3 text-right text-lg font-bold text-primary">$5,864</td>
+                  <td className="pt-3 text-right text-lg font-bold text-primary">${billingTotal.toLocaleString()}</td>
                 </tr>
               </tfoot>
             </table>

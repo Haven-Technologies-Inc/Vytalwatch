@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { useToast } from "@/hooks/useToast";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { apiClient } from "@/services/api/client";
 import {
   Users,
   Building,
@@ -28,88 +32,179 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/utils";
 
-// Mock data for admin dashboard
-const systemStats = [
-  {
-    title: "Total Users",
-    value: "2,847",
-    change: "+124 this month",
-    changeType: "positive",
-    icon: Users,
-    color: "blue",
-  },
-  {
-    title: "Organizations",
-    value: "156",
-    change: "+12 this month",
-    changeType: "positive",
-    icon: Building,
-    color: "purple",
-  },
-  {
-    title: "Active Devices",
-    value: "4,238",
-    change: "98.5% online",
-    changeType: "positive",
-    icon: Smartphone,
-    color: "emerald",
-  },
-  {
-    title: "Monthly Revenue",
-    value: "$284,950",
-    change: "+15.7% vs last month",
-    changeType: "positive",
-    icon: DollarSign,
-    color: "amber",
-  },
-];
+// --- API response types ---
 
-const systemHealth = [
-  { name: "API Server", status: "operational", uptime: "99.99%", latency: "45ms" },
-  { name: "Database", status: "operational", uptime: "99.95%", latency: "12ms" },
-  { name: "Redis Cache", status: "operational", uptime: "99.99%", latency: "2ms" },
-  { name: "ML Pipeline", status: "operational", uptime: "99.87%", latency: "234ms" },
-  { name: "Webhook Service", status: "degraded", uptime: "98.2%", latency: "567ms" },
-];
+interface SystemStatsResponse {
+  data: {
+    totalUsers: number;
+    usersChange: string;
+    organizations: number;
+    orgsChange: string;
+    activeDevices: number;
+    devicesOnlinePercent: number;
+    monthlyRevenue: number;
+    revenueChange: string;
+  };
+}
 
-const integrations = [
-  { name: "Stripe", status: "active", calls: 1234, icon: "💳" },
-  { name: "Zoho Mail", status: "active", calls: 8945, icon: "📧" },
-  { name: "Twilio SMS", status: "active", calls: 5678, icon: "📱" },
-  { name: "OpenAI", status: "active", calls: 24500, icon: "🤖" },
-  { name: "Grok AI", status: "active", calls: 12345, icon: "🔮" },
-  { name: "Tenovi", status: "active", calls: 156789, icon: "🩺" },
-];
+interface HealthService {
+  name: string;
+  status: string;
+  uptime: string;
+  latency: string;
+}
 
-const recentApiLogs = [
-  { method: "GET", endpoint: "/api/v1/patients/123", status: 200, duration: "45ms", time: new Date(Date.now() - 2 * 60000) },
-  { method: "POST", endpoint: "/api/v1/vitals", status: 201, duration: "89ms", time: new Date(Date.now() - 5 * 60000) },
-  { method: "GET", endpoint: "/api/v1/alerts", status: 200, duration: "22ms", time: new Date(Date.now() - 8 * 60000) },
-  { method: "POST", endpoint: "/api/v1/ai/analyze", status: 200, duration: "1.2s", time: new Date(Date.now() - 12 * 60000) },
-  { method: "PUT", endpoint: "/api/v1/patients/456", status: 200, duration: "67ms", time: new Date(Date.now() - 15 * 60000) },
-];
+interface HealthResponse {
+  data: {
+    services: HealthService[];
+    overall: string;
+  };
+}
 
-const aiMetrics = {
-  predictionsToday: 12456,
-  accuracy: 94.2,
-  modelVersion: "v2.3.1",
-  lastTraining: new Date(Date.now() - 24 * 60 * 60000),
-};
+interface ApiLogEntry {
+  method: string;
+  endpoint: string;
+  status: number;
+  duration: string;
+  time: string;
+}
+
+interface ApiLogsResponse {
+  data: ApiLogEntry[];
+}
+
+interface AiModel {
+  id: string;
+  name: string;
+  predictionsToday: number;
+  accuracy: number;
+  version: string;
+  lastTrained: string;
+}
+
+interface AiModelsResponse {
+  data: AiModel[];
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Fetch system stats
+  const {
+    data: statsData,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useApiQuery<SystemStatsResponse>(
+    () => apiClient.get<SystemStatsResponse>("/analytics/system"),
+  );
+
+  // Fetch system health
+  const {
+    data: healthData,
+    isLoading: healthLoading,
+    error: healthError,
+    refetch: refetchHealth,
+  } = useApiQuery<HealthResponse>(
+    () => apiClient.get<HealthResponse>("/health/detailed"),
+  );
+
+  // Fetch recent API logs
+  const {
+    data: logsData,
+    isLoading: logsLoading,
+    error: logsError,
+    refetch: refetchLogs,
+  } = useApiQuery<ApiLogsResponse>(
+    () => apiClient.get<ApiLogsResponse>("/admin/api-logs", { params: { limit: 5 } }),
+  );
+
+  // Fetch AI model metrics
+  const {
+    data: aiData,
+    isLoading: aiLoading,
+    error: aiError,
+    refetch: refetchAi,
+  } = useApiQuery<AiModelsResponse>(
+    () => apiClient.get<AiModelsResponse>("/ai/models"),
+  );
+
+  // Derive display values from API responses (with safe fallbacks)
+  const stats = statsData?.data;
+  const systemStats = stats
+    ? [
+        {
+          title: "Total Users",
+          value: formatNumber(stats.totalUsers),
+          change: stats.usersChange || `${stats.totalUsers} total`,
+          changeType: "positive",
+          icon: Users,
+          color: "blue",
+        },
+        {
+          title: "Organizations",
+          value: formatNumber(stats.organizations),
+          change: stats.orgsChange || `${stats.organizations} total`,
+          changeType: "positive",
+          icon: Building,
+          color: "purple",
+        },
+        {
+          title: "Active Devices",
+          value: formatNumber(stats.activeDevices),
+          change: `${stats.devicesOnlinePercent ?? 0}% online`,
+          changeType: "positive",
+          icon: Smartphone,
+          color: "emerald",
+        },
+        {
+          title: "Monthly Revenue",
+          value: formatCurrency(stats.monthlyRevenue),
+          change: stats.revenueChange || "",
+          changeType: "positive",
+          icon: DollarSign,
+          color: "amber",
+        },
+      ]
+    : [];
+
+  const systemHealth: HealthService[] = healthData?.data?.services ?? [];
+  const overallHealth = healthData?.data?.overall ?? "operational";
+
+  const recentApiLogs: ApiLogEntry[] = logsData?.data ?? [];
+
+  const aiModels = aiData?.data ?? [];
+  const topModel = aiModels[0];
+  const aiMetrics = {
+    predictionsToday: aiModels.reduce((s, m) => s + (m.predictionsToday ?? 0), 0),
+    accuracy: aiModels.length
+      ? Math.round((aiModels.reduce((s, m) => s + (m.accuracy ?? 0), 0) / aiModels.length) * 10) / 10
+      : 0,
+    modelVersion: topModel?.version ?? "N/A",
+    lastTraining: topModel?.lastTrained ? new Date(topModel.lastTrained) : new Date(),
+  };
+
+  // Static integration list (shown on dashboard; real list is on /admin/integrations)
+  const integrations = [
+    { name: "Stripe", status: "active", calls: 1234, icon: "💳" },
+    { name: "Zoho Mail", status: "active", calls: 8945, icon: "📧" },
+    { name: "Twilio SMS", status: "active", calls: 5678, icon: "📱" },
+    { name: "OpenAI", status: "active", calls: 24500, icon: "🤖" },
+    { name: "Grok AI", status: "active", calls: 12345, icon: "🔮" },
+    { name: "Tenovi", status: "active", calls: 156789, icon: "🩺" },
+  ];
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await Promise.all([refetchStats(), refetchHealth(), refetchLogs(), refetchAi()]);
       toast({ title: 'Dashboard refreshed', description: 'Latest data loaded', type: 'success' });
     } finally {
       setIsRefreshing(false);
     }
-  }, [toast]);
+  }, [toast, refetchStats, refetchHealth, refetchLogs, refetchAi]);
 
   const handleSystemSettings = useCallback(() => {
     router.push('/admin/settings');
@@ -130,6 +225,28 @@ export default function AdminDashboard() {
   const handleQuickAction = useCallback((href: string) => {
     router.push(href);
   }, [router]);
+
+  const isInitialLoading = statsLoading || healthLoading || logsLoading || aiLoading;
+  const hasError = statsError || healthError || logsError || aiError;
+
+  if (isInitialLoading) {
+    return (
+      <DashboardLayout requiredRole={["admin", "superadmin"]}>
+        <LoadingState message="Loading admin dashboard..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <DashboardLayout requiredRole={["admin", "superadmin"]}>
+        <ErrorState
+          message={statsError || healthError || logsError || aiError || "Failed to load dashboard data"}
+          onRetry={handleRefresh}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout requiredRole={["admin", "superadmin"]}>
@@ -193,7 +310,11 @@ export default function AdminDashboard() {
                 </CardTitle>
                 <span className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-sm font-medium">
                   <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  All Systems Operational
+                  {overallHealth === "operational"
+                    ? "All Systems Operational"
+                    : overallHealth === "degraded"
+                    ? "Degraded Performance"
+                    : "System Issues Detected"}
                 </span>
               </div>
             </CardHeader>
@@ -391,7 +512,7 @@ export default function AdminDashboard() {
                           {log.duration}
                         </td>
                         <td className="table-cell text-slate-400 text-xs">
-                          {formatRelativeTime(log.time)}
+                          {formatRelativeTime(new Date(log.time))}
                         </td>
                       </tr>
                     ))}

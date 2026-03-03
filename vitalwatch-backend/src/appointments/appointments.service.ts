@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
@@ -36,6 +37,30 @@ export class AppointmentsService {
     if (scheduledAt <= new Date()) {
       throw new BadRequestException(
         'Appointment must be scheduled in the future',
+      );
+    }
+
+    // Overlap detection: prevent overlapping appointments for the same provider
+    const durationMinutes = dto.durationMinutes || 30;
+    const startTime = scheduledAt;
+    const endTime = new Date(scheduledAt.getTime() + durationMinutes * 60000);
+
+    const overlapping = await this.appointmentRepository
+      .createQueryBuilder('apt')
+      .where('apt.providerId = :providerId', { providerId: dto.providerId })
+      .andWhere('apt.status NOT IN (:...statuses)', {
+        statuses: [AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED],
+      })
+      .andWhere('apt.scheduledAt < :endTime', { endTime })
+      .andWhere(
+        'DATE_ADD(apt.scheduledAt, INTERVAL apt.durationMinutes MINUTE) > :startTime',
+        { startTime },
+      )
+      .getCount();
+
+    if (overlapping > 0) {
+      throw new ConflictException(
+        'Provider has an overlapping appointment at this time',
       );
     }
 

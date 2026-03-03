@@ -34,6 +34,7 @@ export class BillingRecord {
   id: string;
 
   @Column()
+  @Index()
   patientId: string;
 
   @ManyToOne(() => User)
@@ -51,6 +52,7 @@ export class BillingRecord {
   organizationId: string;
 
   @Column({ type: 'enum', enum: CPTCode })
+  @Index()
   cptCode: CPTCode;
 
   @Column({ type: 'enum', enum: BillingStatus, default: BillingStatus.PENDING })
@@ -60,6 +62,7 @@ export class BillingRecord {
   serviceDate: Date;
 
   @Column({ type: 'date' })
+  @Index()
   billingPeriodStart: Date;
 
   @Column({ type: 'date' })

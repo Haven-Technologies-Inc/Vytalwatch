@@ -1,22 +1,28 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
+import { useApiQuery } from '@/hooks/useApiQuery';
+import { patientsApi } from '@/services/api';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { DataTable, Column } from '@/components/dashboard/DataTable';
 import { RiskScoreGauge } from '@/components/dashboard/Charts';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
-import { 
-  Plus, 
-  User, 
-  Activity, 
+import {
+  Plus,
+  User,
+  Activity,
   AlertTriangle,
   MessageSquare,
-  Phone
+  Phone,
+  Users
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,68 +43,12 @@ interface Patient {
   alertCount: number;
 }
 
-const mockPatients: Patient[] = [
-  {
-    id: '1',
-    name: 'Maria Garcia',
-    age: 67,
-    conditions: ['Hypertension', 'CHF'],
-    riskScore: 78,
-    riskCategory: 'high',
-    latestVitals: { bp: '158/95', glucose: '142', spo2: '94%' },
-    deviceStatus: 'connected',
-    lastReading: '5 min ago',
-    alertCount: 2,
-  },
-  {
-    id: '2',
-    name: 'James Wilson',
-    age: 54,
-    conditions: ['Diabetes Type 2'],
-    riskScore: 45,
-    riskCategory: 'moderate',
-    latestVitals: { bp: '128/82', glucose: '168', spo2: '98%' },
-    deviceStatus: 'connected',
-    lastReading: '2 hours ago',
-    alertCount: 1,
-  },
-  {
-    id: '3',
-    name: 'Susan Chen',
-    age: 72,
-    conditions: ['COPD', 'Hypertension'],
-    riskScore: 82,
-    riskCategory: 'high',
-    latestVitals: { bp: '145/88', spo2: '91%' },
-    deviceStatus: 'connected',
-    lastReading: '15 min ago',
-    alertCount: 3,
-  },
-  {
-    id: '4',
-    name: 'Robert Johnson',
-    age: 61,
-    conditions: ['CHF'],
-    riskScore: 28,
-    riskCategory: 'low',
-    latestVitals: { bp: '122/78', spo2: '97%' },
-    deviceStatus: 'connected',
-    lastReading: '1 hour ago',
-    alertCount: 0,
-  },
-  {
-    id: '5',
-    name: 'Linda Martinez',
-    age: 58,
-    conditions: ['Diabetes Type 2', 'Hypertension'],
-    riskScore: 52,
-    riskCategory: 'moderate',
-    latestVitals: { bp: '138/86', glucose: '145' },
-    deviceStatus: 'disconnected',
-    lastReading: '3 days ago',
-    alertCount: 1,
-  },
-];
+interface PatientsApiResponse {
+  data: {
+    results: Patient[];
+    total: number;
+  };
+}
 
 const riskFilters = [
   { value: 'all', label: 'All Risk Levels' },
@@ -118,11 +68,23 @@ const conditionFilters = [
 export default function ProviderPatientsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [patients] = useState<Patient[]>(mockPatients);
   const [riskFilter, setRiskFilter] = useState('all');
   const [conditionFilter, setConditionFilter] = useState('all');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
+
+  const {
+    data: patientsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<PatientsApiResponse>(
+    () => patientsApi.getAll({ limit: 100 }) as unknown as Promise<PatientsApiResponse>,
+  );
+
+  const patients = useMemo(() => {
+    return patientsResponse?.data?.results ?? [];
+  }, [patientsResponse]);
 
   const handleMessagePatient = useCallback((patientId: string, patientName: string) => {
     router.push(`/provider/messages?patient=${patientId}&name=${encodeURIComponent(patientName)}`);
@@ -235,10 +197,39 @@ export default function ProviderPatientsPage() {
             {count}
           </Badge>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-400">&mdash;</span>
         ),
     },
   ];
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading patients..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={refetch} />
+      </DashboardLayout>
+    );
+  }
+
+  if (patients.length === 0) {
+    return (
+      <DashboardLayout>
+        <EmptyState
+          icon={Users}
+          title="No patients found"
+          description="Enroll your first patient to get started with remote patient monitoring."
+          action={{ label: 'Enroll Patient', onClick: () => setShowEnrollModal(true) }}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -348,15 +339,15 @@ export default function ProviderPatientsPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">Blood Pressure</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.bp || '—'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.bp || '\u2014'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">Glucose</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.glucose || '—'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.glucose || '\u2014'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">SpO2</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.spo2 || '—'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.spo2 || '\u2014'}</p>
                 </div>
               </div>
 
@@ -364,15 +355,15 @@ export default function ProviderPatientsPage() {
                 <Link href={`/provider/patients/${selectedPatient.id}`} className="flex-1">
                   <Button className="w-full">View Full Profile</Button>
                 </Link>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="flex-1"
                   onClick={() => handleMessagePatient(selectedPatient.id, selectedPatient.name)}
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Send Message
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => handleCallPatient(selectedPatient.name)}
                 >

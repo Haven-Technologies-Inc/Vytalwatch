@@ -40,46 +40,6 @@ interface Conversation {
   messages: LocalMessage[];
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
-    participant: { id: 'p1', name: 'Maria Garcia', role: 'Patient', riskLevel: 'high' },
-    lastMessage: 'Thank you, Dr. Smith. I will monitor my weight as you suggested.',
-    lastMessageTime: new Date(Date.now() - 1800000),
-    unreadCount: 0,
-    messages: [
-      { id: 'm1', senderId: 'provider', senderName: 'You', content: 'Maria, I noticed your weight increased by 3 lbs. Please weigh yourself daily and report any sudden changes.', timestamp: new Date(Date.now() - 3600000), read: true },
-      { id: 'm2', senderId: 'p1', senderName: 'Maria Garcia', content: 'Thank you, Dr. Smith. I will monitor my weight as you suggested.', timestamp: new Date(Date.now() - 1800000), read: true },
-    ],
-  },
-  {
-    id: '2',
-    participant: { id: 'p2', name: 'James Wilson', role: 'Patient', riskLevel: 'moderate' },
-    lastMessage: 'My glucose was 185 this morning. Should I adjust my medication?',
-    lastMessageTime: new Date(Date.now() - 7200000),
-    unreadCount: 1,
-    messages: [
-      { id: 'm3', senderId: 'p2', senderName: 'James Wilson', content: 'My glucose was 185 this morning. Should I adjust my medication?', timestamp: new Date(Date.now() - 7200000), read: false },
-    ],
-  },
-  {
-    id: '3',
-    participant: { id: 'p3', name: 'Susan Chen', role: 'Patient', riskLevel: 'high' },
-    lastMessage: 'I have been feeling short of breath lately.',
-    lastMessageTime: new Date(Date.now() - 86400000),
-    unreadCount: 2,
-    messages: [],
-  },
-  {
-    id: '4',
-    participant: { id: 'n1', name: 'Nurse Lisa', role: 'Care Coordinator' },
-    lastMessage: 'I have updated the care plan for Mrs. Garcia.',
-    lastMessageTime: new Date(Date.now() - 172800000),
-    unreadCount: 0,
-    messages: [],
-  },
-];
-
 export default function ProviderMessagesPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -290,7 +250,7 @@ export default function ProviderMessagesPage() {
           senderName: msg.senderName || 'Unknown',
           content: msg.content,
           timestamp: new Date(msg.createdAt),
-          read: msg.read,
+          read: msg.read ?? false,
         }));
         setConversations((prev) =>
           prev.map((conv) =>

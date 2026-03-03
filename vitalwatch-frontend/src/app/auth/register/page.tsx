@@ -105,7 +105,7 @@ export default function RegisterPage() {
   const validateStep = () => {
     switch (step) {
       case 1:
-        return formData.accountType !== "";
+        return formData.accountType !== ("" as string);
       case 2:
         return (
           formData.firstName !== "" &&

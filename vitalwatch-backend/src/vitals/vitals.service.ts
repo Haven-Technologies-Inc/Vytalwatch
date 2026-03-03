@@ -1,23 +1,14 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { VitalReading, VitalType, VitalStatus } from './entities/vital-reading.entity';
 import { AlertsService } from '../alerts/alerts.service';
 import { AuditService } from '../audit/audit.service';
+import { CreateVitalDto } from './dto/create-vital.dto';
+import { UpdateVitalDto } from './dto/update-vital.dto';
 
-export interface CreateVitalDto {
-  patientId: string;
-  providerId?: string;
-  deviceId?: string;
-  type: VitalType;
-  value: number;
-  unit: string;
-  systolic?: number;
-  diastolic?: number;
-  metadata?: Record<string, any>;
-  recordedAt?: Date;
-}
+export { CreateVitalDto };
 
 export interface VitalQueryOptions {
   patientId: string;
@@ -42,6 +33,23 @@ export class VitalsService {
   ) {}
 
   async create(createVitalDto: CreateVitalDto): Promise<VitalReading> {
+    // Duplicate vital reading prevention: reject if same patientId, type, and recordedAt within 60 seconds
+    const recordedAt = createVitalDto.recordedAt ? new Date(createVitalDto.recordedAt) : new Date();
+    const windowStart = new Date(recordedAt.getTime() - 60 * 1000);
+    const windowEnd = new Date(recordedAt.getTime() + 60 * 1000);
+
+    const duplicate = await this.vitalRepository.findOne({
+      where: {
+        patientId: createVitalDto.patientId,
+        type: createVitalDto.type,
+        recordedAt: Between(windowStart, windowEnd),
+      },
+    });
+
+    if (duplicate) {
+      throw new ConflictException('Duplicate vital reading detected within 60 seconds');
+    }
+
     const status = this.evaluateVitalStatus(createVitalDto);
 
     const vital = this.vitalRepository.create({
@@ -67,6 +75,49 @@ export class VitalsService {
     });
 
     return savedVital;
+  }
+
+  async update(id: string, updateVitalDto: UpdateVitalDto, userId?: string): Promise<VitalReading> {
+    const vital = await this.findById(id);
+    if (!vital) {
+      throw new NotFoundException('Vital reading not found');
+    }
+
+    // Apply updates
+    Object.assign(vital, updateVitalDto);
+
+    // Re-evaluate status if value-related fields changed
+    if (
+      updateVitalDto.value !== undefined ||
+      updateVitalDto.systolic !== undefined ||
+      updateVitalDto.diastolic !== undefined ||
+      updateVitalDto.type !== undefined
+    ) {
+      // Only auto-evaluate if status was not explicitly set
+      if (updateVitalDto.status === undefined) {
+        vital.status = this.evaluateVitalStatus({
+          patientId: vital.patientId,
+          type: vital.type,
+          value: vital.value,
+          unit: vital.unit,
+          systolic: vital.systolic,
+          diastolic: vital.diastolic,
+        });
+      }
+    }
+
+    const updatedVital = await this.vitalRepository.save(vital);
+
+    // Audit log
+    await this.auditService.log({
+      action: 'VITAL_UPDATED',
+      userId: userId || vital.patientId,
+      resourceType: 'vital',
+      resourceId: id,
+      details: updateVitalDto,
+    });
+
+    return updatedVital;
   }
 
   private evaluateVitalStatus(vital: CreateVitalDto): VitalStatus {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import Link from "next/link";
@@ -13,6 +14,19 @@ import {
   Zap,
   Code,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Integrations",
+  description:
+    "Connect VytalWatch AI with your existing healthcare stack. EHR integrations with Epic, Cerner, and athenahealth, plus Stripe, Twilio, OpenAI, and a full REST API.",
+  openGraph: {
+    title: "Integrations - Connect Everything, Anywhere | VytalWatch AI",
+    description:
+      "Seamless bi-directional EHR integrations, device platforms, payment processing, and a comprehensive developer API for custom workflows.",
+    url: "https://vytalwatch.com/integrations",
+    type: "website",
+  },
+};
 
 const integrationCategories = [
   {
