@@ -15,7 +15,7 @@ export default () => ({
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_DATABASE || 'vitalwatch',
     synchronize: process.env.NODE_ENV !== 'production',
     logging: process.env.NODE_ENV === 'development',
@@ -30,7 +30,7 @@ export default () => ({
 
   // JWT
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-key-change-in-production',
+    secret: process.env.JWT_SECRET || '',
     accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
     refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
@@ -79,7 +79,7 @@ export default () => ({
   turn: {
     url: process.env.TURN_SERVER_URL || 'turn:localhost:3478',
     username: process.env.TURN_USERNAME || 'vitalwatch',
-    credential: process.env.TURN_PASSWORD || 'VitalWatch2024!',
+    credential: process.env.TURN_PASSWORD || '',
     realm: process.env.TURN_REALM || 'vitalwatch.local',
     ttl: parseInt(process.env.TURN_TTL || '3600', 10),
   },

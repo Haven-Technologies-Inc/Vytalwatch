@@ -8,9 +8,13 @@ import compression from 'compression';
 import { AppModule } from './app.module';
 import { WinstonLoggerService } from './common/logger/logger.service';
 import { PaginationInterceptor } from './common/interceptors/pagination.interceptor';
+import { validateEnvironment } from './config/env.validation';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // Validate critical environment variables before starting
+  validateEnvironment();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true, // Required for Stripe webhooks

@@ -7,6 +7,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { config } from '@/config';
 
 interface SocketAuth {
   token: string;
@@ -62,7 +63,7 @@ class SocketClient {
     }
 
     this.connectionPromise = new Promise((resolve, reject) => {
-      const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const url = config.api.baseUrl.replace('/api/v1', '');
 
       this.socket = io(`${url}/live`, {
         auth: {
