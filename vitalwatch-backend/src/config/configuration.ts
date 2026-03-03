@@ -40,19 +40,19 @@ export default () => ({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/auth/google/callback',
+      callbackUrl: process.env.GOOGLE_CALLBACK_URL || '',
     },
     microsoft: {
       clientId: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      callbackUrl: process.env.MICROSOFT_CALLBACK_URL || 'http://localhost:3001/auth/microsoft/callback',
+      callbackUrl: process.env.MICROSOFT_CALLBACK_URL || '',
     },
     apple: {
       clientId: process.env.APPLE_CLIENT_ID,
       teamId: process.env.APPLE_TEAM_ID,
       keyId: process.env.APPLE_KEY_ID,
       privateKey: process.env.APPLE_PRIVATE_KEY,
-      callbackUrl: process.env.APPLE_CALLBACK_URL || 'http://localhost:3001/auth/apple/callback',
+      callbackUrl: process.env.APPLE_CALLBACK_URL || '',
     },
   },
 
