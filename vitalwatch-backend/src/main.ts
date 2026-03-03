@@ -52,7 +52,20 @@ async function bootstrap() {
   app.use(compression());
 
   app.enableCors({
-    origin: corsOrigin,
+    origin: nodeEnv === 'production'
+      ? corsOrigin
+      : (origin, callback) => {
+          // In development, allow requests with no origin (mobile apps, Postman, etc.)
+          if (!origin) return callback(null, true);
+          // Allow any localhost/127.0.0.1 port (for browser preview proxies)
+          if (origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:')) {
+            return callback(null, true);
+          }
+          if (corsOrigin.includes(origin)) {
+            return callback(null, true);
+          }
+          callback(null, false);
+        },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

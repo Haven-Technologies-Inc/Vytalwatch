@@ -1291,3 +1291,165 @@ export interface Consent {
   createdAt: string;
   expiresAt?: string;
 }
+
+// RPM Types
+export type TaskType = 'ALERT_REVIEW' | 'OUTREACH' | 'CHARTING' | 'DEVICE_SETUP' | 'MONTHLY_SUMMARY' | 'ESCALATION' | 'FOLLOW_UP';
+export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'SNOOZED';
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface Task {
+  id: string;
+  clinicId: string;
+  patientId: string;
+  patientName?: string;
+  enrollmentId?: string;
+  assignedToUserId?: string;
+  assignedToName?: string;
+  taskType: TaskType;
+  priority: TaskPriority;
+  status: TaskStatus;
+  title: string;
+  description?: string;
+  dueAt?: string;
+  snoozedUntil?: string;
+  triggerAlertId?: string;
+  triggerReadingId?: string;
+  resolution?: string;
+  completedAt?: string;
+  completedBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type TimeEntryCategory = 'DATA_REVIEW' | 'PATIENT_INTERACTION' | 'CHARTING' | 'CARE_COORDINATION' | 'DEVICE_SETUP';
+export type TimeEntryStatus = 'DRAFT' | 'CONFIRMED' | 'BILLED';
+
+export interface TimeEntry {
+  id: string;
+  patientId: string;
+  userId: string;
+  userName?: string;
+  enrollmentId?: string;
+  category: TimeEntryCategory;
+  startAt: string;
+  endAt?: string;
+  minutes: number;
+  billable: boolean;
+  status: TimeEntryStatus;
+  notes?: string;
+  evidenceNoteId?: string;
+  createdAt: string;
+}
+
+export type ProgramType = 'BP' | 'GLUCOSE' | 'WEIGHT' | 'MULTI';
+export type EnrollmentStatus = 'PENDING' | 'ACTIVE' | 'PAUSED' | 'DISCHARGED';
+
+export interface Enrollment {
+  id: string;
+  clinicId: string;
+  patientId: string;
+  patientName?: string;
+  programType: ProgramType;
+  status: EnrollmentStatus;
+  startDate: string;
+  endDate?: string;
+  supervisingProviderId: string;
+  supervisingProviderName?: string;
+  assignedClinicalStaffId?: string;
+  assignedClinicalStaffName?: string;
+  currentBillingPeriodStart: string;
+  currentBillingPeriodEnd: string;
+  setupCompleted: boolean;
+  setupCompletedAt?: string;
+  setupNoteId?: string;
+  createdAt: string;
+}
+
+export interface ThresholdPolicy {
+  id: string;
+  clinicId: string;
+  programType: ProgramType;
+  version: number;
+  rules: ThresholdRule[];
+  effectiveFrom: string;
+  effectiveTo?: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface ThresholdRule {
+  vitalType: string;
+  metric: string;
+  operator: 'GT' | 'LT' | 'GTE' | 'LTE' | 'EQ' | 'BETWEEN';
+  value: number;
+  upperValue?: number;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  action: string;
+}
+
+export type AIDraftType = 'TRIAGE_SUMMARY' | 'CHART_NOTE' | 'OUTREACH_SCRIPT' | 'MONTHLY_SUMMARY' | 'CARE_PLAN';
+export type AIDraftStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'MODIFIED';
+
+export interface AIDraft {
+  id: string;
+  patientId: string;
+  draftType: AIDraftType;
+  modelVersion: string;
+  inputContext: Record<string, unknown>;
+  generatedContent: string;
+  confidenceScore?: number;
+  status: AIDraftStatus;
+  reviewedByUserId?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  usedInNoteId?: string;
+  createdAt: string;
+}
+
+export type ClaimStatus = 'DRAFT' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'APPEALED';
+
+export interface ClaimReadinessChecks {
+  deviceTransmission: boolean;
+  readingDaysThreshold: boolean;
+  readingDaysCount: number;
+  interactiveTimeMinutes: number;
+  interactiveTimeThreshold: boolean;
+  notesSigned: boolean;
+  medicalNecessity: boolean;
+}
+
+export interface Claim {
+  id: string;
+  patientId: string;
+  patientName?: string;
+  enrollmentId: string;
+  periodStart: string;
+  periodEnd: string;
+  programType: ProgramType;
+  codes: string[];
+  status: ClaimStatus;
+  readinessChecks: ClaimReadinessChecks;
+  totalBillableMinutes?: number;
+  supportingBundleHash?: string;
+  submittedAt?: string;
+  adjudicatedAt?: string;
+  paidAmount?: number;
+  denialReason?: string;
+  createdAt: string;
+}
+
+export interface RPMBillingPeriodSummary {
+  enrollmentId: string;
+  patientId: string;
+  patientName: string;
+  programType: ProgramType;
+  periodStart: string;
+  periodEnd: string;
+  readingDaysCount: number;
+  totalMinutes: number;
+  interactiveMinutes: number;
+  eligibleCodes: string[];
+  claimStatus?: ClaimStatus;
+  claimId?: string;
+}

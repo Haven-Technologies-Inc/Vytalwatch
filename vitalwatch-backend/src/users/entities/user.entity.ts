@@ -8,12 +8,20 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import {
+  EncryptedColumnTransformer,
+  EncryptedDateTransformer,
+} from '../../common/crypto/encrypted-column.transformer';
 
 export enum UserRole {
   PATIENT = 'patient',
   PROVIDER = 'provider',
+  NURSE = 'nurse',
+  CLINICAL_STAFF = 'clinical_staff',
+  BILLING_STAFF = 'billing_staff',
   ADMIN = 'admin',
   SUPERADMIN = 'superadmin',
+  COMPLIANCE_AUDITOR = 'compliance_auditor',
 }
 
 export enum UserStatus {
@@ -50,7 +58,7 @@ export class User {
   @Column()
   lastName: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, transformer: EncryptedColumnTransformer })
   phone: string;
 
   @Column({ nullable: true })
@@ -79,7 +87,7 @@ export class User {
   @Column({ default: false })
   mfaEnabled: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, transformer: EncryptedColumnTransformer })
   mfaSecret: string;
 
   @Column({ nullable: true })
@@ -98,8 +106,17 @@ export class User {
   @Column('simple-array', { nullable: true })
   licenseStates: string[];
 
-  // Patient-specific fields
-  @Column({ type: 'date', nullable: true })
+  @Column({ nullable: true })
+  licenseType: string;
+
+  @Column({ nullable: true })
+  licenseNumber: string;
+
+  @Column({ nullable: true })
+  credentialingStatus: string;
+
+  // Patient-specific fields (PHI - encrypted)
+  @Column({ type: 'varchar', nullable: true, transformer: EncryptedDateTransformer })
   dateOfBirth: Date;
 
   @Column('simple-array', { nullable: true })

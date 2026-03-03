@@ -79,6 +79,13 @@ import type {
   TimeTracking,
   Consent,
   ConsentTemplate,
+  Task,
+  TimeEntry,
+  Enrollment,
+  Claim,
+  AIDraft,
+  ThresholdPolicy,
+  RPMBillingPeriodSummary,
 } from '@/types';
 
 // Auth API
@@ -735,8 +742,17 @@ export const tenoviApi = {
   listWebhooks: () =>
     apiClient.get<ApiResponse<TenoviWebhook[]>>('/tenovi/webhooks'),
 
-  createWebhook: (endpoint: string, event: 'MEASUREMENT' | 'FULFILLMENT') =>
-    apiClient.post<ApiResponse<TenoviWebhook>>('/tenovi/webhooks', { endpoint, event }),
+  getWebhook: (webhookId: string) =>
+    apiClient.get<ApiResponse<TenoviWebhook>>(`/tenovi/webhooks/${webhookId}`),
+
+  createWebhook: (config: { endpoint: string; event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'; enabledByDefault?: boolean; authHeader?: string; authKey?: string; postAsArray?: boolean }) =>
+    apiClient.post<ApiResponse<TenoviWebhook>>('/tenovi/webhooks', config),
+
+  updateWebhook: (webhookId: string, config: { endpoint?: string; event?: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER'; enabledByDefault?: boolean; authHeader?: string; authKey?: string; postAsArray?: boolean }) =>
+    apiClient.patch<ApiResponse<TenoviWebhook>>(`/tenovi/webhooks/${webhookId}`, config),
+
+  deleteWebhook: (webhookId: string) =>
+    apiClient.delete<ApiResponse<void>>(`/tenovi/webhooks/${webhookId}`),
 
   resendWebhooks: (params: { webhookIds?: string[]; startDate?: string; endDate?: string; hwiDeviceId?: string }) =>
     apiClient.post<ApiResponse<{ resent: number }>>('/tenovi/webhooks/resend', params),
@@ -1073,4 +1089,180 @@ export const consentsApi = {
     apiClient.post<ApiResponse<ConsentTemplate[]>>('/consents/seed-templates'),
 };
 
+// RPM Tasks API
+export const tasksApi = {
+  getAll: (filters?: { status?: string; assignedTo?: string; patientId?: string }) =>
+    apiClient.get<ApiResponse<Task[]>>('/tasks', { params: filters }),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<Task>>(`/tasks/${id}`),
+
+  create: (data: Partial<Task>) =>
+    apiClient.post<ApiResponse<Task>>('/tasks', data),
+
+  update: (id: string, data: Partial<Task>) =>
+    apiClient.patch<ApiResponse<Task>>(`/tasks/${id}`, data),
+
+  complete: (id: string, userId: string, resolution?: string) =>
+    apiClient.post<ApiResponse<Task>>(`/tasks/${id}/complete`, { userId, resolution }),
+
+  snooze: (id: string, until: string) =>
+    apiClient.patch<ApiResponse<Task>>(`/tasks/${id}`, { status: 'SNOOZED', snoozedUntil: until }),
+};
+
+// RPM Time Tracking API
+export const timeTrackingApi = {
+  startTimer: (data: { patientId: string; userId: string; category: string; enrollmentId?: string }) =>
+    apiClient.post<ApiResponse<TimeEntry>>('/time/start', data),
+
+  stopTimer: (id: string) =>
+    apiClient.post<ApiResponse<TimeEntry>>('/time/stop', { id }),
+
+  getByPatient: (patientId: string, startDate?: string, endDate?: string) =>
+    apiClient.get<ApiResponse<TimeEntry[]>>(`/time/patient/${patientId}`, {
+      params: { ...(startDate && { startDate }), ...(endDate && { endDate }) },
+    }),
+
+  getTotalMinutes: (patientId: string, startDate: string, endDate: string) =>
+    apiClient.get<ApiResponse<number>>(`/time/patient/${patientId}/total`, { params: { startDate, endDate } }),
+
+  confirm: (id: string) =>
+    apiClient.post<ApiResponse<TimeEntry>>(`/time/${id}/confirm`),
+
+  addManualEntry: (data: { patientId: string; userId: string; category: string; minutes: number; notes?: string; enrollmentId?: string }) =>
+    apiClient.post<ApiResponse<TimeEntry>>('/time/manual', data),
+};
+
+// RPM Enrollments API
+export const enrollmentsApi = {
+  getAll: (filters?: { clinicId?: string; patientId?: string; status?: string }) =>
+    apiClient.get<ApiResponse<Enrollment[]>>('/enrollments', { params: filters }),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<Enrollment>>(`/enrollments/${id}`),
+
+  create: (data: Partial<Enrollment>) =>
+    apiClient.post<ApiResponse<Enrollment>>('/enrollments', data),
+
+  update: (id: string, data: Partial<Enrollment>) =>
+    apiClient.patch<ApiResponse<Enrollment>>(`/enrollments/${id}`, data),
+
+  completeSetup: (id: string, noteId: string) =>
+    apiClient.post<ApiResponse<Enrollment>>(`/enrollments/${id}/complete-setup`, { noteId }),
+
+  advancePeriod: (id: string) =>
+    apiClient.post<ApiResponse<Enrollment>>(`/enrollments/${id}/advance-period`),
+};
+
+// RPM Claims API
+export const claimsApi = {
+  build: (data: {
+    patientId: string;
+    enrollmentId: string;
+    periodStart: string;
+    periodEnd: string;
+    programType: string;
+    readingDaysCount: number;
+    interactiveTimeMinutes: number;
+    notesSigned: boolean;
+  }) => apiClient.post<ApiResponse<Claim>>('/claims/build', data),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<Claim>>(`/claims/${id}`),
+
+  getByPatient: (patientId: string) =>
+    apiClient.get<ApiResponse<Claim[]>>('/claims', { params: { patientId } }),
+
+  finalize: (id: string) =>
+    apiClient.post<ApiResponse<Claim>>(`/claims/${id}/finalize`),
+
+  submit: (id: string) =>
+    apiClient.post<ApiResponse<Claim>>(`/claims/${id}/submit`),
+
+  getBillingSummary: (clinicId: string, periodStart: string, periodEnd: string) =>
+    apiClient.get<ApiResponse<RPMBillingPeriodSummary[]>>('/claims/billing-summary', {
+      params: { clinicId, periodStart, periodEnd },
+    }),
+};
+
+// RPM AI Drafts API
+export const aiDraftsApi = {
+  getByPatient: (patientId: string, type?: string, status?: string) =>
+    apiClient.get<ApiResponse<AIDraft[]>>('/ai/drafts', {
+      params: { patientId, ...(type && { type }), ...(status && { status }) },
+    }),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<AIDraft>>(`/ai/drafts/${id}`),
+
+  generate: (data: { patientId: string; draftType: string; context?: Record<string, unknown> }) =>
+    apiClient.post<ApiResponse<AIDraft>>('/ai/drafts', data),
+
+  review: (id: string, userId: string, status: string, notes?: string) =>
+    apiClient.post<ApiResponse<AIDraft>>(`/ai/drafts/${id}/review`, { userId, status, notes }),
+
+  generateMonthlySummary: (patientId: string, periodStart: string, periodEnd: string) =>
+    apiClient.post<ApiResponse<AIDraft>>('/ai/drafts/monthly-summary', { patientId, periodStart, periodEnd }),
+};
+
+// RPM Threshold Policies API
+export const thresholdPoliciesApi = {
+  getAll: (clinicId: string) =>
+    apiClient.get<ApiResponse<ThresholdPolicy[]>>('/threshold-policies', { params: { clinicId } }),
+
+  getActive: (clinicId: string, programType: string) =>
+    apiClient.get<ApiResponse<ThresholdPolicy>>('/threshold-policies/active', { params: { clinicId, programType } }),
+
+  create: (data: Partial<ThresholdPolicy>) =>
+    apiClient.post<ApiResponse<ThresholdPolicy>>('/threshold-policies', data),
+};
+
 export { apiClient, ApiError };
+
+// Phase 3: Advanced AI API
+export const advancedAIApi = {
+  generateSOAPNote: (context: any) => apiClient.post('/ai/advanced/soap-note', context),
+  generateTriage: (context: any) => apiClient.post('/ai/advanced/triage', context),
+  generateOutreach: (context: any, reason: string) => apiClient.post('/ai/advanced/outreach-script', { context, reason }),
+  calculateRiskScore: (vitals: any[], alerts: any[], age?: number) => apiClient.post('/ai/advanced/risk-score', { vitals, alerts, age }),
+};
+
+// Phase 3: Claims Export API
+export const claimsExportApi = {
+  preview837P: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/export/837p/preview', { claims, submitter, receiver }),
+  download837P: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/export/837p', { claims, submitter, receiver }, { responseType: 'blob' }),
+  generateAuditBundle: (data: any) => apiClient.post('/claims/export/audit-bundle', data),
+  downloadAuditBundle: (data: any) => apiClient.post('/claims/export/audit-bundle/download', data, { responseType: 'blob' }),
+};
+
+// Phase 4: Clearinghouse API
+export const clearinghouseApi = {
+  getStatus: () => apiClient.get('/claims/clearinghouse/status'),
+  submitClaims: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/clearinghouse/submit', { claims, submitter, receiver }),
+  checkStatus: (transactionId: string) => apiClient.get('/claims/clearinghouse/check/' + transactionId),
+  getRemittance: (fromDate: string, toDate: string) => apiClient.get('/claims/clearinghouse/remittance', { params: { fromDate, toDate } }),
+};
+
+// Phase 4: RPM Analytics API
+export const rpmAnalyticsApi = {
+  getDashboard: (clinicId: string, startDate: string, endDate: string) => apiClient.get('/analytics/rpm/dashboard', { params: { clinicId, startDate, endDate } }),
+  getProductivity: (clinicId: string, startDate: string, endDate: string) => apiClient.get('/analytics/rpm/productivity', { params: { clinicId, startDate, endDate } }),
+  getCompliance: (clinicId: string) => apiClient.get('/analytics/rpm/compliance', { params: { clinicId } }),
+};
+
+// Staff Management API
+export const staffApi = {
+  createRole: (data: { name: string; description?: string; permissions: string[] }) => apiClient.post('/staff/roles', data),
+  getRoles: (params?: { status?: string; page?: number; limit?: number }) => apiClient.get('/staff/roles', { params }),
+  getRole: (id: string) => apiClient.get(`/staff/roles/${id}`),
+  updateRole: (id: string, data: any) => apiClient.put(`/staff/roles/${id}`, data),
+  deleteRole: (id: string) => apiClient.delete(`/staff/roles/${id}`),
+  createMember: (data: any) => apiClient.post('/staff/members', data),
+  getMembers: (params?: any) => apiClient.get('/staff/members', { params }),
+  getMember: (id: string) => apiClient.get(`/staff/members/${id}`),
+  getMemberByUserId: (userId: string) => apiClient.get(`/staff/members/user/${userId}`),
+  updateMember: (id: string, data: any) => apiClient.put(`/staff/members/${id}`, data),
+  deleteMember: (id: string) => apiClient.delete(`/staff/members/${id}`),
+  getPermissions: () => apiClient.get('/staff/permissions'),
+  getMyPermissions: () => apiClient.get('/staff/my-permissions'),
+};

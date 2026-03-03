@@ -55,6 +55,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
   ],
   provider: [
     { name: "Dashboard", href: "/provider/dashboard", icon: LayoutDashboard },
+    { name: "RPM Monitoring", href: "/provider/rpm", icon: Activity },
     { name: "Alerts", href: "/provider/alerts", icon: AlertTriangle, badge: 12 },
     { name: "Patients", href: "/provider/patients", icon: Users },
     { name: "Devices", href: "/provider/devices", icon: Smartphone },
@@ -81,7 +82,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Organizations", href: "/admin/organizations", icon: Building },
-    { name: "Devices", href: "/admin/devices", icon: Smartphone },
+    { name: "Device Orders", href: "/superadmin/devices", icon: Smartphone },
     { name: "Gateways", href: "/admin/gateways", icon: Wifi },
     { name: "Billing", href: "/admin/billing", icon: CreditCard },
     { name: "Integrations", href: "/admin/integrations", icon: Zap },
@@ -89,6 +90,7 @@ const menuConfig: Record<UserRole, MenuItem[]> = {
     { name: "API Logs", href: "/admin/api-logs", icon: FileText },
     { name: "API Keys", href: "/admin/api-keys", icon: Key },
     { name: "Security", href: "/admin/security", icon: Shield },
+    { name: "Staff", href: "/superadmin/staff", icon: Users },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ],
 };

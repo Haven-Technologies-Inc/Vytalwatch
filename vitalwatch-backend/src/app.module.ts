@@ -42,6 +42,16 @@ import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
 import { ClinicalNotesModule } from './clinical-notes/clinical-notes.module';
 import { ConsentModule } from './consent/consent.module';
+import { TasksModule } from './tasks/tasks.module';
+import { TimeTrackingModule } from './time-tracking/time-tracking.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { ThresholdPoliciesModule } from './threshold-policies/threshold-policies.module';
+import { AIDraftsModule } from './ai-drafts/ai-drafts.module';
+import { ClaimsModule } from './claims/claims.module';
+import { RPMBatchModule } from './common/rpm-batch.module';
+import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { StaffModule } from './staff/staff.module';
 
 // Scheduler Module
 import { SchedulerModule } from './scheduler/scheduler.module';
@@ -120,6 +130,16 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     SmsModule,
     ClinicalNotesModule,
     ConsentModule,
+    TasksModule,
+    TimeTrackingModule,
+    EnrollmentsModule,
+    ThresholdPoliciesModule,
+    AIDraftsModule,
+    ClaimsModule,
+    RPMBatchModule,
+    EnterpriseLoggingModule,
+    ComplianceModule,
+    StaffModule,
 
     // Scheduled tasks
     SchedulerModule,

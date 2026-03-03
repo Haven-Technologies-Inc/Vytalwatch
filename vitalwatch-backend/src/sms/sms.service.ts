@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Twilio } from 'twilio';
 import { AuditService } from '../audit/audit.service';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
+import { ApiOperation, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
 
 export interface SmsResult {
   success: boolean;
@@ -25,6 +27,7 @@ export class SmsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly enterpriseLogger: EnterpriseLoggingService,
   ) {
     this.initializeTwilio();
     this.fromNumber = this.configService.get('twilio.phoneNumber') || '';
@@ -52,17 +55,28 @@ export class SmsService {
       return { success: true, messageId: `dev_${Date.now()}` };
     }
 
+    const startTime = Date.now();
     try {
       const message = await this.twilioClient.messages.create({
-        body,
-        to,
-        from: this.fromNumber,
+        body, to, from: this.fromNumber,
       });
 
       this.logger.log(`SMS sent to ${to}, SID: ${message.sid}`);
+      await this.enterpriseLogger.logSms({
+        operation: ApiOperation.SMS_SEND, success: true,
+        endpoint: 'api.twilio.com/messages', method: 'POST',
+        durationMs: Date.now() - startTime,
+        metadata: { messageSid: message.sid, toMasked: this.maskPhone(to) },
+      });
       return { success: true, messageId: message.sid };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to send SMS to ${to}`, error);
+      await this.enterpriseLogger.logSms({
+        operation: ApiOperation.SMS_SEND, success: false, severity: LogSeverity.ERROR,
+        endpoint: 'api.twilio.com/messages', method: 'POST',
+        durationMs: Date.now() - startTime, errorMessage: error.message,
+        metadata: { toMasked: this.maskPhone(to) },
+      });
       return { success: false, error: error.message };
     }
   }

@@ -1,18 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIService } from './ai.service';
 import { AIController } from './ai.controller';
-import { VitalReading } from '../vitals/entities/vital-reading.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { ChartingAssistantService } from './charting-assistant.service';
+import { RiskScoringService } from './risk-scoring.service';
+import { AdvancedAIController } from './advanced-ai.controller';
 
 @Module({
-  imports: [
-    ConfigModule,
-    TypeOrmModule.forFeature([VitalReading, AuditLog]),
-  ],
-  controllers: [AIController],
-  providers: [AIService],
-  exports: [AIService],
+  imports: [ConfigModule],
+  controllers: [AIController, AdvancedAIController],
+  providers: [AIService, ChartingAssistantService, RiskScoringService],
+  exports: [AIService, ChartingAssistantService, RiskScoringService],
 })
 export class AIModule {}

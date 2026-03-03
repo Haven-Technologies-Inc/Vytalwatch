@@ -8,6 +8,8 @@ import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { BillingRecord, CPTCode, BillingStatus } from './entities/billing-record.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
+import { ApiOperation } from '../enterprise-logging/entities/api-audit-log.entity';
 
 export interface CreateSubscriptionDto {
   userId: string;
@@ -76,6 +78,7 @@ export class BillingService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
+    private readonly enterpriseLogger: EnterpriseLoggingService,
   ) {
     this.initializeStripe();
     this.initializePriceIds();
@@ -106,20 +109,47 @@ export class BillingService {
     const planConfig = this.PLAN_CONFIGS[dto.plan];
 
     // Create or get Stripe customer
-    const customer = await this.stripe.customers.create({
-      metadata: {
-        userId: dto.userId,
-        organizationId: dto.organizationId || '',
-      },
-    });
+    const startTime = Date.now();
+    let customer: Stripe.Customer;
+    try {
+      customer = await this.stripe.customers.create({
+        metadata: { userId: dto.userId, organizationId: dto.organizationId || '' },
+      });
+      await this.enterpriseLogger.logPayment({
+        operation: ApiOperation.CUSTOMER_CREATE, userId: dto.userId, organizationId: dto.organizationId,
+        endpoint: '/v1/customers', method: 'POST', success: true, durationMs: Date.now() - startTime,
+        metadata: { stripeCustomerId: customer.id },
+      });
+    } catch (error) {
+      await this.enterpriseLogger.logPayment({
+        operation: ApiOperation.CUSTOMER_CREATE, userId: dto.userId, success: false,
+        errorMessage: error.message, durationMs: Date.now() - startTime,
+      });
+      throw error;
+    }
 
     // Create subscription in Stripe
-    const stripeSubscription = await this.stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: planConfig.priceId }],
-      payment_behavior: 'default_incomplete',
-      expand: ['latest_invoice.payment_intent'],
-    });
+    const subStartTime = Date.now();
+    let stripeSubscription: Stripe.Subscription;
+    try {
+      stripeSubscription = await this.stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{ price: planConfig.priceId }],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+      await this.enterpriseLogger.logPayment({
+        operation: ApiOperation.SUBSCRIPTION_CREATE, userId: dto.userId, organizationId: dto.organizationId,
+        endpoint: '/v1/subscriptions', method: 'POST', success: true, durationMs: Date.now() - subStartTime,
+        amount: planConfig.monthlyPrice, currency: 'usd', metadata: { subscriptionId: stripeSubscription.id, plan: dto.plan },
+      });
+    } catch (error) {
+      await this.enterpriseLogger.logPayment({
+        operation: ApiOperation.SUBSCRIPTION_CREATE, userId: dto.userId, success: false,
+        errorMessage: error.message, durationMs: Date.now() - subStartTime,
+      });
+      throw error;
+    }
 
     // Create local subscription record
     const subscription = this.subscriptionRepository.create({
@@ -688,6 +718,12 @@ export class BillingService {
       this.logger.error('Webhook signature verification failed', err);
       throw new BadRequestException('Invalid webhook signature');
     }
+
+    await this.enterpriseLogger.logPayment({
+      operation: ApiOperation.WEBHOOK_RECEIVED, success: true,
+      endpoint: '/billing/webhook', method: 'POST',
+      metadata: { eventType: event.type, eventId: event.id },
+    });
 
     switch (event.type) {
       case 'customer.subscription.updated':
