@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +16,7 @@ interface CartItem { device: CatalogDevice; quantity: number; }
 
 const CAT_ICONS: Record<string, string> = { bpm: '🩺', scale: '⚖️', pulse_ox: '💓', glucometer: '🩸', thermometer: '🌡️', peak_flow: '🌬️', pillbox: '💊', watch: '⌚', gateway: '📡', fetal: '👶', contactless: '📻' };
 
-export default function DeviceOrderPage() {
+function DeviceOrderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prescriptionId = searchParams.get('prescriptionId');
@@ -183,5 +183,13 @@ export default function DeviceOrderPage() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function DeviceOrderPage() {
+  return (
+    <Suspense fallback={<DashboardLayout title="Order Devices" icon={<Package className="h-5 w-5" />}><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div></DashboardLayout>}>
+      <DeviceOrderPageContent />
+    </Suspense>
   );
 }
