@@ -13,7 +13,7 @@ export class ComplianceController {
   constructor(private readonly complianceService: ComplianceService) {}
 
   @Get('phi-access')
-  @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_AUDITOR)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getPHIAccessLogs(
     @Query('userId') userId?: string,
     @Query('patientId') patientId?: string,
@@ -33,13 +33,13 @@ export class ComplianceController {
   }
 
   @Get('consents/:patientId')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.COMPLIANCE_AUDITOR)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getPatientConsents(@Param('patientId') patientId: string) {
     return this.complianceService.getPatientConsents(patientId);
   }
 
   @Post('consents/:patientId')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async grantConsent(
     @Param('patientId') patientId: string,
     @Body() body: { consentType: ConsentType; grantedBy: string; expiresAt?: string },
@@ -51,7 +51,7 @@ export class ComplianceController {
   }
 
   @Post('consents/:consentId/revoke')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async revokeConsent(
     @Param('consentId') consentId: string,
     @Body() body: { revokedBy: string; reason?: string },
@@ -69,13 +69,13 @@ export class ComplianceController {
   }
 
   @Get('baa')
-  @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_AUDITOR)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getBAAs(@Query('organizationId') organizationId?: string) {
     return this.complianceService.getActiveBAAs(organizationId);
   }
 
   @Post('baa')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async createBAA(@Body() body: any) {
     return this.complianceService.createBAA(body);
   }

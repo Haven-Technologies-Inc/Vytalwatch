@@ -12,9 +12,10 @@ import {
   Pause
 } from 'lucide-react';
 
-export type OrderStatus = 'DR' | 'RQ' | 'PE' | 'CR' | 'OH' | 'RS' | 'SH' | 'DE' | 'RE' | 'CA';
+export type OrderStatus = 'DR' | 'RQ' | 'PE' | 'CR' | 'OH' | 'RS' | 'SH' | 'DE' | 'RE' | 'CA'
+  | 'draft' | 'submitted' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'danger'; icon: React.ElementType }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'danger'; icon: React.ElementType }> = {
   DR: { label: 'Draft', variant: 'secondary', icon: FileEdit },
   RQ: { label: 'Requested', variant: 'default', icon: Clock },
   PE: { label: 'Pending', variant: 'warning', icon: Clock },
@@ -25,6 +26,13 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; variant: 'default' | '
   DE: { label: 'Delivered', variant: 'success', icon: CheckCircle2 },
   RE: { label: 'Returned', variant: 'danger', icon: RotateCcw },
   CA: { label: 'Cancelled', variant: 'danger', icon: XCircle },
+  // Local order statuses
+  draft: { label: 'Draft', variant: 'secondary', icon: FileEdit },
+  submitted: { label: 'Submitted', variant: 'warning', icon: Clock },
+  processing: { label: 'Processing', variant: 'default', icon: PackageCheck },
+  shipped: { label: 'Shipped', variant: 'success', icon: Truck },
+  delivered: { label: 'Delivered', variant: 'success', icon: CheckCircle2 },
+  cancelled: { label: 'Cancelled', variant: 'danger', icon: XCircle },
 };
 
 interface OrderStatusBadgeProps {

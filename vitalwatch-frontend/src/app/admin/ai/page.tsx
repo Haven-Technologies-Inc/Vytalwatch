@@ -13,35 +13,50 @@ import { TrendChart } from '@/components/dashboard/Charts';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { Brain, Zap, Activity, TrendingUp, Settings, Play, Pause, RefreshCw, Eye } from 'lucide-react';
+import { Brain, Zap, Activity, TrendingUp, Play, Pause, RefreshCw, Eye } from 'lucide-react';
 
 interface AIModel {
   id: string;
   name: string;
   type: string;
   version: string;
-  status: 'active' | 'training' | 'inactive';
-  accuracy: number;
-  lastTrained: string;
-  predictions: number;
+  status: 'active' | 'training' | 'inactive' | 'failed';
+  accuracy: number | null;
+  precision: number | null;
+  recall: number | null;
+  f1Score: number | null;
+  auc: number | null;
+  totalPredictions: number;
+  lastTrainedAt: string | null;
+  description: string | null;
+  trainingHistory: Array<{ version: string; date: string; accuracy: number }> | null;
 }
 
-interface PerformanceDataPoint {
-  name: string;
-  value: number;
-}
-
-interface ModelsResponse {
-  data: AIModel[];
-}
-
-interface PerformanceResponse {
-  data: {
-    trend: PerformanceDataPoint[];
-    predictionsToday: number;
-    avgAccuracy: number;
-    insightsThisWeek: number;
+interface PerformanceMetrics {
+  overall: {
+    accuracy: number;
+    totalPredictions: number;
+    activeModels: number;
+    totalModels: number;
   };
+  byModel: Array<{
+    modelId: string;
+    name: string;
+    accuracy: number;
+    predictions: number;
+    status: string;
+  }>;
+}
+
+interface AIProviderStatus {
+  providers: Array<{ name: string; model: string; status: string; configured: boolean }>;
+  activeProvider: string | null;
+}
+
+// Normalize backend 0-1 decimal accuracy to 0-100 percentage
+function toPercent(v: number | null): number {
+  if (v === null || v === undefined) return 0;
+  return v <= 1 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
 }
 
 export default function AdminAIPage() {
@@ -51,40 +66,41 @@ export default function AdminAIPage() {
   const [isRetraining, setIsRetraining] = useState(false);
 
   const {
-    data: modelsRes,
+    data: modelsRaw,
     isLoading: modelsLoading,
     error: modelsError,
     refetch: refetchModels,
-  } = useApiQuery<ModelsResponse>(
-    () => apiClient.get<ModelsResponse>('/ai/models'),
+  } = useApiQuery<AIModel[]>(
+    () => apiClient.get<AIModel[]>('/ai/models'),
   );
 
   const {
-    data: perfRes,
+    data: perfRaw,
     isLoading: perfLoading,
     error: perfError,
     refetch: refetchPerf,
-  } = useApiQuery<PerformanceResponse>(
-    () => apiClient.get<PerformanceResponse>('/ai/performance'),
+  } = useApiQuery<PerformanceMetrics>(
+    () => apiClient.get<PerformanceMetrics>('/ai/performance-metrics'),
   );
 
-  const models: AIModel[] = modelsRes?.data ?? [];
-  const performanceData: PerformanceDataPoint[] = perfRes?.data?.trend ?? [];
-  const perfData = perfRes?.data;
+  const {
+    data: providerStatus,
+  } = useApiQuery<AIProviderStatus>(
+    () => apiClient.get<AIProviderStatus>('/ai/status'),
+  );
 
-  // Local state for toggling (optimistic UI)
-  const [localModels, setLocalModels] = useState<AIModel[] | null>(null);
-  const displayModels = localModels ?? models;
+  const models: AIModel[] = Array.isArray(modelsRaw) ? modelsRaw : [];
+  const perfData = perfRaw?.overall;
 
-  // Sync localModels when API data loads
-  if (modelsRes?.data && !localModels) {
-    // Will be set on next render via the fallback above
-  }
+  // Build trend from training history of all models
+  const performanceData = models
+    .flatMap((m) => (m.trainingHistory || []).map((h) => ({ name: h.date, value: toPercent(h.accuracy) })))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleRetrainAll = useCallback(async () => {
     setIsRetraining(true);
     try {
-      await apiClient.post('/ai/retrain');
+      await apiClient.post('/ai/train', { modelType: 'all' });
       toast({ title: 'Retraining started', description: 'All models queued for retraining', type: 'success' });
       refetchModels();
     } catch {
@@ -94,24 +110,32 @@ export default function AdminAIPage() {
     }
   }, [toast, refetchModels]);
 
-  const handleConfigure = useCallback(() => {
-    toast({ title: 'Configure AI', description: 'Opening AI configuration...', type: 'info' });
-  }, [toast]);
-
-  const handleToggleModel = useCallback((model: AIModel) => {
-    const newStatus = model.status === 'active' ? 'inactive' : 'active';
-    setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: newStatus as AIModel['status'] } : m));
-    toast({ title: newStatus === 'active' ? 'Model activated' : 'Model paused', description: model.name, type: 'success' });
-  }, [toast, models]);
+  const handleToggleModel = useCallback(async (model: AIModel) => {
+    const endpoint = model.status === 'active'
+      ? `/ai/models/${model.id}/deactivate`
+      : `/ai/models/${model.id}/activate`;
+    try {
+      await apiClient.post(endpoint);
+      toast({
+        title: model.status === 'active' ? 'Model paused' : 'Model activated',
+        description: model.name,
+        type: 'success',
+      });
+      refetchModels();
+    } catch {
+      toast({ title: 'Toggle failed', description: `Could not update ${model.name}`, type: 'error' });
+    }
+  }, [toast, refetchModels]);
 
   const handleRetrainModel = useCallback(async (model: AIModel) => {
-    setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: 'training' as AIModel['status'] } : m));
-    toast({ title: 'Retraining started', description: model.name, type: 'info' });
-    setTimeout(() => {
-      setLocalModels(prev => (prev ?? models).map(m => m.id === model.id ? { ...m, status: 'active', lastTrained: new Date().toISOString().split('T')[0] } : m));
-      toast({ title: 'Retraining complete', description: model.name, type: 'success' });
-    }, 3000);
-  }, [toast, models]);
+    try {
+      await apiClient.post('/ai/train', { modelType: model.type });
+      toast({ title: 'Retraining started', description: model.name, type: 'info' });
+      refetchModels();
+    } catch {
+      toast({ title: 'Retrain failed', description: `Could not retrain ${model.name}`, type: 'error' });
+    }
+  }, [toast, refetchModels]);
 
   const columns: Column<AIModel>[] = [
     {
@@ -120,7 +144,7 @@ export default function AdminAIPage() {
       render: (_, model) => (
         <div>
           <p className="font-medium text-gray-900 dark:text-white">{model.name}</p>
-          <p className="text-xs text-gray-500">{model.type} • {model.version}</p>
+          <p className="text-xs text-gray-500">{model.type.replace(/_/g, ' ')} • v{model.version}</p>
         </div>
       ),
     },
@@ -128,28 +152,40 @@ export default function AdminAIPage() {
       key: 'status',
       header: 'Status',
       render: (status: string) => {
-        const variants: Record<string, 'success' | 'warning' | 'secondary'> = {
+        const variants: Record<string, 'success' | 'warning' | 'secondary' | 'danger'> = {
           active: 'success',
           training: 'warning',
           inactive: 'secondary',
+          failed: 'danger',
         };
-        return <Badge variant={variants[status]}>{status}</Badge>;
+        return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
       },
     },
     {
       key: 'accuracy',
       header: 'Accuracy',
-      render: (v: number) => (
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-            <div className="h-full rounded-full bg-green-500" style={{ width: `${v}%` }} />
+      render: (_: number | null, model: AIModel) => {
+        const pct = toPercent(model.accuracy);
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              <div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-sm font-medium">{pct}%</span>
           </div>
-          <span className="text-sm font-medium">{v}%</span>
-        </div>
-      ),
+        );
+      },
     },
-    { key: 'predictions', header: 'Predictions', render: (v: number) => v.toLocaleString() },
-    { key: 'lastTrained', header: 'Last Trained', render: (d: string) => new Date(d).toLocaleDateString() },
+    {
+      key: 'totalPredictions',
+      header: 'Predictions',
+      render: (v: number) => (v || 0).toLocaleString(),
+    },
+    {
+      key: 'lastTrainedAt',
+      header: 'Last Trained',
+      render: (d: string | null) => d ? new Date(d).toLocaleDateString() : 'Never',
+    },
   ];
 
   const isLoading = modelsLoading || perfLoading;
@@ -180,13 +216,13 @@ export default function AdminAIPage() {
             <p className="mt-1 text-sm text-gray-500">Monitor and manage AI models</p>
           </div>
           <div className="flex gap-3">
+            <Button variant="outline" onClick={() => { refetchModels(); refetchPerf(); }}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
             <Button variant="outline" onClick={handleRetrainAll} disabled={isRetraining}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isRetraining ? 'animate-spin' : ''}`} />
               {isRetraining ? 'Retraining...' : 'Retrain All'}
-            </Button>
-            <Button onClick={handleConfigure}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configure
             </Button>
           </div>
         </div>
@@ -194,28 +230,27 @@ export default function AdminAIPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             title="Active Models"
-            value={displayModels.filter(m => m.status === 'active').length.toString()}
-            subtitle="All operational"
+            value={models.filter((m) => m.status === 'active').length.toString()}
+            subtitle={`${perfData?.totalModels ?? models.length} total`}
             icon={<Brain className="h-5 w-5" />}
           />
           <MetricCard
-            title="Predictions Today"
-            value={(perfData?.predictionsToday ?? 0).toLocaleString()}
-            subtitle="+12% from yesterday"
+            title="Total Predictions"
+            value={(perfData?.totalPredictions ?? models.reduce((s, m) => s + (m.totalPredictions || 0), 0)).toLocaleString()}
+            subtitle="Across all models"
             icon={<Zap className="h-5 w-5" />}
-            trend={{ value: 12, isPositive: true }}
           />
           <MetricCard
             title="Avg Accuracy"
-            value={`${perfData?.avgAccuracy ?? 0}%`}
-            subtitle="Across all models"
+            value={`${toPercent(perfData?.accuracy ?? null)}%`}
+            subtitle="Active models"
             icon={<TrendingUp className="h-5 w-5" />}
             className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
           />
           <MetricCard
-            title="Insights Generated"
-            value={(perfData?.insightsThisWeek ?? 0).toString()}
-            subtitle="This week"
+            title="Model Types"
+            value={new Set(models.map((m) => m.type)).size.toString()}
+            subtitle="Distinct model types"
             icon={<Activity className="h-5 w-5" />}
           />
         </div>
@@ -227,7 +262,7 @@ export default function AdminAIPage() {
             </div>
             <div className="p-4">
               <DataTable
-                data={displayModels}
+                data={models}
                 columns={columns}
                 onRowClick={(m) => { setSelectedModel(m); setShowModal(true); }}
                 actions={[
@@ -248,24 +283,25 @@ export default function AdminAIPage() {
 
           <div className="space-y-6">
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-              <h3 className="mb-4 text-lg font-semibold">Model Performance</h3>
-              <TrendChart data={performanceData} color="#10b981" height={150} />
-              <p className="mt-4 text-center text-sm text-gray-500">Average accuracy trend</p>
+              <h3 className="mb-4 text-lg font-semibold">Accuracy Trend</h3>
+              {performanceData.length > 0 ? (
+                <TrendChart data={performanceData} color="#10b981" height={150} />
+              ) : (
+                <p className="text-center text-sm text-gray-500 py-8">No training history available</p>
+              )}
+              <p className="mt-4 text-center text-sm text-gray-500">From training history</p>
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
               <h3 className="mb-4 text-lg font-semibold">AI Providers</h3>
               <div className="space-y-3">
-                {[
-                  { name: 'OpenAI', status: 'connected', model: 'GPT-4' },
-                  { name: 'Grok', status: 'connected', model: 'Grok-2' },
-                ].map((provider) => (
+                {(providerStatus?.providers ?? [{ name: 'OpenAI', model: 'GPT-4', status: 'loading', configured: false }, { name: 'Grok', model: 'Grok-2', status: 'loading', configured: false }]).map((provider) => (
                   <div key={provider.name} className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
                     <div>
                       <p className="font-medium">{provider.name}</p>
                       <p className="text-xs text-gray-500">{provider.model}</p>
                     </div>
-                    <Badge variant="success">{provider.status}</Badge>
+                    <Badge variant={provider.configured ? 'success' : 'secondary'}>{provider.configured ? 'Connected' : 'Not Configured'}</Badge>
                   </div>
                 ))}
               </div>
@@ -276,28 +312,47 @@ export default function AdminAIPage() {
         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={selectedModel?.name || 'Model Details'} size="lg">
           {selectedModel && (
             <div className="space-y-6">
+              <p className="text-sm text-gray-500">{selectedModel.description || 'No description available'}</p>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border p-4 dark:border-gray-700">
                   <p className="text-sm text-gray-500">Type</p>
-                  <p className="font-medium">{selectedModel.type}</p>
+                  <p className="font-medium">{selectedModel.type.replace(/_/g, ' ')}</p>
                 </div>
                 <div className="rounded-lg border p-4 dark:border-gray-700">
                   <p className="text-sm text-gray-500">Version</p>
-                  <p className="font-medium">{selectedModel.version}</p>
+                  <p className="font-medium">v{selectedModel.version}</p>
                 </div>
                 <div className="rounded-lg border p-4 dark:border-gray-700">
                   <p className="text-sm text-gray-500">Status</p>
-                  <Badge variant={selectedModel.status === 'active' ? 'success' : 'warning'}>{selectedModel.status}</Badge>
+                  <Badge variant={selectedModel.status === 'active' ? 'success' : selectedModel.status === 'training' ? 'warning' : 'secondary'}>{selectedModel.status}</Badge>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border p-4 dark:border-gray-700">
+                  <p className="text-sm text-gray-500">Accuracy</p>
+                  <p className="text-2xl font-bold text-green-600">{toPercent(selectedModel.accuracy)}%</p>
+                </div>
+                <div className="rounded-lg border p-4 dark:border-gray-700">
+                  <p className="text-sm text-gray-500">Precision</p>
+                  <p className="text-2xl font-bold">{toPercent(selectedModel.precision)}%</p>
+                </div>
+                <div className="rounded-lg border p-4 dark:border-gray-700">
+                  <p className="text-sm text-gray-500">Recall</p>
+                  <p className="text-2xl font-bold">{toPercent(selectedModel.recall)}%</p>
+                </div>
+                <div className="rounded-lg border p-4 dark:border-gray-700">
+                  <p className="text-sm text-gray-500">F1 Score</p>
+                  <p className="text-2xl font-bold">{toPercent(selectedModel.f1Score)}%</p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border p-4 dark:border-gray-700">
-                  <p className="text-sm text-gray-500">Accuracy</p>
-                  <p className="text-2xl font-bold text-green-600">{selectedModel.accuracy}%</p>
+                  <p className="text-sm text-gray-500">Total Predictions</p>
+                  <p className="text-2xl font-bold">{(selectedModel.totalPredictions || 0).toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border p-4 dark:border-gray-700">
-                  <p className="text-sm text-gray-500">Total Predictions</p>
-                  <p className="text-2xl font-bold">{selectedModel.predictions.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">Last Trained</p>
+                  <p className="text-2xl font-bold">{selectedModel.lastTrainedAt ? new Date(selectedModel.lastTrainedAt).toLocaleDateString() : 'Never'}</p>
                 </div>
               </div>
               <div className="flex gap-3">

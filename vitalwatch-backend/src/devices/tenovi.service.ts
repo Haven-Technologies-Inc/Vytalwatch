@@ -41,6 +41,11 @@ import { AuditService } from '../audit/audit.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
 import { ApiOperation, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
+import { DeviceOrder, OrderStatus } from './entities/device-order.entity';
+import { DevicePrescription, PrescriptionStatus } from './entities/device-prescription.entity';
+import { EmailService } from '../email/email.service';
+import { buildOrderEmailHtml } from './order-email-helper';
+import { TENOVI_CELLULAR_CATALOG, DEVICE_CATEGORIES, CatalogDevice } from './tenovi-device-catalog';
 
 @Injectable()
 export class TenoviService {
@@ -64,6 +69,11 @@ export class TenoviService {
     private readonly alertsService: AlertsService,
     private readonly configService: ConfigService,
     private readonly enterpriseLogger: EnterpriseLoggingService,
+    @InjectRepository(DeviceOrder)
+    private readonly orderRepository: Repository<DeviceOrder>,
+    @InjectRepository(DevicePrescription)
+    private readonly prescriptionRepository: Repository<DevicePrescription>,
+    private readonly emailService: EmailService,
   ) {
     this.apiUrl = this.configService.get('tenovi.apiUrl') || 'https://api2.tenovi.com';
     this.apiKey = this.configService.get('tenovi.apiKey') || '';
@@ -87,9 +97,12 @@ export class TenoviService {
       async (response) => {
         const duration = Date.now() - ((response.config as any).metadata?.startTime || Date.now());
         await this.enterpriseLogger.logTenovi({
-          operation: ApiOperation.DEVICE_SYNC, success: true,
-          endpoint: response.config.url, method: response.config.method?.toUpperCase(),
-          responseStatus: response.status, durationMs: duration,
+          operation: ApiOperation.DEVICE_SYNC,
+          success: true,
+          endpoint: response.config.url,
+          method: response.config.method?.toUpperCase(),
+          responseStatus: response.status,
+          durationMs: duration,
           metadata: { baseURL: response.config.baseURL },
         });
         return response;
@@ -97,13 +110,21 @@ export class TenoviService {
       async (error: AxiosError) => {
         const duration = Date.now() - ((error.config as any)?.metadata?.startTime || Date.now());
         await this.enterpriseLogger.logTenovi({
-          operation: ApiOperation.DEVICE_SYNC, success: false, severity: LogSeverity.ERROR,
-          endpoint: error.config?.url, method: error.config?.method?.toUpperCase(),
-          responseStatus: error.response?.status, durationMs: duration,
-          errorMessage: error.message, errorCode: (error.response?.data as any)?.code,
+          operation: ApiOperation.DEVICE_SYNC,
+          success: false,
+          severity: LogSeverity.ERROR,
+          endpoint: error.config?.url,
+          method: error.config?.method?.toUpperCase(),
+          responseStatus: error.response?.status,
+          durationMs: duration,
+          errorMessage: error.message,
+          errorCode: (error.response?.data as any)?.code,
         });
         this.logger.error(`Tenovi API error: ${error.message}`, error.response?.data);
-        throw new HttpException(error.response?.data || 'Tenovi API error', error.response?.status || 500);
+        throw new HttpException(
+          error.response?.data || 'Tenovi API error',
+          error.response?.status || 500,
+        );
       },
     );
   }
@@ -112,9 +133,7 @@ export class TenoviService {
 
   async getGatewayInfo(gatewayUuid: string): Promise<TenoviGatewayDto> {
     const cleanUuid = gatewayUuid.replace(/-/g, '');
-    const response = await this.apiClient.get<TenoviGatewayDto>(
-      `/gateway-info/${cleanUuid}/`,
-    );
+    const response = await this.apiClient.get<TenoviGatewayDto>(`/gateway-info/${cleanUuid}/`);
     return response.data;
   }
 
@@ -162,7 +181,6 @@ export class TenoviService {
 
     return this.gatewayRepository.findOne({
       where: { id: saved.id },
-      relations: ['whitelistedDevices', 'properties'],
     });
   }
 
@@ -245,14 +263,12 @@ export class TenoviService {
   async findGatewayByUuid(gatewayUuid: string): Promise<TenoviGateway | null> {
     return this.gatewayRepository.findOne({
       where: { gatewayUuid },
-      relations: ['whitelistedDevices', 'properties', 'organization'],
     });
   }
 
   async findGatewaysByOrganization(organizationId: string): Promise<TenoviGateway[]> {
     return this.gatewayRepository.find({
       where: { organizationId },
-      relations: ['whitelistedDevices', 'properties'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -262,18 +278,28 @@ export class TenoviService {
   async listHwiDevices(
     page = 1,
     limit = 20,
-  ): Promise<TenoviPaginatedResponseDto<TenoviHwiDeviceDto>> {
-    const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviHwiDeviceDto>>(
-      `/hwi-devices/`,
-      { params: { page, page_size: limit } },
-    );
-    return response.data;
+  ): Promise<{ count: number; results: unknown[]; next?: string | null }> {
+    if (this.isTenoviConfigured()) {
+      try {
+        const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviHwiDeviceDto>>(
+          `/hwi-devices/`,
+          { params: { page, page_size: limit } },
+        );
+        return response.data;
+      } catch (e) {
+        this.logger.warn('Tenovi API failed for listHwiDevices, using local DB');
+      }
+    }
+    const [results, count] = await this.hwiDeviceRepository.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { count, results };
   }
 
   async getHwiDevice(hwiDeviceId: string): Promise<TenoviHwiDeviceDto> {
-    const response = await this.apiClient.get<TenoviHwiDeviceDto>(
-      `/hwi-devices/${hwiDeviceId}/`,
-    );
+    const response = await this.apiClient.get<TenoviHwiDeviceDto>(`/hwi-devices/${hwiDeviceId}/`);
     return response.data;
   }
 
@@ -298,10 +324,7 @@ export class TenoviService {
       },
     };
 
-    const response = await this.apiClient.post<TenoviHwiDeviceDto>(
-      `/hwi-devices/`,
-      payload,
-    );
+    const response = await this.apiClient.post<TenoviHwiDeviceDto>(`/hwi-devices/`, payload);
     return response.data;
   }
 
@@ -415,7 +438,7 @@ export class TenoviService {
   async findHwiDeviceByHwiId(hwiDeviceId: string): Promise<TenoviHwiDevice | null> {
     return this.hwiDeviceRepository.findOne({
       where: { hwiDeviceId },
-      relations: ['patient', 'organization'],
+      relations: ['patient'],
     });
   }
 
@@ -464,16 +487,34 @@ export class TenoviService {
 
   // ==================== DEVICE TYPES ====================
 
-  async listDeviceTypes(): Promise<TenoviDeviceTypeDto[]> {
-    const response = await this.apiClient.get<TenoviDeviceTypeDto[]>(`/hwi-device-types/`);
-    return response.data;
+  async listDeviceTypes(): Promise<any[]> {
+    if (this.isTenoviConfigured()) {
+      try {
+        const r = await this.apiClient.get<TenoviDeviceTypeDto[]>(`/hwi-device-types/`);
+        return r.data;
+      } catch (e) {
+        this.logger.warn('Tenovi device types API failed, using local catalog');
+      }
+    }
+    return TENOVI_CELLULAR_CATALOG;
   }
 
-  async getDeviceType(deviceTypeId: string): Promise<TenoviDeviceTypeDto> {
-    const response = await this.apiClient.get<TenoviDeviceTypeDto>(
-      `/hwi-device-types/${deviceTypeId}/`,
-    );
-    return response.data;
+  async getDeviceType(deviceTypeId: string): Promise<TenoviDeviceTypeDto | CatalogDevice | null> {
+    if (this.isTenoviConfigured()) {
+      try {
+        const r = await this.apiClient.get<TenoviDeviceTypeDto>(
+          `/hwi-device-types/${deviceTypeId}/`,
+        );
+        return r.data;
+      } catch (e) {
+        this.logger.warn('Tenovi device type API failed');
+      }
+    }
+    return TENOVI_CELLULAR_CATALOG.find((d) => d.id === deviceTypeId) || null;
+  }
+
+  getCatalog() {
+    return { devices: TENOVI_CELLULAR_CATALOG, categories: DEVICE_CATEGORIES };
   }
 
   // ==================== ORDERS ====================
@@ -493,7 +534,9 @@ export class TenoviService {
 
   // ==================== FULFILLMENT ====================
 
-  async createFulfillmentRequest(dto: CreateTenoviFulfillmentDto): Promise<any> {
+  async createFulfillmentRequest(
+    dto: CreateTenoviFulfillmentDto,
+  ): Promise<Record<string, unknown>> {
     const payload = {
       shipping_name: dto.shippingName,
       shipping_address: dto.shippingAddress,
@@ -507,7 +550,7 @@ export class TenoviService {
       device_types: dto.deviceTypes?.map((dt) => ({ name: dt })),
     };
 
-    const response = await this.apiClient.post(`/activations/`, payload);
+    const response = await this.apiClient.post<Record<string, unknown>>(`/activations/`, payload);
     return response.data;
   }
 
@@ -702,7 +745,9 @@ export class TenoviService {
     }
 
     if (!device) {
-      this.logger.warn(`Device not found for shipping update: ${data.hwiDeviceId || data.hardwareUuid}`);
+      this.logger.warn(
+        `Device not found for shipping update: ${data.hwiDeviceId || data.hardwareUuid}`,
+      );
       return null;
     }
 
@@ -749,7 +794,9 @@ export class TenoviService {
 
     const saved = await this.hwiDeviceRepository.save(device);
 
-    this.logger.log(`Updated shipping status for device ${device.hwiDeviceId}: ${device.shippingStatus}`);
+    this.logger.log(
+      `Updated shipping status for device ${device.hwiDeviceId}: ${device.shippingStatus}`,
+    );
 
     await this.auditService.log({
       action: 'DEVICE_SHIPPING_UPDATED',
@@ -767,9 +814,7 @@ export class TenoviService {
 
   // ==================== SPECIAL ORDER WEBHOOK PROCESSING ====================
 
-  async processSpecialOrderWebhook(
-    payload: TenoviSpecialOrderWebhookDto,
-  ): Promise<void> {
+  async processSpecialOrderWebhook(payload: TenoviSpecialOrderWebhookDto): Promise<void> {
     this.logger.log(
       `Processing Tenovi special order webhook: ${payload.order_id || payload.order_number}`,
     );
@@ -805,8 +850,8 @@ export class TenoviService {
 
   // ==================== WEBHOOK CONFIGURATION ====================
 
-  async listWebhooks(): Promise<any[]> {
-    const response = await this.apiClient.get(`/webhooks/`);
+  async listWebhooks(): Promise<Record<string, unknown>[]> {
+    const response = await this.apiClient.get<Record<string, unknown>[]>(`/webhooks/`);
     return response.data;
   }
 
@@ -817,8 +862,8 @@ export class TenoviService {
     authHeader?: string;
     authKey?: string;
     postAsArray?: boolean;
-  }): Promise<any> {
-    const response = await this.apiClient.post(`/webhooks/`, {
+  }): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.post<Record<string, unknown>>(`/webhooks/`, {
       endpoint: config.endpoint,
       event: config.event,
       enabled_by_default: config.enabledByDefault ?? true,
@@ -829,39 +874,48 @@ export class TenoviService {
     return response.data;
   }
 
-  async getWebhook(webhookId: string): Promise<any> {
-    const response = await this.apiClient.get(`/webhooks/${webhookId}/`);
+  async getWebhook(webhookId: string): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.get<Record<string, unknown>>(`/webhooks/${webhookId}/`);
     return response.data;
   }
 
-  async updateWebhook(webhookId: string, config: {
-    endpoint?: string;
-    event?: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
-    enabledByDefault?: boolean;
-    authHeader?: string;
-    authKey?: string;
-    postAsArray?: boolean;
-  }): Promise<any> {
-    const response = await this.apiClient.patch(`/webhooks/${webhookId}/`, {
-      endpoint: config.endpoint,
-      event: config.event,
-      enabled_by_default: config.enabledByDefault,
-      auth_header: config.authHeader,
-      auth_key: config.authKey,
-      post_as_array: config.postAsArray,
-    });
+  async updateWebhook(
+    webhookId: string,
+    config: {
+      endpoint?: string;
+      event?: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
+      enabledByDefault?: boolean;
+      authHeader?: string;
+      authKey?: string;
+      postAsArray?: boolean;
+    },
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.patch<Record<string, unknown>>(
+      `/webhooks/${webhookId}/`,
+      {
+        endpoint: config.endpoint,
+        event: config.event,
+        enabled_by_default: config.enabledByDefault,
+        auth_header: config.authHeader,
+        auth_key: config.authKey,
+        post_as_array: config.postAsArray,
+      },
+    );
     return response.data;
   }
 
-  async replaceWebhook(webhookId: string, config: {
-    endpoint: string;
-    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
-    enabledByDefault?: boolean;
-    authHeader?: string;
-    authKey?: string;
-    postAsArray?: boolean;
-  }): Promise<any> {
-    const response = await this.apiClient.put(`/webhooks/${webhookId}/`, {
+  async replaceWebhook(
+    webhookId: string,
+    config: {
+      endpoint: string;
+      event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
+      enabledByDefault?: boolean;
+      authHeader?: string;
+      authKey?: string;
+      postAsArray?: boolean;
+    },
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.put<Record<string, unknown>>(`/webhooks/${webhookId}/`, {
       endpoint: config.endpoint,
       event: config.event,
       enabled_by_default: config.enabledByDefault ?? true,
@@ -876,8 +930,8 @@ export class TenoviService {
     await this.apiClient.delete(`/webhooks/${webhookId}/`);
   }
 
-  async testWebhook(webhookId: string, event: string): Promise<any> {
-    const response = await this.apiClient.post(`/webhooks-testing/`, {
+  async testWebhook(webhookId: string, event: string): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.post<Record<string, unknown>>(`/webhooks-testing/`, {
       event,
       webhook_ids: [webhookId],
     });
@@ -896,7 +950,8 @@ export class TenoviService {
       try {
         const response = await this.listHwiDevices(page, 100);
 
-        for (const deviceDto of response.results) {
+        const devices = response.results as TenoviHwiDeviceDto[];
+        for (const deviceDto of devices) {
           try {
             const device = await this.upsertHwiDeviceFromDto(deviceDto);
             if (organizationId) {
@@ -974,17 +1029,16 @@ export class TenoviService {
     hwiDeviceId: string,
     params?: { page?: number; limit?: number; startDate?: string; endDate?: string },
   ): Promise<TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>> {
-    const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>>(
-      `/hwi-devices/${hwiDeviceId}/measurements/`,
-      {
-        params: {
-          page: params?.page || 1,
-          page_size: params?.limit || 20,
-          start_date: params?.startDate,
-          end_date: params?.endDate,
-        },
+    const response = await this.apiClient.get<
+      TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>
+    >(`/hwi-devices/${hwiDeviceId}/measurements/`, {
+      params: {
+        page: params?.page || 1,
+        page_size: params?.limit || 20,
+        start_date: params?.startDate,
+        end_date: params?.endDate,
       },
-    );
+    });
     return response.data;
   }
 
@@ -992,17 +1046,16 @@ export class TenoviService {
     patientExternalId: string,
     params?: { page?: number; limit?: number; startDate?: string; endDate?: string },
   ): Promise<TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>> {
-    const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>>(
-      `/patients/${patientExternalId}/measurements/`,
-      {
-        params: {
-          page: params?.page || 1,
-          page_size: params?.limit || 20,
-          start_date: params?.startDate,
-          end_date: params?.endDate,
-        },
+    const response = await this.apiClient.get<
+      TenoviPaginatedResponseDto<TenoviMeasurementWebhookDto>
+    >(`/patients/${patientExternalId}/measurements/`, {
+      params: {
+        page: params?.page || 1,
+        page_size: params?.limit || 20,
+        start_date: params?.startDate,
+        end_date: params?.endDate,
       },
-    );
+    });
     return response.data;
   }
 
@@ -1020,9 +1073,7 @@ export class TenoviService {
   }
 
   async getHwiPatient(externalId: string): Promise<TenoviPatientDto> {
-    const response = await this.apiClient.get<TenoviPatientDto>(
-      `/hwi-patients/${externalId}/`,
-    );
+    const response = await this.apiClient.get<TenoviPatientDto>(`/hwi-patients/${externalId}/`);
     return response.data;
   }
 
@@ -1041,7 +1092,10 @@ export class TenoviService {
     return response.data;
   }
 
-  async updateHwiPatient(externalId: string, dto: Partial<TenoviPatientDto>): Promise<TenoviPatientDto> {
+  async updateHwiPatient(
+    externalId: string,
+    dto: Partial<TenoviPatientDto>,
+  ): Promise<TenoviPatientDto> {
     const response = await this.apiClient.patch<TenoviPatientDto>(
       `/hwi-patients/${externalId}/`,
       dto,
@@ -1050,19 +1104,16 @@ export class TenoviService {
   }
 
   async replaceHwiPatient(externalId: string, dto: TenoviPatientDto): Promise<TenoviPatientDto> {
-    const response = await this.apiClient.put<TenoviPatientDto>(
-      `/hwi-patients/${externalId}/`,
-      {
-        external_id: dto.external_id,
-        name: dto.name,
-        phone_number: dto.phone_number,
-        email: dto.email,
-        physician: dto.physician,
-        clinic_name: dto.clinic_name,
-        care_manager: dto.care_manager,
-        sms_opt_in: dto.sms_opt_in,
-      },
-    );
+    const response = await this.apiClient.put<TenoviPatientDto>(`/hwi-patients/${externalId}/`, {
+      external_id: dto.external_id,
+      name: dto.name,
+      phone_number: dto.phone_number,
+      email: dto.email,
+      physician: dto.physician,
+      clinic_name: dto.clinic_name,
+      care_manager: dto.care_manager,
+      sms_opt_in: dto.sms_opt_in,
+    });
     return response.data;
   }
 
@@ -1115,15 +1166,13 @@ export class TenoviService {
 
   async getHwiGateway(gatewayUuid: string): Promise<TenoviGatewayDto> {
     const cleanUuid = gatewayUuid.replace(/-/g, '');
-    const response = await this.apiClient.get<TenoviGatewayDto>(
-      `/hwi-gateways/${cleanUuid}/`,
-    );
+    const response = await this.apiClient.get<TenoviGatewayDto>(`/hwi-gateways/${cleanUuid}/`);
     return response.data;
   }
 
   async unlinkGateway(gatewayId: string): Promise<void> {
     await this.apiClient.get(`/unlink-gateway/${gatewayId}/`);
-    
+
     await this.auditService.log({
       action: 'TENOVI_GATEWAY_UNLINKED',
       resourceType: 'tenovi_gateway',
@@ -1133,38 +1182,54 @@ export class TenoviService {
 
   // ==================== DEVICE PROPERTIES ====================
 
-  async getDeviceProperties(hwiDeviceId: string): Promise<any[]> {
-    const response = await this.apiClient.get<any[]>(
+  async getDeviceProperties(hwiDeviceId: string): Promise<Record<string, unknown>[]> {
+    const response = await this.apiClient.get<Record<string, unknown>[]>(
       `/hwi-devices/${hwiDeviceId}/properties/`,
     );
     return response.data;
   }
 
-  async getDeviceProperty(hwiDeviceId: string, propertyId: string): Promise<any> {
-    const response = await this.apiClient.get<any>(
+  async getDeviceProperty(
+    hwiDeviceId: string,
+    propertyId: string,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.get<Record<string, unknown>>(
       `/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`,
     );
     return response.data;
   }
 
-  async updateDeviceProperty(hwiDeviceId: string, propertyId: string, value: string): Promise<any> {
-    const response = await this.apiClient.patch<any>(
+  async updateDeviceProperty(
+    hwiDeviceId: string,
+    propertyId: string,
+    value: string,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.patch<Record<string, unknown>>(
       `/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`,
       { value },
     );
     return response.data;
   }
 
-  async createDeviceProperty(hwiDeviceId: string, key: string, value: string): Promise<any> {
-    const response = await this.apiClient.post<any>(
+  async createDeviceProperty(
+    hwiDeviceId: string,
+    key: string,
+    value: string,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.post<Record<string, unknown>>(
       `/hwi-devices/${hwiDeviceId}/properties/`,
       { key, value },
     );
     return response.data;
   }
 
-  async replaceDeviceProperty(hwiDeviceId: string, propertyId: string, key: string, value: string): Promise<any> {
-    const response = await this.apiClient.put<any>(
+  async replaceDeviceProperty(
+    hwiDeviceId: string,
+    propertyId: string,
+    key: string,
+    value: string,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.apiClient.put<Record<string, unknown>>(
       `/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`,
       { key, value },
     );
@@ -1175,12 +1240,102 @@ export class TenoviService {
     await this.apiClient.delete(`/hwi-devices/${hwiDeviceId}/properties/${propertyId}/`);
   }
 
+  // ==================== PRESCRIPTIONS ====================
+
+  async createPrescription(dto: {
+    patientId: string;
+    patientName?: string;
+    providerId: string;
+    providerName?: string;
+    organizationId?: string;
+    devices: Array<{
+      catalogId: string;
+      name: string;
+      quantity: number;
+      category: string;
+      brand: string;
+    }>;
+    clinicalReason?: string;
+    icdCode?: string;
+    notes?: string;
+  }): Promise<DevicePrescription> {
+    const rx = this.prescriptionRepository.create({ ...dto, status: PrescriptionStatus.PENDING });
+    const saved = await this.prescriptionRepository.save(rx);
+    await this.auditService.log({
+      action: 'DEVICE_PRESCRIPTION_CREATED',
+      userId: dto.providerId,
+      details: { prescriptionId: saved.id, patientId: dto.patientId },
+    });
+    return saved;
+  }
+
+  async listPrescriptions(filters: {
+    providerId?: string;
+    patientId?: string;
+    organizationId?: string;
+    status?: PrescriptionStatus;
+    page?: number;
+    limit?: number;
+  }): Promise<{ results: DevicePrescription[]; count: number }> {
+    const where: any = {};
+    if (filters.providerId) where.providerId = filters.providerId;
+    if (filters.patientId) where.patientId = filters.patientId;
+    if (filters.organizationId) where.organizationId = filters.organizationId;
+    if (filters.status) where.status = filters.status;
+    const [results, count] = await this.prescriptionRepository.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip: ((filters.page || 1) - 1) * (filters.limit || 20),
+      take: filters.limit || 20,
+    });
+    return { results, count };
+  }
+
+  async getPrescription(id: string): Promise<DevicePrescription> {
+    const p = await this.prescriptionRepository.findOne({ where: { id } });
+    if (!p) throw new NotFoundException('Prescription not found');
+    return p;
+  }
+
+  async approvePrescription(id: string, approvedById: string): Promise<DevicePrescription> {
+    const p = await this.getPrescription(id);
+    p.status = PrescriptionStatus.APPROVED;
+    p.approvedById = approvedById;
+    p.approvedAt = new Date();
+    return this.prescriptionRepository.save(p);
+  }
+
+  async cancelPrescription(id: string): Promise<DevicePrescription> {
+    const p = await this.getPrescription(id);
+    p.status = PrescriptionStatus.CANCELLED;
+    return this.prescriptionRepository.save(p);
+  }
+
+  async markPrescriptionOrdered(id: string, orderId: string): Promise<DevicePrescription> {
+    const p = await this.getPrescription(id);
+    p.status = PrescriptionStatus.ORDERED;
+    p.orderId = orderId;
+    return this.prescriptionRepository.save(p);
+  }
+
   // ==================== BULK ORDERS ====================
+
+  private isTenoviConfigured(): boolean {
+    return !!(this.apiKey && this.clientDomain);
+  }
 
   async listBulkOrders(
     page = 1,
     limit = 20,
-  ): Promise<TenoviPaginatedResponseDto<TenoviOrderDto>> {
+  ): Promise<{ count: number; results: unknown[]; next?: string | null }> {
+    if (!this.isTenoviConfigured()) {
+      const [results, count] = await this.orderRepository.findAndCount({
+        order: { createdAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+      return { count, results };
+    }
     const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviOrderDto>>(
       `/hwi-bulk-orders/`,
       { params: { page, page_size: limit } },
@@ -1188,10 +1343,13 @@ export class TenoviService {
     return response.data;
   }
 
-  async getBulkOrder(orderId: string): Promise<TenoviOrderDto> {
-    const response = await this.apiClient.get<TenoviOrderDto>(
-      `/hwi-bulk-orders/${orderId}/`,
-    );
+  async getBulkOrder(orderId: string): Promise<DeviceOrder | TenoviOrderDto> {
+    if (!this.isTenoviConfigured()) {
+      const order = await this.orderRepository.findOne({ where: { id: orderId } });
+      if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+      return order;
+    }
+    const response = await this.apiClient.get<TenoviOrderDto>(`/hwi-bulk-orders/${orderId}/`);
     return response.data;
   }
 
@@ -1203,25 +1361,83 @@ export class TenoviService {
     shippingZipCode: string;
     notifyEmails?: string;
     contents: Array<{ name: string; quantity: number }>;
-  }): Promise<TenoviOrderDto> {
-    const payload = {
-      shipping_name: dto.shippingName,
-      shipping_address: dto.shippingAddress,
-      shipping_city: dto.shippingCity,
-      shipping_state: dto.shippingState,
-      shipping_zip_code: dto.shippingZipCode,
-      notify_emails: dto.notifyEmails,
+    createdById?: string;
+  }): Promise<DeviceOrder | TenoviOrderDto> {
+    const total = dto.contents.reduce((s, c) => s + c.quantity, 0);
+    if (this.isTenoviConfigured()) {
+      try {
+        const p = {
+          shipping_name: dto.shippingName,
+          shipping_address: dto.shippingAddress,
+          shipping_city: dto.shippingCity,
+          shipping_state: dto.shippingState,
+          shipping_zip_code: dto.shippingZipCode,
+          notify_emails: dto.notifyEmails,
+          contents: dto.contents,
+        };
+        const r = await this.apiClient.post<TenoviOrderDto>(`/hwi-bulk-orders/`, p);
+        await this.auditService.log({
+          action: 'TENOVI_BULK_ORDER_CREATED',
+          resourceType: 'tenovi_order',
+          details: p,
+        });
+        await this.sendOrderEmail(dto, r.data.id || 'N/A');
+        return r.data;
+      } catch (e: any) {
+        this.logger.warn('Tenovi API failed: ' + e.message);
+      }
+    }
+    const order = this.orderRepository.create({
+      shippingName: dto.shippingName,
+      shippingAddress: dto.shippingAddress,
+      shippingCity: dto.shippingCity,
+      shippingState: dto.shippingState,
+      shippingZipCode: dto.shippingZipCode,
+      notifyEmails: dto.notifyEmails || '',
       contents: dto.contents,
-    };
-    const response = await this.apiClient.post<TenoviOrderDto>(`/hwi-bulk-orders/`, payload);
-    
-    await this.auditService.log({
-      action: 'TENOVI_BULK_ORDER_CREATED',
-      resourceType: 'tenovi_order',
-      details: payload,
+      totalDevices: total,
+      status: OrderStatus.SUBMITTED,
+      createdById: dto.createdById || null,
     });
-    
-    return response.data;
+    const saved = await this.orderRepository.save(order);
+    await this.auditService.log({
+      action: 'DEVICE_ORDER_CREATED',
+      resourceType: 'device_order',
+      resourceId: saved.id,
+      details: { contents: dto.contents, totalDevices: total },
+    });
+    await this.sendOrderEmail(dto, saved.id);
+    return saved;
+  }
+
+  private async sendOrderEmail(
+    dto: {
+      shippingName: string;
+      notifyEmails?: string;
+      contents: Array<{ name: string; quantity: number }>;
+    },
+    orderId: string,
+  ): Promise<void> {
+    try {
+      const html = buildOrderEmailHtml(dto.shippingName, orderId, dto.contents);
+      const emails = (dto.notifyEmails || '')
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean);
+      if (!emails.length) {
+        this.logger.log(`No notify emails for order ${orderId}`);
+        return;
+      }
+      for (const to of emails) {
+        await this.emailService.send({
+          to,
+          subject: `VytalWatch Order #${orderId.slice(0, 8).toUpperCase()}`,
+          html,
+        });
+      }
+    } catch (err: any) {
+      this.logger.error(`Order email failed: ${err.message}`);
+    }
   }
 
   // ==================== DEVICE REPLACEMENTS ====================
@@ -1258,20 +1474,20 @@ export class TenoviService {
       `/hwi-replacements/`,
       payload,
     );
-    
+
     await this.auditService.log({
       action: 'TENOVI_DEVICE_REPLACEMENT_CREATED',
       resourceType: 'tenovi_hwi_device',
       resourceId: dto.hwiDeviceId,
       details: payload,
     });
-    
+
     return response.data;
   }
 
   async cancelReplacement(replacementId: string): Promise<void> {
     await this.apiClient.delete(`/hwi-replacements/${replacementId}/`);
-    
+
     await this.auditService.log({
       action: 'TENOVI_DEVICE_REPLACEMENT_CANCELLED',
       resourceType: 'tenovi_replacement',
@@ -1293,10 +1509,7 @@ export class TenoviService {
       end_date: params.endDate,
       hwi_device_id: params.hwiDeviceId,
     };
-    const response = await this.apiClient.post<{ resent: number }>(
-      `/resend-webhooks/`,
-      payload,
-    );
+    const response = await this.apiClient.post<{ resent: number }>(`/resend-webhooks/`, payload);
     return response.data;
   }
 
@@ -1317,9 +1530,11 @@ export class TenoviService {
 
   // ==================== HARDWARE UUID LOGS ====================
 
-  async getHardwareUuidLogs(
-    params?: { page?: number; limit?: number; hwiDeviceId?: string },
-  ): Promise<TenoviPaginatedResponseDto<TenoviHardwareChangeDto>> {
+  async getHardwareUuidLogs(params?: {
+    page?: number;
+    limit?: number;
+    hwiDeviceId?: string;
+  }): Promise<TenoviPaginatedResponseDto<TenoviHardwareChangeDto>> {
     const response = await this.apiClient.get<TenoviPaginatedResponseDto<TenoviHardwareChangeDto>>(
       `/hardware-uuid-logs/`,
       {
@@ -1347,7 +1562,8 @@ export class TenoviService {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
 
-    const query = this.hwiDeviceRepository.createQueryBuilder('device')
+    const query = this.hwiDeviceRepository
+      .createQueryBuilder('device')
       .leftJoinAndSelect('device.patient', 'patient')
       .leftJoinAndSelect('device.organization', 'organization');
 
@@ -1358,7 +1574,9 @@ export class TenoviService {
       query.andWhere('device.sensorCode = :sensorCode', { sensorCode: params.sensorCode });
     }
     if (params?.organizationId) {
-      query.andWhere('device.organizationId = :organizationId', { organizationId: params.organizationId });
+      query.andWhere('device.organizationId = :organizationId', {
+        organizationId: params.organizationId,
+      });
     }
     if (params?.patientId) {
       query.andWhere('device.patientId = :patientId', { patientId: params.patientId });
@@ -1384,13 +1602,12 @@ export class TenoviService {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
 
-    const query = this.gatewayRepository.createQueryBuilder('gateway')
-      .leftJoinAndSelect('gateway.whitelistedDevices', 'whitelistedDevices')
-      .leftJoinAndSelect('gateway.properties', 'properties')
-      .leftJoinAndSelect('gateway.organization', 'organization');
+    const query = this.gatewayRepository.createQueryBuilder('gateway');
 
     if (params?.organizationId) {
-      query.andWhere('gateway.organizationId = :organizationId', { organizationId: params.organizationId });
+      query.andWhere('gateway.organizationId = :organizationId', {
+        organizationId: params.organizationId,
+      });
     }
 
     const [data, total] = await query

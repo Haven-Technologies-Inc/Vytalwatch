@@ -84,21 +84,14 @@ export default () => ({
     ttl: parseInt(process.env.TURN_TTL || '3600', 10),
   },
 
-  // ZeptoMail (Zoho Transactional Email)
+  // ZeptoMail SMTP (Zoho Transactional Email via nodemailer)
   email: {
-    zeptoToken: process.env.ZEPTOMAIL_TOKEN,
-    from: process.env.EMAIL_FROM || 'noreply@vytalwatch.ai',
-    fromName: process.env.EMAIL_FROM_NAME || 'VytalWatch AI',
-  },
-
-  // Zoho SMTP (fallback)
-  smtp: {
-    host: process.env.SMTP_HOST || 'smtp.zoho.com',
+    host: process.env.SMTP_HOST || 'smtp.zeptomail.com',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.SMTP_FROM || 'noreply@vytalwatch.ai',
+    from: process.env.SMTP_FROM || 'noreply@vytalwatch.com',
     fromName: process.env.SMTP_FROM_NAME || 'VytalWatch AI',
   },
 

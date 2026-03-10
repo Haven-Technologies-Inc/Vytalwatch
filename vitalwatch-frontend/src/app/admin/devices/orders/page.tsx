@@ -33,8 +33,8 @@ export default function OrdersPage() {
               <tr key={o.id} className="border-t hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-4 py-3 font-mono">{o.orderNumber||o.id.slice(0,8)}</td>
                 <td className="px-4 py-3">{o.shippingName||'—'}</td>
-                <td className="px-4 py-3"><Badge variant={o.shippingStatus==='DE'?'success':'secondary'}>{o.shippingStatus||'Pending'}</Badge></td>
-                <td className="px-4 py-3">{o.created?new Date(o.created).toLocaleDateString():'—'}</td>
+                <td className="px-4 py-3"><Badge variant={['DE','delivered'].includes(o.shippingStatus||o.status||'')?'success':['submitted','PE','processing'].includes(o.shippingStatus||o.status||'')?'warning':'secondary'}>{o.shippingStatus||o.status||'Pending'}</Badge></td>
+                <td className="px-4 py-3">{(o.created||o.createdAt)?new Date(o.created||o.createdAt||'').toLocaleDateString():'—'}</td>
               </tr>
             ))}</tbody>
           </table>

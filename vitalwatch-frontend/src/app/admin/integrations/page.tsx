@@ -49,7 +49,8 @@ export default function AdminIntegrationsPage() {
   const fetchIntegrations = useCallback(async () => {
     try {
       const response = await integrationsApi.list();
-      setIntegrations(response.data.data || response.data || []);
+      const list = (response as { data?: Integration[] })?.data ?? (response as unknown as Integration[]) ?? [];
+      setIntegrations(Array.isArray(list) ? list : []);
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load integrations', type: 'error' });
     } finally {
@@ -81,7 +82,10 @@ export default function AdminIntegrationsPage() {
       await fetchIntegrations();
       toast({ title: 'Connected', description: `${integration.name} connected successfully`, type: 'success' });
     } catch (error) {
-      toast({ title: 'Connection failed', description: `Failed to connect ${integration.name}`, type: 'error' });
+      const msg = error instanceof Error && error.message.includes('configured')
+        ? `${integration.name} must be configured with valid API keys before enabling.`
+        : `Failed to connect ${integration.name}`;
+      toast({ title: 'Connection failed', description: msg, type: 'error' });
     } finally {
       setConnecting(null);
     }

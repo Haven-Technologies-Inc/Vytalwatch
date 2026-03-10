@@ -38,6 +38,22 @@ export class TimeTrackingService {
     return result?.total || 0;
   }
 
+  async addManualEntry(data: { patientId: string; userId: string; category: TimeEntryCategory; minutes: number; notes?: string; enrollmentId?: string }): Promise<TimeEntry> {
+    const entry = this.repo.create({
+      patientId: data.patientId,
+      userId: data.userId,
+      category: data.category,
+      minutes: data.minutes,
+      notes: data.notes,
+      enrollmentId: data.enrollmentId,
+      startAt: new Date(),
+      endAt: new Date(),
+      status: TimeEntryStatus.DRAFT,
+      billable: true,
+    });
+    return this.repo.save(entry);
+  }
+
   async confirm(id: string): Promise<TimeEntry> {
     await this.repo.update(id, { status: TimeEntryStatus.CONFIRMED });
     return this.repo.findOne({ where: { id } });

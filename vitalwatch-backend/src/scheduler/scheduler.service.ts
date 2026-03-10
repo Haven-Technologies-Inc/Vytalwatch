@@ -129,9 +129,11 @@ export class SchedulerService implements OnModuleDestroy {
 
           // Check if device has met reading threshold (16+ days)
           if (device.totalReadings >= 16) {
+            const profile = await this.usersService.getPatientProfile(device.patientId);
+            const providerId = profile?.assignedProviderId || device.patientId;
             await this.billingService.createBillingRecord({
               patientId: device.patientId,
-              providerId: device.patient.assignedProviderId || device.patientId,
+              providerId,
               cptCode: CPTCode.DEVICE_SUPPLY,
               serviceDate: now,
               daysWithReadings: device.totalReadings,

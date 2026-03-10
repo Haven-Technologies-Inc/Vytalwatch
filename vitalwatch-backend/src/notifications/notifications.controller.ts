@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Query,
   UseGuards,
@@ -39,9 +40,17 @@ export class NotificationsController {
     return { count };
   }
 
-  @Post(':id/read')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @Patch(':id/read')
+  @HttpCode(HttpStatus.OK)
   async markAsRead(@Param('id', ParseUUIDPipe) id: string) {
     await this.notificationsService.markAsRead(id);
+    return { success: true };
+  }
+
+  @Post('read-all')
+  @HttpCode(HttpStatus.OK)
+  async markAllAsRead(@CurrentUser() user: CurrentUserPayload) {
+    await this.notificationsService.markAllAsRead(user.sub);
+    return { success: true };
   }
 }

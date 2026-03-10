@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsString, IsOptional, IsEmail } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,23 +20,67 @@ import { OrganizationsService } from './organizations.service';
 import { UserRole } from '../users/entities/user.entity';
 
 class CreateOrganizationDto {
+  @IsString()
   name: string;
+
+  @IsString()
   type: string;
-  address?: string;
+
+  @IsOptional()
+  @IsString()
+  plan?: string;
+
+  @IsOptional()
+  address?: any;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsEmail()
   email?: string;
+
+  @IsOptional()
+  @IsString()
   website?: string;
+
+  @IsOptional()
+  @IsString()
   taxId?: string;
+
+  @IsOptional()
+  @IsString()
   subscriptionPlan?: string;
 }
 
 class UpdateOrganizationDto {
+  @IsOptional()
+  @IsString()
   name?: string;
-  address?: string;
+
+  @IsOptional()
+  address?: any;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsEmail()
   email?: string;
+
+  @IsOptional()
+  @IsString()
   website?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  plan?: string;
 }
 
 @Controller('organizations')
@@ -44,7 +89,7 @@ export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -55,19 +100,19 @@ export class OrganizationsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.organizationsService.findOne(id, user);
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async create(@Body() dto: CreateOrganizationDto, @CurrentUser() user: CurrentUserPayload) {
     return this.organizationsService.create(dto, user);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateOrganizationDto,
@@ -77,14 +122,14 @@ export class OrganizationsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.organizationsService.remove(id);
   }
 
   @Get(':id/users')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getUsers(@Param('id') id: string, @Query('role') role?: string) {
     return this.organizationsService.getUsers(id, role);
   }
@@ -144,13 +189,13 @@ export class OrganizationsController {
   }
 
   @Get(':id/settings')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getSettings(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.organizationsService.getSettings(id, user);
   }
 
   @Put(':id/settings')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async updateSettings(
     @Param('id') id: string,
     @Body() settings: Record<string, any>,

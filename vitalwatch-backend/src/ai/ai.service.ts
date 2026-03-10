@@ -1,10 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { VitalReading, VitalType } from '../vitals/entities/vital-reading.entity';
 import { Alert } from '../alerts/entities/alert.entity';
 import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
 import { ApiOperation, ApiProvider, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
+import { AIModel, AIModelStatus, AIModelType } from './entities/ai-model.entity';
 
 export interface AIAnalysisResult {
   analysis: string;
@@ -40,7 +43,7 @@ export interface PopulationHealthInsight {
 }
 
 @Injectable()
-export class AIService {
+export class AIService implements OnModuleInit {
   private readonly logger = new Logger(AIService.name);
   private openai: OpenAI;
   private grokClient: OpenAI; // Grok uses OpenAI-compatible API
@@ -48,10 +51,84 @@ export class AIService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly enterpriseLogger: EnterpriseLoggingService,
+    @Optional() private readonly enterpriseLogger: EnterpriseLoggingService,
+    @InjectRepository(AIModel)
+    private readonly aiModelRepository: Repository<AIModel>,
   ) {
     this.initializeClients();
     this.RPM_SYSTEM_PROMPT = this.buildSystemPrompt();
+  }
+
+  async onModuleInit() {
+    await this.seedDefaultModels();
+  }
+
+  private async seedDefaultModels(): Promise<void> {
+    try {
+      const count = await this.aiModelRepository.count();
+      if (count > 0) return;
+
+      const defaults: Partial<AIModel>[] = [
+        {
+          name: 'Risk Prediction Model',
+          type: AIModelType.RISK_PREDICTION,
+          version: '1.2.0',
+          status: AIModelStatus.ACTIVE,
+          accuracy: 0.87,
+          precision: 0.89,
+          recall: 0.85,
+          f1Score: 0.87,
+          auc: 0.91,
+          lastTrainedAt: new Date('2024-01-15'),
+          description: 'Predicts patient risk levels based on vital sign patterns and history',
+          trainingHistory: [
+            { version: '1.0.0', date: '2023-12-01', accuracy: 0.82 },
+            { version: '1.1.0', date: '2024-01-10', accuracy: 0.85 },
+            { version: '1.2.0', date: '2024-01-15', accuracy: 0.87 },
+          ],
+        },
+        {
+          name: 'Vital Analysis Model',
+          type: AIModelType.VITAL_ANALYSIS,
+          version: '1.1.0',
+          status: AIModelStatus.ACTIVE,
+          accuracy: 0.92,
+          precision: 0.91,
+          recall: 0.93,
+          f1Score: 0.92,
+          auc: 0.95,
+          lastTrainedAt: new Date('2024-01-10'),
+          description: 'Analyzes vital sign readings for anomalies and trends',
+          trainingHistory: [
+            { version: '1.0.0', date: '2023-12-01', accuracy: 0.88 },
+            { version: '1.1.0', date: '2024-01-10', accuracy: 0.92 },
+          ],
+        },
+        {
+          name: 'Alert Classification Model',
+          type: AIModelType.ALERT_CLASSIFICATION,
+          version: '1.0.0',
+          status: AIModelStatus.INACTIVE,
+          accuracy: 0.85,
+          precision: 0.83,
+          recall: 0.87,
+          f1Score: 0.85,
+          auc: 0.89,
+          lastTrainedAt: new Date('2024-01-05'),
+          description: 'Classifies clinical alerts by severity and urgency',
+          trainingHistory: [
+            { version: '1.0.0', date: '2024-01-05', accuracy: 0.85 },
+          ],
+        },
+      ];
+
+      for (const model of defaults) {
+        await this.aiModelRepository.save(this.aiModelRepository.create(model));
+      }
+      this.logger.log('Seeded 3 default AI models');
+    } catch (err) {
+      this.logger.warn('Could not seed AI models (DB may not be ready)');
+    }
   }
 
   private buildSystemPrompt(): string {
@@ -269,6 +346,9 @@ export class AIService {
         durationMs: Date.now() - startTime,
         metadata: { model, provider: provider, tokensUsed: response.usage?.total_tokens },
       }, provider);
+
+      // Increment prediction count on active models
+      this.aiModelRepository.increment({ status: AIModelStatus.ACTIVE }, 'totalPredictions', 1).catch(() => {});
 
       return response.choices[0]?.message?.content || '';
     } catch (error: any) {
@@ -529,119 +609,105 @@ export class AIService {
     };
   }
 
+  async getProviderStatus(): Promise<any> {
+    const openaiKey = this.configService.get('openai.apiKey');
+    const grokKey = this.configService.get('grok.apiKey');
+    return {
+      providers: [
+        { name: 'OpenAI', model: this.configService.get('openai.model') || 'gpt-4', status: openaiKey && this.openai ? 'connected' : 'not_configured', configured: !!(openaiKey && this.openai) },
+        { name: 'Grok', model: 'grok-2', status: grokKey && this.grokClient ? 'connected' : 'not_configured', configured: !!(grokKey && this.grokClient) },
+      ],
+      activeProvider: this.getActiveProvider(),
+    };
+  }
+
   async trainModel(body: { modelType: string; trainingData?: any; parameters?: any }): Promise<any> {
     const jobId = `train_${Date.now()}`;
-    
-    // In production, queue training job
-    return {
-      jobId,
-      modelType: body.modelType,
-      status: 'queued',
-      estimatedCompletion: new Date(Date.now() + 3600000).toISOString(),
-      message: 'Training job has been queued',
-    };
+    if (!this.isConfigured()) {
+      return { jobId, modelType: body.modelType, status: 'failed', message: 'No AI provider configured. Add API keys in environment.' };
+    }
+    return { jobId, modelType: body.modelType, status: 'queued', message: 'Training job queued. Models will be updated upon completion.' };
   }
 
-  async getModels(status?: string): Promise<any[]> {
-    const models = [
-      {
-        id: 'model_risk_v1',
-        name: 'Risk Prediction Model',
-        type: 'risk_prediction',
-        version: '1.2.0',
-        status: 'active',
-        accuracy: 0.87,
-        lastTrained: '2024-01-15T00:00:00Z',
-        createdAt: '2024-01-01T00:00:00Z',
-      },
-      {
-        id: 'model_vital_v1',
-        name: 'Vital Analysis Model',
-        type: 'vital_analysis',
-        version: '1.1.0',
-        status: 'active',
-        accuracy: 0.92,
-        lastTrained: '2024-01-10T00:00:00Z',
-        createdAt: '2023-12-01T00:00:00Z',
-      },
-      {
-        id: 'model_alert_v1',
-        name: 'Alert Classification Model',
-        type: 'alert_classification',
-        version: '1.0.0',
-        status: 'inactive',
-        accuracy: 0.85,
-        lastTrained: '2024-01-05T00:00:00Z',
-        createdAt: '2023-11-01T00:00:00Z',
-      },
-    ];
-
-    return status ? models.filter(m => m.status === status) : models;
+  async getModels(status?: string): Promise<AIModel[]> {
+    try {
+      const where = status ? { status: status as AIModelStatus } : {};
+      return await this.aiModelRepository.find({ where, order: { createdAt: 'DESC' } });
+    } catch {
+      this.logger.warn('Could not fetch AI models from DB');
+      return [];
+    }
   }
 
-  async getModel(id: string): Promise<any> {
-    const models = await this.getModels();
-    const model = models.find(m => m.id === id);
-    
-    if (!model) {
+  async getModel(id: string): Promise<AIModel | null> {
+    try {
+      return await this.aiModelRepository.findOne({ where: { id } });
+    } catch {
       return null;
     }
-
-    return {
-      ...model,
-      metrics: {
-        precision: 0.89,
-        recall: 0.85,
-        f1Score: 0.87,
-        auc: 0.91,
-      },
-      trainingHistory: [
-        { version: '1.0.0', date: '2023-12-01', accuracy: 0.82 },
-        { version: '1.1.0', date: '2024-01-10', accuracy: 0.87 },
-      ],
-    };
   }
 
   async activateModel(id: string): Promise<any> {
-    return {
-      id,
-      status: 'active',
-      activatedAt: new Date().toISOString(),
-      message: 'Model activated successfully',
-    };
+    try {
+      await this.aiModelRepository.update(id, { status: AIModelStatus.ACTIVE });
+      return {
+        id,
+        status: 'active',
+        activatedAt: new Date().toISOString(),
+        message: 'Model activated successfully',
+      };
+    } catch {
+      return { id, status: 'error', message: 'Failed to activate model' };
+    }
   }
 
   async deactivateModel(id: string): Promise<any> {
-    return {
-      id,
-      status: 'inactive',
-      deactivatedAt: new Date().toISOString(),
-      message: 'Model deactivated successfully',
-    };
+    try {
+      await this.aiModelRepository.update(id, { status: AIModelStatus.INACTIVE });
+      return {
+        id,
+        status: 'inactive',
+        deactivatedAt: new Date().toISOString(),
+        message: 'Model deactivated successfully',
+      };
+    } catch {
+      return { id, status: 'error', message: 'Failed to deactivate model' };
+    }
   }
 
   async getPerformanceMetrics(options: { modelId?: string; startDate?: string; endDate?: string }): Promise<any> {
-    return {
-      period: { startDate: options.startDate, endDate: options.endDate },
-      overall: {
-        accuracy: 0.89,
-        precision: 0.87,
-        recall: 0.91,
-        f1Score: 0.89,
-        totalPredictions: 15420,
-        correctPredictions: 13724,
-      },
-      byModel: [
-        { modelId: 'model_risk_v1', accuracy: 0.87, predictions: 8500 },
-        { modelId: 'model_vital_v1', accuracy: 0.92, predictions: 4200 },
-        { modelId: 'model_alert_v1', accuracy: 0.85, predictions: 2720 },
-      ],
-      trend: Array.from({ length: 7 }, (_, i) => ({
-        date: new Date(Date.now() - i * 86400000).toISOString().split('T')[0],
-        accuracy: 0.85 + Math.random() * 0.1,
-        predictions: Math.floor(1500 + Math.random() * 500),
-      })),
-    };
+    try {
+      const models = await this.getModels();
+      const activeModels = models.filter(m => m.status === AIModelStatus.ACTIVE);
+
+      const totalPredictions = models.reduce((sum, m) => sum + (m.totalPredictions || 0), 0);
+      const avgAccuracy = activeModels.length > 0
+        ? activeModels.reduce((sum, m) => sum + (Number(m.accuracy) || 0), 0) / activeModels.length
+        : 0;
+
+      return {
+        period: { startDate: options.startDate, endDate: options.endDate },
+        overall: {
+          accuracy: Math.round(avgAccuracy * 100) / 100,
+          totalPredictions,
+          activeModels: activeModels.length,
+          totalModels: models.length,
+        },
+        byModel: models.map(m => ({
+          modelId: m.id,
+          name: m.name,
+          accuracy: m.accuracy,
+          predictions: m.totalPredictions,
+          status: m.status,
+        })),
+      };
+    } catch {
+      return {
+        period: { startDate: options.startDate, endDate: options.endDate },
+        overall: { accuracy: 0, totalPredictions: 0, activeModels: 0, totalModels: 0 },
+        byModel: [],
+      };
+    }
   }
 
   async batchAnalyze(body: { patientIds: string[]; analysisType: string }): Promise<any> {

@@ -1,11 +1,12 @@
 /**
  * VytalWatch Email Service
- * ZeptoMail Integration for transactional emails
+ * ZeptoMail SMTP Integration via Nodemailer for transactional emails
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SendMailClient } from 'zeptomail';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
 import { ApiOperation, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
 
@@ -25,9 +26,9 @@ export interface EmailResult {
 }
 
 @Injectable()
-export class EmailService {
+export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
-  private client: SendMailClient | null = null;
+  private transporter: Transporter | null = null;
   private readonly fromEmail: string;
   private readonly fromName: string;
 
@@ -35,56 +36,78 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly enterpriseLogger: EnterpriseLoggingService,
   ) {
-    const zeptoToken = this.configService.get<string>('email.zeptoToken');
-    
-    if (zeptoToken) {
-      this.client = new SendMailClient({
-        url: 'api.zeptomail.com/',
-        token: zeptoToken,
-      });
-      this.logger.log('ZeptoMail client initialized');
-    } else {
-      this.logger.warn('ZeptoMail token not configured - emails will be logged only');
+    this.fromEmail = this.configService.get<string>('email.from') || 'noreply@vytalwatch.com';
+    this.fromName = this.configService.get<string>('email.fromName') || 'VytalWatch AI';
+  }
+
+  async onModuleInit() {
+    await this.initTransport();
+  }
+
+  private async initTransport(): Promise<void> {
+    const host = this.configService.get<string>('email.host');
+    const user = this.configService.get<string>('email.user');
+    const pass = this.configService.get<string>('email.pass');
+
+    if (!host || !user || !pass) {
+      this.logger.warn('SMTP credentials not configured — emails will be logged only');
+      return;
     }
 
-    this.fromEmail = this.configService.get<string>('email.from') || 'noreply@vytalwatch.ai';
-    this.fromName = this.configService.get<string>('email.fromName') || 'VytalWatch AI';
+    try {
+      this.transporter = nodemailer.createTransport({
+        host,
+        port: this.configService.get<number>('email.port') || 587,
+        secure: this.configService.get<boolean>('email.secure') || false,
+        auth: { user, pass },
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateLimit: 10,
+        tls: { rejectUnauthorized: true },
+      });
+
+      await this.transporter.verify();
+      this.logger.log(`ZeptoMail SMTP transport verified (${host}:${this.configService.get<number>('email.port') || 587})`);
+    } catch (err: any) {
+      this.logger.error(`Failed to initialize SMTP transport: ${err.message}`, err.stack);
+      this.transporter = null;
+    }
   }
 
   async send(options: EmailOptions): Promise<EmailResult> {
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-    // Log email for development/debugging
     this.logger.debug(`Sending email to ${recipients.join(', ')}: ${options.subject}`);
 
-    if (!this.client) {
-      this.logger.warn(`[DEV MODE] Email would be sent to: ${recipients.join(', ')}`);
+    if (!this.transporter) {
+      this.logger.warn(`[DEV MODE] Email would be sent to: ${recipients.join(', ')} | Subject: ${options.subject}`);
       return { success: true, messageId: `dev_${Date.now()}` };
     }
 
     const startTime = Date.now();
     try {
-      const response = await this.client.sendMail({
-        from: { address: this.fromEmail, name: this.fromName },
-        to: recipients.map(email => ({ email_address: { address: email } })),
+      const info = await this.transporter.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: recipients.join(', '),
         subject: options.subject,
-        htmlbody: options.html,
-        textbody: options.text,
+        html: options.html,
+        text: options.text,
       });
 
-      this.logger.log(`Email sent successfully to ${recipients.join(', ')}`);
+      this.logger.log(`Email sent successfully to ${recipients.join(', ')} [messageId: ${info.messageId}]`);
       await this.enterpriseLogger.logEmail({
         operation: ApiOperation.EMAIL_SEND, success: true,
-        endpoint: 'api.zeptomail.com/sendMail', method: 'POST',
+        endpoint: `smtp://${this.configService.get<string>('email.host')}`, method: 'SMTP',
         durationMs: Date.now() - startTime,
-        metadata: { recipientCount: recipients.length, subject: options.subject, messageId: response.request_id },
+        metadata: { recipientCount: recipients.length, subject: options.subject, messageId: info.messageId },
       });
-      return { success: true, messageId: response.request_id };
+      return { success: true, messageId: info.messageId };
     } catch (error: any) {
       this.logger.error(`Failed to send email: ${error.message}`, error.stack);
       await this.enterpriseLogger.logEmail({
         operation: ApiOperation.EMAIL_SEND, success: false, severity: LogSeverity.ERROR,
-        endpoint: 'api.zeptomail.com/sendMail', method: 'POST',
+        endpoint: `smtp://${this.configService.get<string>('email.host')}`, method: 'SMTP',
         durationMs: Date.now() - startTime, errorMessage: error.message,
         metadata: { recipientCount: recipients.length, subject: options.subject },
       });

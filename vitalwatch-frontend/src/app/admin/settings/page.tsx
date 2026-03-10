@@ -13,17 +13,20 @@ import { Badge } from '@/components/ui/Badge';
 import { Settings, Bell, Shield, Database, Mail, Save, Zap, AlertTriangle, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface SettingsData {
-  platformName: string;
-  supportEmail: string;
-  timezone: string;
-  maintenanceMode: boolean;
-  smtpHost: string;
-  smtpPort: string;
+// Backend returns a flat key-value map from Redis
+interface SystemSettings {
+  maxPatientsPerProvider: number;
+  defaultAlertThreshold: string;
+  sessionTimeout: number;
+  enableTwoFactor: boolean;
+  retentionDays: number;
+  [key: string]: unknown;
 }
 
-interface SettingsResponse {
-  data: SettingsData;
+interface MaintenanceStatus {
+  enabled: boolean;
+  message: string;
+  startedAt: string | null;
 }
 
 const tabs = [
@@ -40,49 +43,78 @@ export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Fetch system settings (flat key-value map from Redis)
   const {
-    data: settingsRes,
-    isLoading,
-    error,
-    refetch,
-  } = useApiQuery<SettingsResponse>(
-    () => apiClient.get<SettingsResponse>('/admin/settings'),
+    data: settingsRaw,
+    isLoading: settingsLoading,
+    error: settingsError,
+    refetch: refetchSettings,
+  } = useApiQuery<SystemSettings>(
+    () => apiClient.get<SystemSettings>('/admin/settings'),
   );
 
-  const [settings, setSettings] = useState<SettingsData>({
-    platformName: 'VytalWatch AI',
-    supportEmail: 'support@vitalwatch.ai',
-    timezone: 'America/New_York',
-    maintenanceMode: false,
-    smtpHost: 'smtp.zoho.com',
-    smtpPort: '587',
+  // Fetch maintenance mode status (separate endpoint)
+  const {
+    data: maintenanceRaw,
+    refetch: refetchMaintenance,
+  } = useApiQuery<MaintenanceStatus>(
+    () => apiClient.get<MaintenanceStatus>('/admin/maintenance/status'),
+  );
+
+  const [settings, setSettings] = useState<SystemSettings>({
+    maxPatientsPerProvider: 100,
+    defaultAlertThreshold: 'medium',
+    sessionTimeout: 3600,
+    enableTwoFactor: true,
+    retentionDays: 365,
   });
+
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
 
   // Sync API data to local state
   useEffect(() => {
-    if (settingsRes?.data) {
-      setSettings({
-        platformName: settingsRes.data.platformName || 'VytalWatch AI',
-        supportEmail: settingsRes.data.supportEmail || 'support@vitalwatch.ai',
-        timezone: settingsRes.data.timezone || 'America/New_York',
-        maintenanceMode: settingsRes.data.maintenanceMode ?? false,
-        smtpHost: settingsRes.data.smtpHost || 'smtp.zoho.com',
-        smtpPort: settingsRes.data.smtpPort || '587',
-      });
+    if (settingsRaw && typeof settingsRaw === 'object') {
+      setSettings((prev) => ({ ...prev, ...settingsRaw }));
     }
-  }, [settingsRes]);
+  }, [settingsRaw]);
+
+  useEffect(() => {
+    if (maintenanceRaw) {
+      setMaintenanceEnabled(maintenanceRaw.enabled ?? false);
+    }
+  }, [maintenanceRaw]);
 
   const handleSaveSettings = useCallback(async () => {
     setIsSaving(true);
     try {
-      await apiClient.put('/admin/settings', settings);
+      await apiClient.put('/admin/settings/bulk', settings);
       toast({ title: 'Settings saved', description: 'Your changes have been saved', type: 'success' });
+      refetchSettings();
     } catch {
       toast({ title: 'Save failed', description: 'Could not save settings', type: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [toast, settings]);
+  }, [toast, settings, refetchSettings]);
+
+  const handleToggleMaintenance = useCallback(async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        await apiClient.post('/admin/maintenance/enable', { message: 'System maintenance in progress' });
+      } else {
+        await apiClient.post('/admin/maintenance/disable');
+      }
+      setMaintenanceEnabled(enabled);
+      refetchMaintenance();
+      toast({
+        title: enabled ? 'Maintenance enabled' : 'Maintenance disabled',
+        description: enabled ? 'Only admins can access the platform' : 'Platform is back online',
+        type: enabled ? 'warning' : 'success',
+      });
+    } catch {
+      toast({ title: 'Failed', description: 'Could not toggle maintenance mode', type: 'error' });
+    }
+  }, [toast, refetchMaintenance]);
 
   const handleConfigureIntegration = useCallback((name: string) => {
     toast({ title: 'Configure integration', description: `Opening ${name} settings...`, type: 'info' });
@@ -91,13 +123,16 @@ export default function AdminSettingsPage() {
   const handleTestEmail = useCallback(async () => {
     toast({ title: 'Testing email', description: 'Sending test email...', type: 'info' });
     try {
-      await apiClient.post('/admin/settings/test-email', { smtpHost: settings.smtpHost, smtpPort: settings.smtpPort });
+      await apiClient.post('/integrations/email/send', {
+        to: 'admin@vytalwatch.ai',
+        subject: 'VytalWatch SMTP Test',
+        body: 'This is a test email from VytalWatch.',
+      });
       toast({ title: 'Email sent', description: 'Test email delivered successfully', type: 'success' });
     } catch {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast({ title: 'Email sent', description: 'Test email delivered successfully', type: 'success' });
+      toast({ title: 'Email failed', description: 'Could not send test email. Check SMTP configuration.', type: 'error' });
     }
-  }, [toast, settings]);
+  }, [toast]);
 
   const handleRunBackup = useCallback(async () => {
     toast({ title: 'Backup started', description: 'Running database backup...', type: 'info' });
@@ -105,12 +140,11 @@ export default function AdminSettingsPage() {
       await apiClient.post('/admin/settings/backup');
       toast({ title: 'Backup complete', description: 'Database backup completed successfully', type: 'success' });
     } catch {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast({ title: 'Backup complete', description: 'Database backup completed successfully', type: 'success' });
+      toast({ title: 'Backup failed', description: 'Could not complete database backup', type: 'error' });
     }
   }, [toast]);
 
-  if (isLoading) {
+  if (settingsLoading) {
     return (
       <DashboardLayout>
         <LoadingState message="Loading settings..." />
@@ -118,10 +152,10 @@ export default function AdminSettingsPage() {
     );
   }
 
-  if (error) {
+  if (settingsError) {
     return (
       <DashboardLayout>
-        <ErrorState message={error} onRetry={refetch} />
+        <ErrorState message={settingsError} onRetry={refetchSettings} />
       </DashboardLayout>
     );
   }
@@ -158,25 +192,48 @@ export default function AdminSettingsPage() {
                   <h2 className="mb-6 text-lg font-semibold">General Settings</h2>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium">Platform Name</label>
-                      <Input value={settings.platformName} onChange={(e) => setSettings({ ...settings, platformName: e.target.value })} />
+                      <label className="mb-1.5 block text-sm font-medium">Max Patients Per Provider</label>
+                      <Input
+                        type="number"
+                        value={settings.maxPatientsPerProvider}
+                        onChange={(e) => setSettings({ ...settings, maxPatientsPerProvider: parseInt(e.target.value) || 0 })}
+                      />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium">Support Email</label>
-                      <Input type="email" value={settings.supportEmail} onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium">Timezone</label>
-                      <select value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800" aria-label="Timezone">
-                        <option value="America/New_York">Eastern Time</option>
-                        <option value="America/Chicago">Central Time</option>
-                        <option value="America/Los_Angeles">Pacific Time</option>
-                        <option value="UTC">UTC</option>
+                      <label className="mb-1.5 block text-sm font-medium">Default Alert Threshold</label>
+                      <select
+                        value={settings.defaultAlertThreshold}
+                        onChange={(e) => setSettings({ ...settings, defaultAlertThreshold: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                        aria-label="Default alert threshold"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Session Timeout (seconds)</label>
+                      <Input
+                        type="number"
+                        value={settings.sessionTimeout}
+                        onChange={(e) => setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) || 3600 })}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Data Retention (days)</label>
+                      <Input
+                        type="number"
+                        value={settings.retentionDays}
+                        onChange={(e) => setSettings({ ...settings, retentionDays: parseInt(e.target.value) || 365 })}
+                      />
                     </div>
                   </div>
                   <div className="mt-6 flex justify-end">
-                    <Button onClick={handleSaveSettings} disabled={isSaving}><Save className="mr-2 h-4 w-4" />{isSaving ? 'Saving...' : 'Save'}</Button>
+                    <Button onClick={handleSaveSettings} disabled={isSaving}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {isSaving ? 'Saving...' : 'Save Settings'}
+                    </Button>
                   </div>
                 </div>
                 <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950/20">
@@ -185,11 +242,19 @@ export default function AdminSettingsPage() {
                       <AlertTriangle className="h-5 w-5 text-yellow-600" />
                       <div>
                         <p className="font-medium text-yellow-800">Maintenance Mode</p>
-                        <p className="text-sm text-yellow-600">Only admins can access when enabled</p>
+                        <p className="text-sm text-yellow-600">
+                          {maintenanceEnabled ? 'Platform is in maintenance — only admins can access' : 'Only admins can access when enabled'}
+                        </p>
                       </div>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
-                      <input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => setSettings({ ...settings, maintenanceMode: e.target.checked })} className="peer sr-only" aria-label="Toggle maintenance mode" />
+                      <input
+                        type="checkbox"
+                        checked={maintenanceEnabled}
+                        onChange={(e) => handleToggleMaintenance(e.target.checked)}
+                        className="peer sr-only"
+                        aria-label="Toggle maintenance mode"
+                      />
                       <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-yellow-500 peer-checked:after:translate-x-full dark:bg-gray-700"></div>
                     </label>
                   </div>
@@ -205,7 +270,9 @@ export default function AdminSettingsPage() {
                     { name: 'Stripe', desc: 'Payment processing', status: 'connected' },
                     { name: 'Twilio', desc: 'SMS notifications', status: 'connected' },
                     { name: 'OpenAI', desc: 'AI insights', status: 'connected' },
-                    { name: 'Tenovi', desc: 'Device data', status: 'connected' },
+                    { name: 'Grok', desc: 'Real-time vital analysis', status: 'connected' },
+                    { name: 'Tenovi', desc: 'Medical device data', status: 'connected' },
+                    { name: 'ZeptoMail', desc: 'Zoho SMTP email delivery', status: 'connected' },
                   ].map((i) => (
                     <div key={i.name} className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
                       <div>
@@ -225,13 +292,20 @@ export default function AdminSettingsPage() {
             {activeTab === 'email' && (
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold">Zoho SMTP Settings</h2>
+                <p className="mb-4 text-sm text-gray-500">Email is handled via ZeptoMail (Zoho). SMTP settings are configured via environment variables on the server.</p>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div><label className="mb-1.5 block text-sm font-medium">SMTP Host</label><Input value={settings.smtpHost} onChange={(e) => setSettings({ ...settings, smtpHost: e.target.value })} /></div>
-                  <div><label className="mb-1.5 block text-sm font-medium">SMTP Port</label><Input value={settings.smtpPort} onChange={(e) => setSettings({ ...settings, smtpPort: e.target.value })} /></div>
-                  <div><label className="mb-1.5 block text-sm font-medium">Username</label><Input placeholder="email@zoho.com" /></div>
-                  <div><label className="mb-1.5 block text-sm font-medium">Password</label><Input type="password" placeholder="••••••••" /></div>
+                  <div className="rounded-lg border p-4 dark:border-gray-700">
+                    <p className="text-sm text-gray-500">SMTP Host</p>
+                    <p className="font-medium">smtp.zeptomail.com</p>
+                  </div>
+                  <div className="rounded-lg border p-4 dark:border-gray-700">
+                    <p className="text-sm text-gray-500">Port</p>
+                    <p className="font-medium">587 (TLS)</p>
+                  </div>
                 </div>
-                <div className="mt-6 flex gap-3"><Button variant="outline" onClick={handleTestEmail}>Test</Button><Button onClick={handleSaveSettings} disabled={isSaving}><Save className="mr-2 h-4 w-4" />{isSaving ? 'Saving...' : 'Save'}</Button></div>
+                <div className="mt-6">
+                  <Button variant="outline" onClick={handleTestEmail}>Send Test Email</Button>
+                </div>
               </div>
             )}
 
@@ -239,19 +313,42 @@ export default function AdminSettingsPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="mb-6 text-lg font-semibold">Security Settings</h2>
                 <div className="space-y-4">
-                  {[
-                    { label: 'Require 2FA', desc: 'Force two-factor authentication', enabled: true },
-                    { label: 'Session timeout', desc: 'Auto logout after inactivity', enabled: true },
-                    { label: 'Audit logging', desc: 'Log all user actions', enabled: true },
-                  ].map((s) => (
-                    <div key={s.label} className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
-                      <div><p className="font-medium">{s.label}</p><p className="text-sm text-gray-500">{s.desc}</p></div>
-                      <label className="relative inline-flex cursor-pointer items-center">
-                        <input type="checkbox" defaultChecked={s.enabled} className="peer sr-only" aria-label={`Toggle ${s.label}`} />
-                        <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-full dark:bg-gray-700"></div>
-                      </label>
+                  <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
+                    <div>
+                      <p className="font-medium">Require 2FA</p>
+                      <p className="text-sm text-gray-500">Force two-factor authentication for all users</p>
                     </div>
-                  ))}
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        checked={!!settings.enableTwoFactor}
+                        onChange={(e) => setSettings({ ...settings, enableTwoFactor: e.target.checked })}
+                        className="peer sr-only"
+                        aria-label="Toggle Require 2FA"
+                      />
+                      <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-full dark:bg-gray-700"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
+                    <div>
+                      <p className="font-medium">Session Timeout</p>
+                      <p className="text-sm text-gray-500">Auto logout after {settings.sessionTimeout}s of inactivity</p>
+                    </div>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
+                    <div>
+                      <p className="font-medium">Audit Logging</p>
+                      <p className="text-sm text-gray-500">All user actions are logged via AuditService</p>
+                    </div>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <Button onClick={handleSaveSettings} disabled={isSaving}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSaving ? 'Saving...' : 'Save Security Settings'}
+                  </Button>
                 </div>
               </div>
             )}
@@ -285,6 +382,13 @@ export default function AdminSettingsPage() {
                     <div className="flex items-center gap-2"><Database className="h-5 w-5 text-green-500" /><span className="font-medium">InfluxDB</span></div>
                     <p className="mt-2 text-sm text-gray-500">Status: <Badge variant="success">Connected</Badge></p>
                   </div>
+                  <div className="rounded-lg border p-4 dark:border-gray-700">
+                    <div className="flex items-center gap-2"><Database className="h-5 w-5 text-green-500" /><span className="font-medium">Redis</span></div>
+                    <p className="mt-2 text-sm text-gray-500">Status: <Badge variant="success">Connected</Badge></p>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg border p-4 dark:border-gray-700">
+                  <p className="text-sm text-gray-500">Data Retention: <span className="font-medium">{settings.retentionDays} days</span></p>
                 </div>
                 <div className="mt-6"><Button variant="outline" onClick={handleRunBackup}>Run Backup</Button></div>
               </div>

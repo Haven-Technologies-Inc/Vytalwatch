@@ -113,6 +113,10 @@ export default function AdminUsersPage() {
 
   const handleSaveEdit = async () => {
     if (!selectedUser || saving) return;
+    if (selectedUser.id.startsWith('pending-')) {
+      toast({ title: 'Cannot edit', description: 'Pending invite users cannot be edited.', type: 'warning' });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -179,7 +183,9 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
 
     try {
-      await usersAdminApi.update(selectedUser.id, {});
+      if (!selectedUser.id.startsWith('pending-')) {
+        await usersAdminApi.delete(selectedUser.id);
+      }
       setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
       setShowDeleteDialog(false);
       toast({ title: 'User deleted', description: `${selectedUser.name} has been deleted`, type: 'success' });

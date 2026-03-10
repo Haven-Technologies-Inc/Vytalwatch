@@ -35,19 +35,19 @@ export class IntegrationsController {
   constructor(private readonly integrationsService: IntegrationsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async listIntegrations() {
     return this.integrationsService.listIntegrations();
   }
 
   @Get(':name')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getIntegration(@Param('name') name: string) {
     return this.integrationsService.getIntegration(name);
   }
 
   @Put(':name/configure')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async configureIntegration(
     @Param('name') name: string,
     @Body() dto: ConfigureIntegrationDto,
@@ -57,21 +57,21 @@ export class IntegrationsController {
   }
 
   @Post(':name/enable')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async enableIntegration(@Param('name') name: string, @CurrentUser() user: CurrentUserPayload) {
     return this.integrationsService.enableIntegration(name, user);
   }
 
   @Post(':name/disable')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async disableIntegration(@Param('name') name: string, @CurrentUser() user: CurrentUserPayload) {
     return this.integrationsService.disableIntegration(name, user);
   }
 
   @Post(':name/test')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async testIntegration(
     @Param('name') name: string,
@@ -82,7 +82,7 @@ export class IntegrationsController {
 
   // Zoho SMTP endpoints
   @Post('zoho/send-email')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async sendEmail(
     @Body() dto: { to: string; subject: string; body: string; html?: boolean },
     @CurrentUser() user: CurrentUserPayload,
@@ -91,14 +91,14 @@ export class IntegrationsController {
   }
 
   @Get('zoho/templates')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getEmailTemplates() {
     return this.integrationsService.getEmailTemplates();
   }
 
   // OpenAI endpoints
   @Post('openai/analyze')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async analyzeWithOpenAI(
     @Body() dto: { prompt: string; context?: string },
     @CurrentUser() user: CurrentUserPayload,
@@ -107,7 +107,7 @@ export class IntegrationsController {
   }
 
   @Post('openai/generate-insight')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async generateInsight(
     @Body() dto: { patientId: string; vitalData: any },
     @CurrentUser() user: CurrentUserPayload,
@@ -117,7 +117,7 @@ export class IntegrationsController {
 
   // Grok AI endpoints
   @Post('grok/analyze')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async analyzeWithGrok(
     @Body() dto: { data: any; analysisType: string },
     @CurrentUser() user: CurrentUserPayload,
@@ -126,7 +126,7 @@ export class IntegrationsController {
   }
 
   @Post('grok/real-time')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async grokRealTimeAnalysis(
     @Body() dto: { vitalReading: any },
     @CurrentUser() user: CurrentUserPayload,
@@ -136,7 +136,7 @@ export class IntegrationsController {
 
   // Twilio endpoints
   @Post('twilio/send-sms')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async sendSms(
     @Body() dto: { to: string; message: string },
     @CurrentUser() user: CurrentUserPayload,
@@ -145,20 +145,20 @@ export class IntegrationsController {
   }
 
   @Get('twilio/status/:messageId')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getSmsStatus(@Param('messageId') messageId: string) {
     return this.integrationsService.getTwilioMessageStatus(messageId);
   }
 
   // Tenovi device endpoints
   @Get('tenovi/devices')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getTenoviDevices() {
     return this.integrationsService.getTenoviDevices();
   }
 
   @Post('tenovi/sync')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async syncTenoviDevices(@CurrentUser() user: CurrentUserPayload) {
     return this.integrationsService.syncTenoviDevices(user);

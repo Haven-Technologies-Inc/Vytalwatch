@@ -16,7 +16,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         database: cfg.get('database.database'),
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize: false, // Disabled - using Prisma for schema management
+        synchronize: cfg.get('app.env') !== 'production', // Auto-sync in dev; use migrations in prod
         migrationsRun: cfg.get('app.env') === 'production',
         logging: cfg.get('database.logging'),
       }),

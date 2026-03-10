@@ -1129,6 +1129,13 @@ export interface TenoviOrder {
   created?: string;
   modified?: string;
   contents?: Array<{ name: string; quantity: number; sku?: string }>;
+  // Local order fields (used when Tenovi API is not configured)
+  status?: string;
+  totalDevices?: number;
+  trackingNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdById?: string;
 }
 
 export interface TenoviFulfillmentResponse {

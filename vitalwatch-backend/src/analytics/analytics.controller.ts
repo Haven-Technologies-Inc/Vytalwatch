@@ -17,22 +17,41 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('dashboard')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getDashboard(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('range') range?: string,
     @CurrentUser() user?: CurrentUserPayload,
   ) {
+    const dates = this.resolveRange(range, startDate, endDate);
     return this.analyticsService.getDashboardAnalytics({
-      startDate,
-      endDate,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      organizationId: user?.organizationId,
+      role: user?.role as any,
+    });
+  }
+
+  @Get('overview')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async getOverview(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('range') range?: string,
+    @CurrentUser() user?: CurrentUserPayload,
+  ) {
+    const dates = this.resolveRange(range, startDate, endDate);
+    return this.analyticsService.getDashboardAnalytics({
+      startDate: dates.startDate,
+      endDate: dates.endDate,
       organizationId: user?.organizationId,
       role: user?.role as any,
     });
   }
 
   @Get('population-health')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getPopulationHealth(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -46,7 +65,7 @@ export class AnalyticsController {
   }
 
   @Get('adherence')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getAdherenceAnalytics(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -60,7 +79,7 @@ export class AnalyticsController {
   }
 
   @Get('outcomes')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getOutcomes(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -74,22 +93,24 @@ export class AnalyticsController {
   }
 
   @Get('revenue')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getRevenue(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('range') range?: string,
   ) {
-    return this.analyticsService.getRevenueAnalytics({ startDate, endDate });
+    const dates = this.resolveRange(range, startDate, endDate);
+    return this.analyticsService.getRevenueAnalytics({ startDate: dates.startDate, endDate: dates.endDate });
   }
 
   @Get('system')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getSystemAnalytics() {
     return this.analyticsService.getSystemAnalytics();
   }
 
   @Get('export')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async exportAnalytics(
     @Query('type') type: string,
     @Query('format') format: string = 'csv',
@@ -104,5 +125,20 @@ export class AnalyticsController {
       endDate,
       organizationId: user?.organizationId,
     });
+  }
+
+  private resolveRange(range?: string, startDate?: string, endDate?: string): { startDate?: string; endDate?: string } {
+    if (startDate || endDate) return { startDate, endDate };
+    if (!range) return {};
+    const match = range.match(/^(\d+)([dhm])$/);
+    if (!match) return {};
+    const amount = parseInt(match[1], 10);
+    const unit = match[2];
+    const now = new Date();
+    const start = new Date(now);
+    if (unit === 'd') start.setDate(start.getDate() - amount);
+    else if (unit === 'h') start.setHours(start.getHours() - amount);
+    else if (unit === 'm') start.setMonth(start.getMonth() - amount);
+    return { startDate: start.toISOString(), endDate: now.toISOString() };
   }
 }

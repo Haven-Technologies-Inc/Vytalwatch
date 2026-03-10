@@ -1,4 +1,5 @@
 // Re-export and wrap useToast from Toast component
+import { useCallback } from 'react';
 import { useToast as useToastOriginal } from '@/components/ui/Toast';
 
 interface ToastOptions {
@@ -11,11 +12,13 @@ interface ToastOptions {
 export function useToast() {
   const context = useToastOriginal();
   
-  const toast = (options: ToastOptions) => {
+  const { addToast } = context;
+  
+  const toast = useCallback((options: ToastOptions) => {
     const type = options.type || 'info';
     const message = options.description || options.message;
-    context.addToast({ type, title: options.title, message });
-  };
+    addToast({ type, title: options.title, message });
+  }, [addToast]);
 
   return { ...context, toast };
 }

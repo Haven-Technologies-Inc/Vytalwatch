@@ -29,7 +29,7 @@ export class AuditBundleService {
       const chunks: Buffer[] = [];
       const doc = new PDFDocument({ margin: 50 });
       doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('end', () => resolve(Buffer.concat(chunks as unknown as Uint8Array[])));
 
       // Header
       doc.fontSize(20).font('Helvetica-Bold').text('RPM AUDIT BUNDLE', { align: 'center' });

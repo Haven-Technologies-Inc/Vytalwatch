@@ -4,6 +4,7 @@ import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
 import { User } from '../users/entities/user.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
+import { PatientProfile } from './entities/patient-profile.entity';
 import { VitalsModule } from '../vitals/vitals.module';
 import { AlertsModule } from '../alerts/alerts.module';
 import { DevicesModule } from '../devices/devices.module';
@@ -13,7 +14,7 @@ import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Appointment]),
+    TypeOrmModule.forFeature([User, Appointment, PatientProfile]),
     VitalsModule,
     AlertsModule,
     DevicesModule,

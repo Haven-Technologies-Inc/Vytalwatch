@@ -3,6 +3,16 @@ import { persist } from "zustand/middleware";
 import type { User, UserRole } from "@/types";
 import { config } from "@/config";
 
+// Sync auth state to cookies so Next.js middleware can enforce server-side auth
+function setAuthCookie(token: string | null): void {
+  if (typeof document === 'undefined') return;
+  if (token) {
+    document.cookie = `vw_access_token=${token}; path=/; max-age=86400; SameSite=Lax; Secure`;
+  } else {
+    document.cookie = 'vw_access_token=; path=/; max-age=0; SameSite=Lax; Secure';
+  }
+}
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -35,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setTokens: (accessToken, refreshToken) => {
+        setAuthCookie(accessToken);
         set({ accessToken, refreshToken });
       },
 
@@ -54,11 +65,13 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(data.message || "Invalid email or password");
           }
 
+          const newAccessToken = data.data?.accessToken || data.accessToken;
+          setAuthCookie(newAccessToken);
           set({
             user: data.data?.user || data.user,
             isAuthenticated: true,
             isLoading: false,
-            accessToken: data.data?.accessToken || data.accessToken,
+            accessToken: newAccessToken,
             refreshToken: data.data?.refreshToken || data.refreshToken,
           });
         } catch (error) {
@@ -99,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
+        setAuthCookie(null);
         set({
           user: null,
           isAuthenticated: false,
@@ -127,8 +141,10 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("Token refresh failed");
           }
 
+          const refreshedToken = data.data?.accessToken || data.accessToken;
+          setAuthCookie(refreshedToken);
           set({
-            accessToken: data.data?.accessToken || data.accessToken,
+            accessToken: refreshedToken,
             refreshToken: data.data?.refreshToken || data.refreshToken || refreshToken,
           });
         } catch {

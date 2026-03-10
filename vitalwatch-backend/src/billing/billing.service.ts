@@ -276,9 +276,9 @@ export class BillingService {
       const auditEntry = auditRepo.create({
         action: 'BILLING_RECORD_CREATED',
         userId: dto.providerId,
-        resourceType: 'billing_record',
+        resource: 'billing_record',
         resourceId: savedRecord.id,
-        details: {
+        metadata: {
           patientId: dto.patientId,
           cptCode: dto.cptCode,
           amount,

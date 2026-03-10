@@ -1,17 +1,32 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import { ApiKey } from './entities/api-key.entity';
 import { User, UserStatus } from '../users/entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { REDIS_CLIENT } from '../common/redis';
+
+const SETTINGS_KEY = 'vytalwatch:system_settings';
+const MAINTENANCE_KEY = 'vytalwatch:maintenance_mode';
+
+const DEFAULT_SETTINGS: Record<string, any> = {
+  maxPatientsPerProvider: 100,
+  defaultAlertThreshold: 'medium',
+  sessionTimeout: 3600,
+  enableTwoFactor: true,
+  retentionDays: 365,
+};
 
 @Injectable()
 export class AdminService {
-  private systemSettings: Map<string, any> = new Map();
-  private maintenanceMode = { enabled: false, message: '', startedAt: null };
+  private readonly logger = new Logger(AdminService.name);
+  private redisAvailable = false;
+  private fallbackSettings: Record<string, any> = { ...DEFAULT_SETTINGS };
+  private fallbackMaintenance = { enabled: false, message: '', startedAt: null as string | null };
 
   constructor(
     @InjectRepository(ApiKey)
@@ -19,24 +34,38 @@ export class AdminService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly auditService: AuditService,
+    private readonly dataSource: DataSource,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
-    this.initializeDefaultSettings();
+    this.initializeSettings();
   }
 
-  private initializeDefaultSettings() {
-    this.systemSettings.set('maxPatientsPerProvider', 100);
-    this.systemSettings.set('defaultAlertThreshold', 'medium');
-    this.systemSettings.set('sessionTimeout', 3600);
-    this.systemSettings.set('enableTwoFactor', true);
-    this.systemSettings.set('retentionDays', 365);
+  private async initializeSettings() {
+    try {
+      await this.redis.ping();
+      this.redisAvailable = true;
+      const existing = await this.redis.get(SETTINGS_KEY);
+      if (!existing) {
+        await this.redis.set(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
+      }
+      this.logger.log('Admin settings backed by Redis');
+    } catch {
+      this.redisAvailable = false;
+      this.logger.warn('Redis unavailable — admin settings using in-memory fallback');
+    }
   }
 
   // API Keys
   async getApiKeys(user: CurrentUserPayload) {
-    return this.apiKeyRepository.find({
-      where: { organizationId: user.organizationId },
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      return await this.apiKeyRepository.find({
+        where: { organizationId: user.organizationId },
+        order: { createdAt: 'DESC' },
+      });
+    } catch (error) {
+      // Return empty array if table doesn't exist or other DB error
+      return [];
+    }
   }
 
   async getApiKey(id: string, user: CurrentUserPayload) {
@@ -149,20 +178,31 @@ export class AdminService {
     };
   }
 
-  // System Settings
-  async getSystemSettings() {
-    return Object.fromEntries(this.systemSettings);
+  // System Settings (Redis-backed with in-memory fallback)
+  async getSystemSettings(): Promise<Record<string, any>> {
+    if (this.redisAvailable) {
+      try {
+        const data = await this.redis.get(SETTINGS_KEY);
+        return data ? JSON.parse(data) : { ...DEFAULT_SETTINGS };
+      } catch {
+        return this.fallbackSettings;
+      }
+    }
+    return this.fallbackSettings;
   }
 
   async getSystemSetting(key: string) {
-    if (!this.systemSettings.has(key)) {
+    const settings = await this.getSystemSettings();
+    if (!(key in settings)) {
       throw new NotFoundException('Setting not found');
     }
-    return { key, value: this.systemSettings.get(key) };
+    return { key, value: settings[key] };
   }
 
   async updateSystemSetting(dto: { key: string; value: any }, user: CurrentUserPayload) {
-    this.systemSettings.set(dto.key, dto.value);
+    const settings = await this.getSystemSettings();
+    settings[dto.key] = dto.value;
+    await this.persistSettings(settings);
 
     await this.auditService.log({
       action: 'SYSTEM_SETTING_UPDATED',
@@ -174,9 +214,9 @@ export class AdminService {
   }
 
   async updateSystemSettingsBulk(settings: Record<string, any>, user: CurrentUserPayload) {
-    for (const [key, value] of Object.entries(settings)) {
-      this.systemSettings.set(key, value);
-    }
+    const current = await this.getSystemSettings();
+    Object.assign(current, settings);
+    await this.persistSettings(current);
 
     await this.auditService.log({
       action: 'SYSTEM_SETTINGS_BULK_UPDATE',
@@ -187,74 +227,110 @@ export class AdminService {
     return this.getSystemSettings();
   }
 
-  // Usage Statistics
+  private async persistSettings(settings: Record<string, any>): Promise<void> {
+    this.fallbackSettings = { ...settings };
+    if (this.redisAvailable) {
+      try {
+        await this.redis.set(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (err) {
+        this.logger.warn('Failed to persist settings to Redis');
+      }
+    }
+  }
+
+  // Usage Statistics — real DB queries
   async getUsageStats(options: any) {
-    return {
-      apiRequests: { total: 125000, successful: 124500, failed: 500 },
-      activeUsers: { daily: 450, weekly: 890, monthly: 1200 },
-      dataProcessed: { vitals: 50000, alerts: 1200, reports: 350 },
-    };
+    try {
+      const totalUsers = await this.userRepository.count();
+      const activeUsers = await this.userRepository.count({ where: { status: UserStatus.ACTIVE } });
+      return {
+        apiRequests: { total: 0, successful: 0, failed: 0 },
+        activeUsers: { total: totalUsers, active: activeUsers, daily: 0, weekly: 0, monthly: activeUsers },
+        dataProcessed: { vitals: 0, alerts: 0, reports: 0 },
+      };
+    } catch {
+      return {
+        apiRequests: { total: 0, successful: 0, failed: 0 },
+        activeUsers: { total: 0, active: 0, daily: 0, weekly: 0, monthly: 0 },
+        dataProcessed: { vitals: 0, alerts: 0, reports: 0 },
+      };
+    }
   }
 
   async getApiUsage(options: any) {
     return {
-      totalRequests: 125000,
-      byEndpoint: [
-        { endpoint: '/vitals', count: 45000 },
-        { endpoint: '/alerts', count: 25000 },
-        { endpoint: '/patients', count: 20000 },
-        { endpoint: '/auth', count: 15000 },
-        { endpoint: '/devices', count: 10000 },
-        { endpoint: '/other', count: 10000 },
-      ],
+      totalRequests: 0,
+      byEndpoint: [],
       byDay: Array.from({ length: 7 }, (_, i) => ({
         date: new Date(Date.now() - i * 86400000).toISOString().split('T')[0],
-        count: Math.floor(15000 + Math.random() * 5000),
+        count: 0,
       })),
+      note: 'Enable EnterpriseLoggingModule for full API usage tracking',
     };
   }
 
   async getStorageUsage() {
-    return {
-      total: '500 GB',
-      used: '125 GB',
-      available: '375 GB',
-      percentage: 25,
-      byType: {
-        vitals: '80 GB',
-        reports: '25 GB',
-        attachments: '15 GB',
-        logs: '5 GB',
-      },
-    };
+    try {
+      const result = await this.dataSource.query(
+        `SELECT pg_database_size(current_database()) as db_size`,
+      );
+      const dbSizeBytes = parseInt(result?.[0]?.db_size || '0', 10);
+      const dbSizeMB = Math.round(dbSizeBytes / (1024 * 1024));
+      return {
+        database: `${dbSizeMB} MB`,
+        dbSizeBytes,
+      };
+    } catch {
+      return { database: 'unavailable', dbSizeBytes: 0 };
+    }
   }
 
-  // System Health
+  // System Health — real metrics
   async getSystemHealth() {
+    const mem = process.memoryUsage();
     return {
       status: 'healthy',
       uptime: process.uptime(),
-      memory: process.memoryUsage(),
+      memory: {
+        rss: `${Math.round(mem.rss / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)} MB`,
+        external: `${Math.round(mem.external / 1024 / 1024)} MB`,
+      },
+      nodeVersion: process.version,
+      platform: process.platform,
+      pid: process.pid,
       timestamp: new Date().toISOString(),
     };
   }
 
   async getDatabaseHealth() {
-    return {
-      status: 'healthy',
-      connections: { active: 15, idle: 5, max: 100 },
-      latency: 12,
-    };
+    try {
+      const start = Date.now();
+      await this.dataSource.query('SELECT 1');
+      const latency = Date.now() - start;
+      return { status: 'healthy', latency };
+    } catch (err) {
+      return { status: 'unhealthy', latency: -1, error: err.message };
+    }
   }
 
   async getServicesHealth() {
+    const dbHealth = await this.getDatabaseHealth();
+
+    let redisHealth: { status: string; latency: number };
+    try {
+      const start = Date.now();
+      await this.redis.ping();
+      redisHealth = { status: 'healthy', latency: Date.now() - start };
+    } catch {
+      redisHealth = { status: 'unhealthy', latency: -1 };
+    }
+
     return {
-      api: { status: 'healthy', latency: 45 },
-      database: { status: 'healthy', latency: 12 },
-      redis: { status: 'healthy', latency: 2 },
-      stripe: { status: 'healthy', latency: 150 },
-      twilio: { status: 'healthy', latency: 180 },
-      openai: { status: 'healthy', latency: 350 },
+      api: { status: 'healthy', latency: 0 },
+      database: dbHealth,
+      redis: redisHealth,
     };
   }
 
@@ -292,7 +368,7 @@ export class AdminService {
   }
 
   async rejectUser(id: string, reason: string, user: CurrentUserPayload) {
-    await this.userRepository.update(id, { status: UserStatus.REJECTED as any });
+    await this.userRepository.update(id, { status: UserStatus.INACTIVE });
 
     await this.auditService.log({
       action: 'USER_REJECTED',
@@ -327,13 +403,14 @@ export class AdminService {
     return { success: true };
   }
 
-  // Maintenance Mode
+  // Maintenance Mode (Redis-backed)
   async enableMaintenanceMode(dto: any, user: CurrentUserPayload) {
-    this.maintenanceMode = {
+    const state = {
       enabled: true,
       message: dto.message || 'System maintenance in progress',
-      startedAt: new Date() as any,
+      startedAt: new Date().toISOString(),
     };
+    await this.persistMaintenance(state);
 
     await this.auditService.log({
       action: 'MAINTENANCE_MODE_ENABLED',
@@ -341,42 +418,89 @@ export class AdminService {
       details: dto,
     });
 
-    return this.maintenanceMode;
+    return state;
   }
 
   async disableMaintenanceMode(user: CurrentUserPayload) {
-    this.maintenanceMode = { enabled: false, message: '', startedAt: null };
+    const state = { enabled: false, message: '', startedAt: null as string | null };
+    await this.persistMaintenance(state);
 
     await this.auditService.log({
       action: 'MAINTENANCE_MODE_DISABLED',
       userId: user.sub,
     });
 
-    return this.maintenanceMode;
+    return state;
   }
 
   async getMaintenanceStatus() {
-    return this.maintenanceMode;
+    if (this.redisAvailable) {
+      try {
+        const data = await this.redis.get(MAINTENANCE_KEY);
+        return data ? JSON.parse(data) : this.fallbackMaintenance;
+      } catch { /* fall through */ }
+    }
+    return this.fallbackMaintenance;
   }
 
-  // Cache Management
+  private async persistMaintenance(state: { enabled: boolean; message: string; startedAt: string | null }): Promise<void> {
+    this.fallbackMaintenance = { ...state };
+    if (this.redisAvailable) {
+      try {
+        await this.redis.set(MAINTENANCE_KEY, JSON.stringify(state));
+      } catch {
+        this.logger.warn('Failed to persist maintenance mode to Redis');
+      }
+    }
+  }
+
+  // Cache Management — real Redis operations
   async clearCache(pattern: string, user: CurrentUserPayload) {
+    let keysCleared = 0;
+    if (this.redisAvailable) {
+      try {
+        const effectivePattern = pattern || '*';
+        if (effectivePattern === '*') {
+          await this.redis.flushdb();
+          keysCleared = -1; // indicates full flush
+        } else {
+          const keys = await this.redis.keys(effectivePattern);
+          if (keys.length > 0) {
+            await this.redis.del(...keys);
+          }
+          keysCleared = keys.length;
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to clear cache: ${err.message}`);
+      }
+    }
+
     await this.auditService.log({
       action: 'CACHE_CLEARED',
       userId: user.sub,
-      details: { pattern },
+      details: { pattern, keysCleared },
     });
 
-    return { success: true, pattern: pattern || '*', clearedAt: new Date().toISOString() };
+    return { success: true, pattern: pattern || '*', keysCleared, clearedAt: new Date().toISOString() };
   }
 
   async getCacheStats() {
-    return {
-      hits: 45000,
-      misses: 5000,
-      hitRate: 90,
-      size: '256 MB',
-      keys: 12500,
-    };
+    if (this.redisAvailable) {
+      try {
+        const info = await this.redis.info('stats');
+        const memInfo = await this.redis.info('memory');
+        const keyCount = await this.redis.dbsize();
+
+        const hits = parseInt(info.match(/keyspace_hits:(\d+)/)?.[1] || '0', 10);
+        const misses = parseInt(info.match(/keyspace_misses:(\d+)/)?.[1] || '0', 10);
+        const usedMemory = memInfo.match(/used_memory_human:([^\r\n]+)/)?.[1] || 'unknown';
+        const hitRate = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) : 0;
+
+        return { hits, misses, hitRate, size: usedMemory, keys: keyCount };
+      } catch {
+        return { hits: 0, misses: 0, hitRate: 0, size: 'unavailable', keys: 0 };
+      }
+    }
+    return { hits: 0, misses: 0, hitRate: 0, size: 'redis_unavailable', keys: 0 };
   }
 }

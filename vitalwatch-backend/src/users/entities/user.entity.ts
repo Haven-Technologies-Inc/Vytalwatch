@@ -4,24 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import {
-  EncryptedColumnTransformer,
-  EncryptedDateTransformer,
-} from '../../common/crypto/encrypted-column.transformer';
 
 export enum UserRole {
   PATIENT = 'patient',
   PROVIDER = 'provider',
-  NURSE = 'nurse',
-  CLINICAL_STAFF = 'clinical_staff',
-  BILLING_STAFF = 'billing_staff',
   ADMIN = 'admin',
   SUPERADMIN = 'superadmin',
-  COMPLIANCE_AUDITOR = 'compliance_auditor',
 }
 
 export enum UserStatus {
@@ -29,16 +18,6 @@ export enum UserStatus {
   INACTIVE = 'inactive',
   SUSPENDED = 'suspended',
   PENDING = 'pending',
-  REJECTED = 'rejected',
-}
-
-export enum OnboardingStep {
-  REGISTERED = 'registered',
-  EMAIL_VERIFIED = 'email_verified',
-  PROFILE_COMPLETED = 'profile_completed',
-  DEVICE_ASSIGNED = 'device_assigned',
-  FIRST_READING = 'first_reading',
-  COMPLETED = 'completed',
 }
 
 @Entity('users')
@@ -58,7 +37,7 @@ export class User {
   @Column()
   lastName: string;
 
-  @Column({ nullable: true, transformer: EncryptedColumnTransformer })
+  @Column({ nullable: true })
   phone: string;
 
   @Column({ nullable: true })
@@ -87,43 +66,11 @@ export class User {
   @Column({ default: false })
   mfaEnabled: boolean;
 
-  @Column({ nullable: true, transformer: EncryptedColumnTransformer })
+  @Column({ nullable: true })
   mfaSecret: string;
 
   @Column({ nullable: true })
   organizationId: string;
-
-  // Provider-specific fields
-  @Column({ nullable: true })
-  npi: string;
-
-  @Column({ nullable: true })
-  specialty: string;
-
-  @Column('simple-array', { nullable: true })
-  credentials: string[];
-
-  @Column('simple-array', { nullable: true })
-  licenseStates: string[];
-
-  @Column({ nullable: true })
-  licenseType: string;
-
-  @Column({ nullable: true })
-  licenseNumber: string;
-
-  @Column({ nullable: true })
-  credentialingStatus: string;
-
-  // Patient-specific fields (PHI - encrypted)
-  @Column({ type: 'varchar', nullable: true, transformer: EncryptedDateTransformer })
-  dateOfBirth: Date;
-
-  @Column('simple-array', { nullable: true })
-  conditions: string[];
-
-  @Column({ nullable: true })
-  providerId: string;
 
   // OAuth
   @Column({ nullable: true })
@@ -145,10 +92,6 @@ export class User {
   @Column({ nullable: true })
   passwordChangedAt: Date;
 
-  // Refresh token rotation version
-  @Column({ default: 0 })
-  refreshTokenVersion: number;
-
   // Token fields
   @Column({ nullable: true })
   verificationToken: string;
@@ -159,25 +102,8 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   resetTokenExpiresAt: Date;
 
-  // Patient assignment (for providers)
-  @Column({ nullable: true })
-  assignedProviderId: string;
-
-  // Onboarding tracking (for patients)
-  @Column({
-    type: 'enum',
-    enum: OnboardingStep,
-    nullable: true,
-  })
-  onboardingStep: OnboardingStep;
-
-  @Column({ type: 'simple-json', nullable: true })
-  notificationPreferences: {
-    email: boolean;
-    sms: boolean;
-    push: boolean;
-    alertTypes: string[];
-  };
+  @Column({ type: 'jsonb', nullable: true })
+  notificationPreferences: Record<string, unknown>;
 
   @CreateDateColumn()
   createdAt: Date;

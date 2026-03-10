@@ -36,6 +36,39 @@ export class ClaimsService {
     return this.findOne(id);
   }
 
+  async submit(id: string): Promise<Claim> {
+    const claim = await this.findOne(id);
+    await this.repo.update(id, { status: ClaimStatus.SUBMITTED, submittedAt: new Date() } as any);
+    return this.findOne(id);
+  }
+
+  async getBillingSummary(clinicId: string, periodStart: Date, periodEnd: Date): Promise<any[]> {
+    const claims = await this.repo
+      .createQueryBuilder('c')
+      .where('c.createdAt >= :periodStart AND c.createdAt <= :periodEnd', { periodStart, periodEnd })
+      .getMany();
+
+    // Group by patient for billing summary
+    const summaryMap = new Map<string, any>();
+    for (const claim of claims) {
+      const existing = summaryMap.get(claim.patientId) || {
+        patientId: claim.patientId,
+        enrollmentId: claim.enrollmentId,
+        programType: claim.programType,
+        periodStart,
+        periodEnd,
+        totalClaims: 0,
+        readyClaims: 0,
+        submittedClaims: 0,
+      };
+      existing.totalClaims++;
+      if (claim.status === ClaimStatus.READY) existing.readyClaims++;
+      if (claim.status === ClaimStatus.SUBMITTED) existing.submittedClaims++;
+      summaryMap.set(claim.patientId, existing);
+    }
+    return Array.from(summaryMap.values());
+  }
+
   async findByPatient(patientId: string): Promise<Claim[]> {
     return this.repo.find({ where: { patientId }, order: { createdAt: 'DESC' } });
   }

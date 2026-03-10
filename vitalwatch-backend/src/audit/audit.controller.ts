@@ -13,7 +13,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditAction } from './entities/audit-log.entity';
 
-@Controller('audit')
+@Controller({ path: ['audit', 'audit-logs'] })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -23,9 +23,8 @@ export class AuditController {
   async findAll(
     @Query('userId') userId?: string,
     @Query('action') action?: AuditAction,
-    @Query('resourceType') resourceType?: string,
+    @Query('resource') resource?: string,
     @Query('resourceId') resourceId?: string,
-    @Query('organizationId') organizationId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('page') page?: number,
@@ -34,9 +33,8 @@ export class AuditController {
     const options: AuditQueryOptions = {
       userId,
       action,
-      resourceType,
+      resource,
       resourceId,
-      organizationId,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       page,
@@ -56,15 +54,15 @@ export class AuditController {
     return this.auditService.findByUser(userId, { page, limit });
   }
 
-  @Get('resource/:resourceType/:resourceId')
+  @Get('resource/:resource/:resourceId')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async findByResource(
-    @Param('resourceType') resourceType: string,
+    @Param('resource') resource: string,
     @Param('resourceId') resourceId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.auditService.findByResource(resourceType, resourceId, { page, limit });
+    return this.auditService.findByResource(resource, resourceId, { page, limit });
   }
 
   @Get('recent/:organizationId')
@@ -85,15 +83,13 @@ export class AuditController {
     return this.auditService.getLoginHistory(userId, limit);
   }
 
-  @Get('security/:organizationId')
+  @Get('security')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getSecurityEvents(
-    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
   ) {
     return this.auditService.getSecurityEvents(
-      organizationId,
       new Date(startDate),
       new Date(endDate),
     );

@@ -1,12 +1,14 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   CreateDateColumn,
   Index,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from '../../users/entities/user.entity';
 
 export enum AuditAction {
@@ -64,10 +66,17 @@ export enum AuditAction {
 @Entity('audit_logs')
 @Index(['userId', 'createdAt'])
 @Index(['action', 'createdAt'])
-@Index(['resourceType', 'resourceId'])
+@Index(['resource', 'resourceId'])
 export class AuditLog {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'varchar', length: 100 })
   @Index()
@@ -82,13 +91,19 @@ export class AuditLog {
   user: User;
 
   @Column({ nullable: true })
-  resourceType: string;
+  resource: string;
 
   @Column({ nullable: true })
   resourceId: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  details: Record<string, any>;
+  metadata: Record<string, any>;
+
+  @Column({ type: 'jsonb', nullable: true })
+  oldData: Record<string, any>;
+
+  @Column({ type: 'jsonb', nullable: true })
+  newData: Record<string, any>;
 
   @Column({ nullable: true })
   ipAddress: string;
@@ -97,22 +112,7 @@ export class AuditLog {
   userAgent: string;
 
   @Column({ nullable: true })
-  organizationId: string;
-
-  @Column({ nullable: true })
-  actorType: string;
-
-  @Column({ nullable: true })
-  beforeHash: string;
-
-  @Column({ nullable: true })
-  afterHash: string;
-
-  @Column({ nullable: true })
-  prevAuditHash: string;
-
-  @Column({ nullable: true })
-  auditHash: string;
+  actionById: string;
 
   @CreateDateColumn()
   @Index()

@@ -23,6 +23,10 @@ const STATUS_OPTIONS = [
   { value: 'DE', label: 'Delivered' },
   { value: 'OH', label: 'On Hold' },
   { value: 'CA', label: 'Cancelled' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'shipped', label: 'Shipped (Local)' },
+  { value: 'delivered', label: 'Delivered (Local)' },
 ];
 
 export default function SuperAdminOrdersPage() {
@@ -40,8 +44,11 @@ export default function SuperAdminOrdersPage() {
       .finally(() => setLoading(false));
   }, [toast]);
 
+  const getStatus = (o: TenoviOrder) => o.shippingStatus || o.status || '';
+  const getDate = (o: TenoviOrder) => o.created || o.createdAt || '';
+
   const filteredOrders = orders.filter(o => {
-    if (statusFilter !== 'all' && o.shippingStatus !== statusFilter) return false;
+    if (statusFilter !== 'all' && getStatus(o) !== statusFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (o.shippingName?.toLowerCase().includes(q) || o.orderNumber?.toLowerCase().includes(q) || o.shippingCity?.toLowerCase().includes(q));
@@ -50,7 +57,8 @@ export default function SuperAdminOrdersPage() {
   });
 
   const statusCounts = orders.reduce((acc, o) => {
-    acc[o.shippingStatus || 'unknown'] = (acc[o.shippingStatus || 'unknown'] || 0) + 1;
+    const s = getStatus(o) || 'unknown';
+    acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -122,9 +130,9 @@ export default function SuperAdminOrdersPage() {
                     <td className="px-4 py-3 font-mono">{o.orderNumber || o.id?.slice(0, 8)}</td>
                     <td className="px-4 py-3 font-medium">{o.shippingName || '-'}</td>
                     <td className="px-4 py-3 text-gray-500">{o.shippingCity}, {o.shippingState}</td>
-                    <td className="px-4 py-3"><OrderStatusBadge status={o.shippingStatus} size="sm" /></td>
-                    <td className="px-4 py-3">{o.contents?.length || 0}</td>
-                    <td className="px-4 py-3 text-gray-500">{o.created ? new Date(o.created).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3"><OrderStatusBadge status={o.shippingStatus || o.status} size="sm" /></td>
+                    <td className="px-4 py-3">{o.totalDevices || o.contents?.length || 0}</td>
+                    <td className="px-4 py-3 text-gray-500">{getDate(o) ? new Date(getDate(o)).toLocaleDateString() : '-'}</td>
                   </tr>
                 ))}
               </tbody>

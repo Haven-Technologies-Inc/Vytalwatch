@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
@@ -23,6 +24,15 @@ import { DeviceStatus } from './entities/device.entity';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DevicesController {
   constructor(private readonly devicesService: DevicesService) {}
+
+  @Get()
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async findAll(
+    @Query('status') status?: DeviceStatus,
+    @Query('type') type?: string,
+  ) {
+    return this.devicesService.findAllDevices({ status, type });
+  }
 
   @Post()
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -60,6 +70,35 @@ export class DevicesController {
     @Body('status') status: DeviceStatus,
   ) {
     return this.devicesService.updateStatus(id, status);
+  }
+
+  @Post(':id/assign')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async assign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('patientId') patientId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.devicesService.assignToPatient(id, patientId, user.sub);
+  }
+
+  @Post(':id/unassign')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async unassign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.devicesService.unassignFromPatient(id, user.sub);
+  }
+
+  @Get(':id/readings')
+  @Roles(UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getReadings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.devicesService.getDeviceReadings(id, { startDate, endDate });
   }
 
   @Delete(':id')

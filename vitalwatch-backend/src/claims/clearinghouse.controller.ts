@@ -12,13 +12,13 @@ export class ClearinghouseController {
   constructor(private readonly ch: ClearinghouseService, private readonly edi: Claim837PExportService) {}
 
   @Get('status')
-  @Roles(UserRole.PROVIDER, UserRole.ADMIN)
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   getStatus() {
     return { data: { configured: this.ch.isConfigured() } };
   }
 
   @Post('submit')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async submitClaims(@Body() body: { claims: any[]; submitter: any; receiver: any }) {
     const file = this.edi.generateEDI837P(body.claims, body.submitter, body.receiver);
     const result = await this.ch.submitClaim(file.content, file.claimIds);
@@ -26,14 +26,14 @@ export class ClearinghouseController {
   }
 
   @Get('check/:transactionId')
-  @Roles(UserRole.PROVIDER, UserRole.ADMIN)
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async checkStatus(@Param('transactionId') transactionId: string) {
     const statuses = await this.ch.checkClaimStatus(transactionId);
     return { data: statuses };
   }
 
   @Get('remittance')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getRemittance(@Query('fromDate') fromDate: string, @Query('toDate') toDate: string) {
     const remittances = await this.ch.getRemittance(fromDate, toDate);
     return { data: remittances };

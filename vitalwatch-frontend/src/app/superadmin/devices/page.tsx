@@ -21,6 +21,10 @@ const STATUS_OPTIONS = [
   { value: 'SH', label: 'Shipped' },
   { value: 'DE', label: 'Delivered' },
   { value: 'OH', label: 'On Hold' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'shipped', label: 'Shipped (Local)' },
+  { value: 'delivered', label: 'Delivered (Local)' },
 ];
 
 export default function SuperAdminDevicesPage() {
@@ -68,14 +72,16 @@ export default function SuperAdminDevicesPage() {
     setSyncing(false);
   };
 
+  const getOrderStatus = (o: TenoviOrder) => o.shippingStatus || o.status || '';
+  const getOrderDate = (o: TenoviOrder) => o.created || o.createdAt || '';
+
   const filteredOrders = orders.filter(o => {
-    if (statusFilter !== 'all' && o.shippingStatus !== statusFilter) return false;
+    if (statusFilter !== 'all' && getOrderStatus(o) !== statusFilter) return false;
     return true;
   });
-
-  const pendingOrders = orders.filter(o => ['PE', 'RQ', 'CR'].includes(o.shippingStatus || '')).length;
-  const shippedOrders = orders.filter(o => o.shippingStatus === 'SH').length;
-  const deliveredOrders = orders.filter(o => o.shippingStatus === 'DE').length;
+  const pendingOrders = orders.filter(o => ['PE', 'RQ', 'CR', 'submitted', 'processing'].includes(getOrderStatus(o))).length;
+  const shippedOrders = orders.filter(o => ['SH', 'shipped'].includes(getOrderStatus(o))).length;
+  const deliveredOrders = orders.filter(o => ['DE', 'delivered'].includes(getOrderStatus(o))).length;
 
   const buildTimeline = (order: TenoviOrder) => {
     const status = order.shippingStatus || '';
@@ -163,9 +169,9 @@ export default function SuperAdminDevicesPage() {
                   <td className="px-4 py-3 font-mono">{order.orderNumber || order.id?.slice(0, 8)}</td>
                   <td className="px-4 py-3">{order.shippingName || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{order.shippingCity}, {order.shippingState}</td>
-                  <td className="px-4 py-3"><OrderStatusBadge status={order.shippingStatus} size="sm" /></td>
-                  <td className="px-4 py-3">{order.contents?.length || 0} type(s)</td>
-                  <td className="px-4 py-3 text-gray-500">{order.created ? new Date(order.created).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-3"><OrderStatusBadge status={order.shippingStatus || order.status} size="sm" /></td>
+                  <td className="px-4 py-3">{order.totalDevices || order.contents?.length || 0} device(s)</td>
+                  <td className="px-4 py-3 text-gray-500">{getOrderDate(order) ? new Date(getOrderDate(order)).toLocaleDateString() : '-'}</td>
                   <td className="px-4 py-3">
                     <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(order); setShowOrderModal(true); }}>
                       <Eye className="h-4 w-4" />
@@ -188,10 +194,10 @@ export default function SuperAdminDevicesPage() {
             <div className="space-y-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-mono text-sm text-gray-500">Order #{selectedOrder.orderNumber || selectedOrder.id?.slice(0, 8)}</p>
+                  <p className="font-mono text-sm text-gray-500">Order #{selectedOrder.orderNumber || selectedOrder.id?.slice(0, 8).toUpperCase()}</p>
                   <p className="text-xl font-semibold">{selectedOrder.shippingName}</p>
                 </div>
-                <OrderStatusBadge status={selectedOrder.shippingStatus} size="lg" />
+                <OrderStatusBadge status={selectedOrder.shippingStatus || selectedOrder.status} size="lg" />
               </div>
               
               <div className="grid gap-4 sm:grid-cols-2">
@@ -202,7 +208,7 @@ export default function SuperAdminDevicesPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-500">Order Date</p>
-                  <p>{selectedOrder.created ? new Date(selectedOrder.created).toLocaleString() : '-'}</p>
+                  <p>{(selectedOrder.created || selectedOrder.createdAt) ? new Date(selectedOrder.created || selectedOrder.createdAt || '').toLocaleString() : '-'}</p>
                 </div>
               </div>
 

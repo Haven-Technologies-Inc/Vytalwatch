@@ -17,11 +17,46 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { TenoviService } from './tenovi.service';
-import { TenoviMeasurementWebhookDto, TenoviSpecialOrderWebhookDto } from './dto/tenovi.dto';
+import {
+  TenoviMeasurementWebhookDto,
+  TenoviSpecialOrderWebhookDto,
+  TenoviPatientDto,
+} from './dto/tenovi.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { PrescriptionStatus } from './entities/device-prescription.entity';
+import { TenoviDeviceStatus } from './entities/tenovi-hwi-device.entity';
+
+interface TenoviFulfillmentItem {
+  hwi_device_id?: string;
+  hardware_uuid?: string;
+  status?: string;
+  fulfillment_status?: string;
+  tracking_number?: string;
+  carrier?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  order_id?: string;
+}
+
+interface CreatePrescriptionDto {
+  patientId: string;
+  patientName?: string;
+  organizationId?: string;
+  devices: Array<{
+    catalogId: string;
+    name: string;
+    quantity: number;
+    category: string;
+    brand: string;
+  }>;
+  clinicalReason?: string;
+  icdCode?: string;
+  notes?: string;
+}
 
 @Controller('webhooks/tenovi')
 export class TenoviWebhookController {
@@ -40,8 +75,8 @@ export class TenoviWebhookController {
     @Headers('x-tenovi-signature') signature?: string,
   ) {
     // Verify webhook authentication
-    const webhookSecret = this.configService.get('tenovi.webhookSecret');
-    const webhookAuthKey = this.configService.get('tenovi.webhookAuthKey');
+    const webhookSecret = this.configService.get<string>('tenovi.webhookSecret');
+    const webhookAuthKey = this.configService.get<string>('tenovi.webhookAuthKey');
 
     // Check signature-based auth
     if (webhookSecret && signature) {
@@ -63,22 +98,20 @@ export class TenoviWebhookController {
     }
 
     const measurements = Array.isArray(payload) ? payload : [payload];
-    this.logger.log(
-      `Received Tenovi webhook with ${measurements.length} measurement(s)`,
-    );
+    this.logger.log(`Received Tenovi webhook with ${measurements.length} measurement(s)`);
 
     try {
       await this.tenoviService.processMeasurementWebhook(payload);
-      return { 
-        received: true, 
+      return {
+        received: true,
         processed: measurements.length,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       this.logger.error('Error processing Tenovi webhook', error);
       // Return 200 to prevent retries for processing errors
-      return { 
-        received: true, 
+      return {
+        received: true,
         error: 'Processing error',
         timestamp: new Date().toISOString(),
       };
@@ -88,10 +121,10 @@ export class TenoviWebhookController {
   @Post('fulfillment')
   @HttpCode(HttpStatus.OK)
   async handleFulfillmentWebhook(
-    @Body() payload: any,
+    @Body() payload: TenoviFulfillmentItem | TenoviFulfillmentItem[],
     @Headers('authorization') authHeader?: string,
   ) {
-    const webhookAuthKey = this.configService.get('tenovi.webhookAuthKey');
+    const webhookAuthKey = this.configService.get<string>('tenovi.webhookAuthKey');
 
     if (webhookAuthKey && authHeader !== webhookAuthKey) {
       throw new UnauthorizedException('Invalid authorization');
@@ -120,7 +153,7 @@ export class TenoviWebhookController {
         }
       }
 
-      return { 
+      return {
         received: true,
         type: 'fulfillment',
         processed: processed.length,
@@ -129,7 +162,7 @@ export class TenoviWebhookController {
       };
     } catch (error) {
       this.logger.error('Error processing fulfillment webhook', error);
-      return { 
+      return {
         received: true,
         error: 'Processing error',
         timestamp: new Date().toISOString(),
@@ -143,7 +176,7 @@ export class TenoviWebhookController {
     @Body() payload: TenoviSpecialOrderWebhookDto | TenoviSpecialOrderWebhookDto[],
     @Headers('authorization') authHeader?: string,
   ) {
-    const webhookAuthKey = this.configService.get('tenovi.webhookAuthKey');
+    const webhookAuthKey = this.configService.get<string>('tenovi.webhookAuthKey');
 
     if (webhookAuthKey && authHeader !== webhookAuthKey) {
       throw new UnauthorizedException('Invalid authorization');
@@ -186,6 +219,16 @@ export class TenoviController {
   constructor(private readonly tenoviService: TenoviService) {}
 
   // Gateway endpoints
+  @Get('gateways')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async listGateways(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('organizationId') organizationId?: string,
+  ) {
+    return this.tenoviService.findAllLocalGateways({ page, limit, organizationId });
+  }
+
   @Get('gateways/:uuid')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getGateway(@Param('uuid') uuid: string) {
@@ -207,10 +250,7 @@ export class TenoviController {
   // HWI Device endpoints
   @Get('devices')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
-  async listDevices(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listDevices(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listHwiDevices(page, limit);
   }
 
@@ -251,20 +291,29 @@ export class TenoviController {
     );
   }
 
-  // Device Types
+  // Device Types & Catalog
+  @Get('catalog')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  getCatalog() {
+    return this.tenoviService.getCatalog();
+  }
+
   @Get('device-types')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async listDeviceTypes() {
     return this.tenoviService.listDeviceTypes();
   }
 
+  @Get('device-types/:id')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async getDeviceType(@Param('id') id: string) {
+    return this.tenoviService.getDeviceType(id);
+  }
+
   // Orders
   @Get('orders')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async listOrders(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listOrders(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listOrders(page, limit);
   }
 
@@ -292,7 +341,8 @@ export class TenoviController {
   @Post('fulfillment/create')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async createFulfillmentOrder(
-    @Body() body: {
+    @Body()
+    body: {
       shippingName: string;
       shippingAddress: string;
       shippingCity: string;
@@ -372,10 +422,7 @@ export class TenoviController {
   // HWI Patients
   @Get('hwi-patients')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
-  async listHwiPatients(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listHwiPatients(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listHwiPatients(page, limit);
   }
 
@@ -387,7 +434,7 @@ export class TenoviController {
 
   @Post('hwi-patients')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async createHwiPatient(@Body() body: any) {
+  async createHwiPatient(@Body() body: TenoviPatientDto) {
     return this.tenoviService.createHwiPatient(body);
   }
 
@@ -395,7 +442,7 @@ export class TenoviController {
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async updateHwiPatient(
     @Param('externalId') externalId: string,
-    @Body() body: any,
+    @Body() body: Partial<TenoviPatientDto>,
   ) {
     return this.tenoviService.updateHwiPatient(externalId, body);
   }
@@ -416,10 +463,7 @@ export class TenoviController {
   // List All Gateways
   @Get('gateways')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
-  async listAllGateways(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listAllGateways(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listAllGateways(page, limit);
   }
 
@@ -468,10 +512,7 @@ export class TenoviController {
   // Bulk Orders
   @Get('bulk-orders')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async listBulkOrders(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listBulkOrders(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listBulkOrders(page, limit);
   }
 
@@ -483,25 +524,76 @@ export class TenoviController {
 
   @Post('bulk-orders')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async createBulkOrder(@Body() body: {
-    shippingName: string;
-    shippingAddress: string;
-    shippingCity: string;
-    shippingState: string;
-    shippingZipCode: string;
-    notifyEmails?: string;
-    contents: Array<{ name: string; quantity: number }>;
-  }) {
-    return this.tenoviService.createBulkOrder(body);
+  async createBulkOrder(
+    @Body()
+    body: {
+      shippingName: string;
+      shippingAddress: string;
+      shippingCity: string;
+      shippingState: string;
+      shippingZipCode: string;
+      notifyEmails?: string;
+      contents: Array<{ name: string; quantity: number; kit_id?: number }>;
+    },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.tenoviService.createBulkOrder({ ...body, createdById: user?.sub });
+  }
+
+  // Prescriptions
+  @Get('prescriptions')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async listPrescriptions(
+    @Query('providerId') pId?: string,
+    @Query('patientId') ptId?: string,
+    @Query('status') st?: string,
+    @Query('page') pg = 1,
+    @Query('limit') lm = 20,
+  ) {
+    return this.tenoviService.listPrescriptions({
+      providerId: pId,
+      patientId: ptId,
+      status: st as PrescriptionStatus | undefined,
+      page: pg,
+      limit: lm,
+    });
+  }
+
+  @Get('prescriptions/:id')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async getPrescription(@Param('id') id: string) {
+    return this.tenoviService.getPrescription(id);
+  }
+
+  @Post('prescriptions')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async createPrescription(
+    @Body() body: CreatePrescriptionDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.tenoviService.createPrescription({
+      ...body,
+      providerId: user?.sub,
+      providerName: user?.email,
+    });
+  }
+
+  @Patch('prescriptions/:id/approve')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async approvePrescription(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    return this.tenoviService.approvePrescription(id, user?.sub);
+  }
+
+  @Patch('prescriptions/:id/cancel')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
+  async cancelPrescription(@Param('id') id: string) {
+    return this.tenoviService.cancelPrescription(id);
   }
 
   // Device Replacements
   @Get('replacements')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async listReplacements(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async listReplacements(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.tenoviService.listReplacements(page, limit);
   }
 
@@ -513,32 +605,32 @@ export class TenoviController {
 
   @Post('replacements')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async createReplacement(@Body() body: {
-    hwiDeviceId: string;
-    newHardwareUuid: string;
-    reason?: string;
-  }) {
+  async createReplacement(
+    @Body() body: { hwiDeviceId: string; newHardwareUuid: string; reason?: string },
+  ) {
     return this.tenoviService.createReplacement(body);
   }
 
   // Webhook Resend/Test
   @Post('webhooks/resend')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async resendWebhooks(@Body() body: {
-    webhookIds?: string[];
-    startDate?: string;
-    endDate?: string;
-    hwiDeviceId?: string;
-  }) {
+  async resendWebhooks(
+    @Body()
+    body: {
+      webhookIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      hwiDeviceId?: string;
+    },
+  ) {
     return this.tenoviService.resendWebhooks(body);
   }
 
   @Post('webhooks/test')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async testWebhooks(@Body() body: {
-    webhookIds: string[];
-    event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER';
-  }) {
+  async testWebhooks(
+    @Body() body: { webhookIds: string[]; event: 'MEASUREMENT' | 'FULFILLMENT' | 'SPECIAL_ORDER' },
+  ) {
     return this.tenoviService.testWebhooks(body);
   }
 
@@ -568,7 +660,7 @@ export class TenoviController {
     return this.tenoviService.findAllLocalDevices({
       page,
       limit,
-      status: status as any,
+      status: status as TenoviDeviceStatus | undefined,
       sensorCode,
       organizationId,
       patientId,

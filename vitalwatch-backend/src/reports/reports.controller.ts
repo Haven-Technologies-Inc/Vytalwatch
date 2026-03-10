@@ -43,7 +43,7 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -62,25 +62,25 @@ export class ReportsController {
   }
 
   @Get('templates')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getTemplates() {
     return this.reportsService.getTemplates();
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.reportsService.findOne(id, user);
   }
 
   @Post('generate')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async generate(@Body() dto: GenerateReportDto, @CurrentUser() user: CurrentUserPayload) {
     return this.reportsService.generate(dto, user);
   }
 
   @Get(':id/download')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async download(
     @Param('id') id: string,
     @Res() res: Response,
@@ -94,20 +94,20 @@ export class ReportsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     await this.reportsService.remove(id, user);
   }
 
   @Get('scheduled')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async getScheduledReports(@CurrentUser() user: CurrentUserPayload) {
     return this.reportsService.getScheduledReports(user);
   }
 
   @Post('schedule')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
   async scheduleReport(@Body() dto: ScheduleReportDto, @CurrentUser() user: CurrentUserPayload) {
     return this.reportsService.scheduleReport(dto, user);
   }
@@ -145,7 +145,7 @@ export class ReportsController {
 
   // Organization reports
   @Get('organization/:orgId/compliance')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getComplianceReport(
     @Param('orgId') orgId: string,
     @Query('startDate') startDate?: string,
@@ -155,7 +155,7 @@ export class ReportsController {
   }
 
   @Get('organization/:orgId/billing')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getBillingReport(
     @Param('orgId') orgId: string,
     @Query('startDate') startDate?: string,

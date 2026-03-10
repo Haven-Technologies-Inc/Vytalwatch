@@ -66,6 +66,9 @@ export class TimeEntry {
   @Column('simple-array', { nullable: true })
   evidenceRefs: string[];
 
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
   @Column({ default: true })
   billable: boolean;
 

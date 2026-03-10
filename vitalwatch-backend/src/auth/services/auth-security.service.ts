@@ -60,6 +60,13 @@ export class AuthSecurityService {
   // ==================== RATE LIMITING ====================
 
   async checkRateLimit(email: string, ip: string): Promise<RateLimitResult> {
+    // Skip rate limiting if Redis is unavailable
+    try {
+      await this.redis.ping();
+    } catch {
+      this.logger.warn('Redis unavailable - skipping rate limit check');
+      return { allowed: true, remainingAttempts: this.MAX_FAILED_ATTEMPTS };
+    }
     const now = new Date();
 
     // Check if account is locked
@@ -111,6 +118,13 @@ export class AuthSecurityService {
   }
 
   async recordLoginAttempt(email: string, ip: string, success: boolean): Promise<void> {
+    // Skip if Redis is unavailable
+    try {
+      await this.redis.ping();
+    } catch {
+      this.logger.warn('Redis unavailable - skipping login attempt recording');
+      return;
+    }
     const key = KEYS.LOGIN_ATTEMPTS + this.getRateLimitKey(email, ip);
     const now = Date.now();
     const windowTtl = this.RATE_LIMIT_WINDOW_MINUTES * 60;

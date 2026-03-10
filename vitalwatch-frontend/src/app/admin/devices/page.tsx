@@ -12,8 +12,8 @@ import { Select } from '@/components/ui/Select';
 import { tenoviApi, patientsApi, organizationsApi } from '@/services/api';
 import type { TenoviHwiDevice, TenoviDeviceStats, Patient, Organization } from '@/types';
 import { 
-  Smartphone, 
-  Plus, 
+  Smartphone,
+  Plus,
   Wifi,
   WifiOff,
   AlertTriangle,
@@ -31,6 +31,12 @@ const sensorCodeToType: Record<string, string> = {
   'PO': 'Pulse Oximeter',
   'GM': 'Glucose Meter',
   'TH': 'Thermometer',
+  'ECG': 'ECG/EKG Monitor',
+  'PF': 'Peak Flow Meter',
+  'AT': 'Activity Tracker',
+  'CGM': 'Continuous Glucose Monitor',
+  'HR': 'Heart Rate Monitor',
+  'SL': 'Sleep Monitor',
 };
 
 const typeFilters = [
@@ -39,6 +45,13 @@ const typeFilters = [
   { value: 'WS', label: 'Weight Scale' },
   { value: 'PO', label: 'Pulse Oximeter' },
   { value: 'GM', label: 'Glucose Meter' },
+  { value: 'TH', label: 'Thermometer' },
+  { value: 'ECG', label: 'ECG/EKG' },
+  { value: 'PF', label: 'Peak Flow' },
+  { value: 'AT', label: 'Activity Tracker' },
+  { value: 'CGM', label: 'CGM' },
+  { value: 'HR', label: 'Heart Rate' },
+  { value: 'SL', label: 'Sleep Monitor' },
 ];
 
 const statusFilters = [
@@ -264,15 +277,21 @@ export default function AdminDevicesPage() {
               {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               {syncing ? 'Syncing...' : 'Sync'}
             </Button>
-            <Link href="/admin/devices/orders">
+            <Link href="/admin/devices/prescriptions">
               <Button variant="outline">
                 <ClipboardList className="mr-2 h-4 w-4" />
+                Prescriptions
+              </Button>
+            </Link>
+            <Link href="/admin/devices/orders">
+              <Button variant="outline">
+                <ShoppingCart className="mr-2 h-4 w-4" />
                 Orders
               </Button>
             </Link>
             <Link href="/admin/devices/order">
               <Button>
-                <ShoppingCart className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4" />
                 Order Devices
               </Button>
             </Link>

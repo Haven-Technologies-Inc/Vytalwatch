@@ -54,11 +54,12 @@ export class NotificationsService {
       return defaults;
     }
 
+    const prefs = user.notificationPreferences as unknown as NotificationPreferences;
     return {
-      email: user.notificationPreferences.email ?? defaults.email,
-      sms: user.notificationPreferences.sms ?? defaults.sms,
-      push: user.notificationPreferences.push ?? defaults.push,
-      alertTypes: user.notificationPreferences.alertTypes ?? defaults.alertTypes,
+      email: prefs.email ?? defaults.email,
+      sms: prefs.sms ?? defaults.sms,
+      push: prefs.push ?? defaults.push,
+      alertTypes: Array.isArray(prefs.alertTypes) ? prefs.alertTypes : defaults.alertTypes,
     };
   }
 
@@ -320,6 +321,15 @@ export class NotificationsService {
       status: NotificationStatus.READ,
       readAt: new Date(),
     });
+  }
+
+  async markAllAsRead(userId: string): Promise<void> {
+    await this.notificationRepository
+      .createQueryBuilder()
+      .update()
+      .set({ status: NotificationStatus.READ, readAt: new Date() })
+      .where('userId = :userId AND status != :status', { userId, status: NotificationStatus.READ })
+      .execute();
   }
 
   async getUserNotifications(

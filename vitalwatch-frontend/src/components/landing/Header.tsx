@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navigation = [
-  { name: "Platform", href: "#platform" },
-  { name: "Evidence", href: "#evidence" },
-  { name: "Solutions", href: "#solutions" },
-  { name: "Security", href: "#security" },
-  { name: "Pricing", href: "#pricing" },
+  { name: "Platform", href: "/#platform" },
+  { name: "Evidence", href: "/#evidence" },
+  { name: "Solutions", href: "/#solutions" },
+  { name: "Security", href: "/#security" },
+  { name: "Pricing", href: "/#pricing" },
   { name: "Devices", href: "/devices" },
 ];
 
@@ -40,10 +40,13 @@ export function Header() {
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
-        isScrolled
-          ? "bg-slate-950/90 backdrop-blur-xl shadow-lg shadow-black/10 border-b border-white/5"
+        mounted
+          ? isScrolled
+            ? "bg-white/95 dark:bg-slate-950/90 backdrop-blur-xl shadow-lg shadow-black/5 dark:shadow-black/10 border-b border-slate-200 dark:border-white/5"
+            : "bg-white/80 dark:bg-transparent backdrop-blur-sm dark:backdrop-blur-none"
           : "bg-transparent"
       )}
+      suppressHydrationWarning
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
@@ -59,12 +62,13 @@ export function Header() {
             />
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1" suppressHydrationWarning>
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="relative px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors duration-200 rounded-lg hover:bg-white/5"
+                className="relative px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors duration-200 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
+                suppressHydrationWarning
               >
                 {item.name}
               </Link>
@@ -75,7 +79,7 @@ export function Header() {
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+                className="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? (
@@ -90,7 +94,7 @@ export function Header() {
               <Link href="/auth/login">
                 <Button
                   variant="ghost"
-                  className="text-slate-300 hover:text-white hover:bg-white/5"
+                  className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
                 >
                   Sign In
                 </Button>
@@ -107,8 +111,9 @@ export function Header() {
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               aria-label="Toggle menu"
+              suppressHydrationWarning
             >
               {isMobileMenuOpen ? (
                 <X className="h-5 w-5" />
@@ -128,7 +133,7 @@ export function Header() {
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="lg:hidden overflow-hidden"
             >
-              <div className="py-4 border-t border-white/10">
+              <div className="py-4 border-t border-slate-200 dark:border-white/10">
                 <div className="space-y-1">
                   {navigation.map((item, i) => (
                     <motion.div
@@ -139,7 +144,7 @@ export function Header() {
                     >
                       <Link
                         href={item.href}
-                        className="block px-4 py-3 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                        className="block px-4 py-3 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         {item.name}
@@ -147,9 +152,9 @@ export function Header() {
                     </motion.div>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-white/10 flex gap-3 px-4">
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10 flex gap-3 px-4">
                   <Link href="/auth/login" className="flex-1">
-                    <Button variant="outline" className="w-full border-slate-600 text-white">
+                    <Button variant="outline" className="w-full border-slate-300 dark:border-slate-600 text-slate-700 dark:text-white">
                       Sign In
                     </Button>
                   </Link>

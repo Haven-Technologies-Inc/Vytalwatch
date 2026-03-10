@@ -27,10 +27,46 @@ import { VitalType, VitalStatus } from './entities/vital-reading.entity';
 export class VitalsController {
   constructor(private readonly vitalsService: VitalsService) {}
 
+  @Get()
+  @Roles(UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async findAll(
+    @Query('patientId') patientId?: string,
+    @Query('type') type?: VitalType,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.vitalsService.findAll({
+      patientId,
+      type,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      page,
+      limit,
+    });
+  }
+
   @Post()
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async create(@Body() createVitalDto: CreateVitalDto) {
     return this.vitalsService.create(createVitalDto);
+  }
+
+  @Get('latest/:patientId')
+  @Roles(UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getLatestVitalsByPath(@Param('patientId', ParseUUIDPipe) patientId: string) {
+    return this.vitalsService.getLatestVitals(patientId);
+  }
+
+  @Get('trends/:patientId')
+  @Roles(UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getVitalTrendsByPath(
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+    @Query('type') type?: VitalType,
+    @Query('days') days?: number,
+  ) {
+    return this.vitalsService.getVitalTrend(patientId, type || VitalType.BLOOD_PRESSURE, days);
   }
 
   @Patch(':id')

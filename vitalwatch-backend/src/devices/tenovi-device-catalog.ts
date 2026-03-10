@@ -1,0 +1,86 @@
+﻿/**
+ * Local Tenovi cellular device catalog - fallback when API key not configured.
+ * Only cellular-capable devices included per tenovi.com/devices
+ */
+
+export interface CatalogDevice {
+  id: string;
+  name: string;
+  sensor_code: string;
+  category: string;
+  brand: string;
+  description: string;
+  connection: 'cellular' | 'cellular_gateway';
+  in_stock: boolean;
+  deprecated: boolean;
+  metrics: Array<{ metric: string; unit: string }>;
+  fda_status: string | null;
+}
+
+export const TENOVI_CELLULAR_CATALOG: CatalogDevice[] = [
+  // ===== GATEWAYS =====
+  { id: 'tenovi-gateway', name: 'Tenovi Gateway', sensor_code: 'GW', category: 'gateway', brand: 'Tenovi', description: 'Cellular Gateway Hub | Auto Transmission of Vitals', connection: 'cellular', in_stock: true, deprecated: false, metrics: [], fda_status: null },
+
+  // ===== BLOOD PRESSURE MONITORS =====
+  { id: 'tenovi-bpm', name: 'Tenovi Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'Tenovi', description: 'Cellular-Connected Blood Pressure Monitoring | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'tenovi-cellular-bpm', name: 'Tenovi Cellular Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'Tenovi', description: 'Cellular-Enabled Blood Pressure Monitoring | FDA-Cleared', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'welch-allyn-1700-bpm', name: 'Welch Allyn 1700 Series BPM', sensor_code: 'BP', category: 'bpm', brand: 'Welch Allyn', description: 'Cellular-Connected Blood Pressure | SureBP Technology', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'welch-allyn-1500-bpm', name: 'Welch Allyn 1500 Series BPM', sensor_code: 'BP', category: 'bpm', brand: 'Welch Allyn', description: 'Cellular-Connected Blood Pressure | Trusted in the Doctors Office', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'ad-bpm', name: 'A&D Medical Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'A&D', description: 'Cellular-Connected Blood Pressure Monitoring | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-silver-bpm', name: 'OMRON Silver Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Advanced Cellular-Connected Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-3-bpm', name: 'OMRON 3 Series Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Cellular-Connected Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-5-bpm', name: 'OMRON 5 Series Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Cellular-Connected Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-7-bpm', name: 'OMRON 7 Series Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Cellular-Connected Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-10-bpm', name: 'OMRON 10 Series Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Cellular-Connected Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'omron-wrist-bpm', name: 'OMRON Wrist Blood Pressure Monitor', sensor_code: 'BP', category: 'bpm', brand: 'OMRON', description: 'Cellular-Connected Wrist Blood Pressure | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'blood_pressure', unit: 'mmHg' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+
+  // ===== SCALES =====
+  { id: 'tenovi-scale', name: 'Tenovi Scale', sensor_code: 'WS', category: 'scale', brand: 'Tenovi', description: 'Cellular-Connected Weight Tracking | FDA Listed', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: 'listed' },
+  { id: 'tenovi-cellular-scale', name: 'Tenovi Cellular Scale', sensor_code: 'WS', category: 'scale', brand: 'Tenovi', description: 'Cellular-Enabled Weight Tracking | FDA Listed', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: 'listed' },
+  { id: 'tenovi-bariatric-scale', name: 'Tenovi Bariatric Scale', sensor_code: 'WS', category: 'scale', brand: 'Tenovi', description: 'Cellular-Connected Bariatric Weight Tracking | FDA Listed', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: 'listed' },
+  { id: 'welch-allyn-scale', name: 'Welch Allyn Scale', sensor_code: 'WS', category: 'scale', brand: 'Welch Allyn', description: 'Cellular-Connected Weight Tracking', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: null },
+  { id: 'ad-scale', name: 'A&D Medical Scale', sensor_code: 'WS', category: 'scale', brand: 'A&D', description: 'Cellular-Connected Weight Tracking | FDA Listed', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: 'listed' },
+  { id: 'ad-wide-base-scale', name: 'A&D Medical Wide Base Scale', sensor_code: 'WS', category: 'scale', brand: 'A&D', description: 'Cellular-Connected Wide Base Weight Tracking | FDA Listed', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'weight', unit: 'lbs' }], fda_status: 'listed' },
+
+  // ===== PULSE OXIMETERS =====
+  { id: 'tenovi-pox', name: 'Tenovi Pulse Oximeter', sensor_code: 'PO', category: 'pulse_ox', brand: 'Tenovi', description: 'Cellular-Connected Pulse Oximetry | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'oxygen_saturation', unit: '%' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'tenovi-cellular-pox', name: 'Tenovi Cellular Pulse Oximeter', sensor_code: 'PO', category: 'pulse_ox', brand: 'Tenovi', description: 'Cellular-Enabled Pulse Oximetry | FDA-Cleared', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'oxygen_saturation', unit: '%' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'ad-pox', name: 'A&D Medical Pulse Oximeter', sensor_code: 'PO', category: 'pulse_ox', brand: 'A&D', description: 'Cellular-Connected Pulse Oximetry', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'oxygen_saturation', unit: '%' }, { metric: 'pulse', unit: 'bpm' }], fda_status: null },
+  { id: 'nonin-pox', name: 'Nonin Pulse Oximeter', sensor_code: 'PO', category: 'pulse_ox', brand: 'Nonin', description: 'Cellular-Connected Pulse Oximetry | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'oxygen_saturation', unit: '%' }, { metric: 'pulse', unit: 'bpm' }], fda_status: 'cleared' },
+
+  // ===== GLUCOMETERS =====
+  { id: 'tenovi-bgm', name: 'Tenovi Blood Glucose Meter', sensor_code: 'GM', category: 'glucometer', brand: 'Tenovi', description: 'Cellular-Connected Blood Glucose Monitoring | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'glucose', unit: 'mg/dL' }], fda_status: 'cleared' },
+  { id: 'tenovi-cellular-bgm', name: 'Tenovi Cellular Blood Glucose Meter', sensor_code: 'GM', category: 'glucometer', brand: 'Tenovi', description: 'Cellular-Enabled Blood Glucose Monitoring | FDA-Cleared', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'glucose', unit: 'mg/dL' }], fda_status: 'cleared' },
+  { id: 'trividia-bgm', name: 'Trividia Blood Glucose Meter', sensor_code: 'GM', category: 'glucometer', brand: 'Trividia', description: 'Cellular-Connected Blood Glucose Monitoring | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'glucose', unit: 'mg/dL' }], fda_status: 'cleared' },
+
+  // ===== THERMOMETERS =====
+  { id: 'tenovi-thermometer', name: 'Tenovi Infrared Thermometer', sensor_code: 'TH', category: 'thermometer', brand: 'Tenovi', description: 'Cellular-Connected Temperature Monitoring | FDA Listed', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'temperature', unit: 'F' }], fda_status: 'listed' },
+
+  // ===== PEAK FLOW METERS =====
+  { id: 'tenovi-pfm', name: 'Tenovi Peak Flow Meter', sensor_code: 'PF', category: 'peak_flow', brand: 'Tenovi', description: 'Cellular-Connected Peak Flow Monitoring for Asthma | FDA-Cleared', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'peak_flow', unit: 'L/min' }, { metric: 'fev1', unit: 'L' }], fda_status: 'cleared' },
+
+  // ===== MEDICATION ADHERENCE =====
+  { id: 'tenovi-pillbox', name: 'Tenovi Smart Pillbox', sensor_code: 'PB', category: 'pillbox', brand: 'Tenovi', description: 'Cellular-Connected Medication Monitoring | FDA Listed', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'medication_adherence', unit: 'events' }], fda_status: 'listed' },
+  { id: 'patchrx-patchcap', name: 'PatchRx PatchCap', sensor_code: 'PB', category: 'pillbox', brand: 'PatchRx', description: 'Smart Pill Bottle Cap | Medication Adherence', connection: 'cellular_gateway', in_stock: true, deprecated: false, metrics: [{ metric: 'medication_adherence', unit: 'events' }], fda_status: null },
+
+  // ===== ACTIVITY TRACKERS =====
+  { id: 'tenovi-watch', name: 'Tenovi Watch', sensor_code: 'WT', category: 'watch', brand: 'Tenovi', description: 'Cellular-Connected Activity Tracking', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'steps', unit: 'steps' }, { metric: 'pulse', unit: 'bpm' }], fda_status: null },
+
+  // ===== SPECIALTY =====
+  { id: 'tenovi-fetal-doppler', name: 'Tenovi Fetal Doppler', sensor_code: 'FD', category: 'fetal', brand: 'Tenovi', description: 'Cellular-Connected Fetal Doppler Monitor | FDA-Cleared', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'fetal_heart_rate', unit: 'bpm' }], fda_status: 'cleared' },
+  { id: 'xandar-kardian-300', name: 'Xandar Kardian 300 Essence', sensor_code: 'XK', category: 'contactless', brand: 'Xandar Kardian', description: 'Cellular-Connected Contact-Free Health Monitoring', connection: 'cellular', in_stock: true, deprecated: false, metrics: [{ metric: 'pulse', unit: 'bpm' }, { metric: 'respiration', unit: 'breaths/min' }], fda_status: null },
+];
+
+export const DEVICE_CATEGORIES = [
+  { key: 'bpm', label: 'Blood Pressure Monitors', icon: 'heart-pulse' },
+  { key: 'scale', label: 'Scales', icon: 'weight' },
+  { key: 'pulse_ox', label: 'Pulse Oximeters', icon: 'activity' },
+  { key: 'glucometer', label: 'Glucometers', icon: 'droplet' },
+  { key: 'thermometer', label: 'Thermometers', icon: 'thermometer' },
+  { key: 'peak_flow', label: 'Peak Flow Meters', icon: 'wind' },
+  { key: 'pillbox', label: 'Medication Adherence', icon: 'pill' },
+  { key: 'watch', label: 'Activity Trackers', icon: 'watch' },
+  { key: 'gateway', label: 'Gateways', icon: 'wifi' },
+  { key: 'fetal', label: 'Fetal Monitors', icon: 'baby' },
+  { key: 'contactless', label: 'Contactless Monitors', icon: 'radio' },
+];

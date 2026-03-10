@@ -55,12 +55,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             type={inputType}
             className={cn(
-              "flex h-11 w-full rounded-lg border bg-white dark:bg-slate-800 px-4 py-2 text-sm transition-all duration-200",
+              "flex h-11 w-full rounded-lg border bg-white dark:bg-slate-800 px-4 py-2 text-sm text-slate-900 dark:text-white transition-all duration-200",
               "placeholder:text-slate-400",
               "focus:outline-none focus:ring-2 focus:ring-offset-0",
               "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900",
-              leftIcon && "pl-10",
-              (rightIcon || (isPassword && showPasswordToggle)) && "pr-10",
+              leftIcon ? "pl-10" : "",
+              rightIcon || (isPassword && showPasswordToggle) ? "pr-10" : "",
               hasError
                 ? "border-red-500 focus:ring-red-500 focus:border-red-500"
                 : hasSuccess
@@ -70,6 +70,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             )}
             ref={ref}
             disabled={disabled}
+            suppressHydrationWarning
             {...props}
           />
           {isPassword && showPasswordToggle && (

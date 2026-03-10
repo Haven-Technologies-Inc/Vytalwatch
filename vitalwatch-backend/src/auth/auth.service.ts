@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger, ForbiddenException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -53,7 +53,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
-    private readonly notificationsService: NotificationsService,
+    @Optional() private readonly notificationsService: NotificationsService,
     private readonly authSecurityService: AuthSecurityService,
     private readonly dataSource: DataSource,
   ) {}
@@ -212,7 +212,7 @@ export class AuthService {
       const auditEntry = auditRepo.create({
         action: 'USER_REGISTERED',
         userId: savedUser.id,
-        details: { role, email: savedUser.email },
+        metadata: { role, email: savedUser.email },
       });
       await auditRepo.save(auditEntry);
 

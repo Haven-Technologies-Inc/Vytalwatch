@@ -129,7 +129,14 @@ export class WebSocketGatewayService
 
       // Providers join patient rooms they're assigned to
       if (role === 'provider' || role === 'admin') {
-        // TODO: Fetch assigned patients and join their rooms
+        try {
+          const patients = await this.usersService.getPatientsByProvider(userId);
+          for (const patient of patients) {
+            client.join(`patient:${patient.id}`);
+          }
+        } catch {
+          this.logger.warn(`Failed to load assigned patients for ${userId}`);
+        }
       }
 
       this.wsService.addClient(client.id, {

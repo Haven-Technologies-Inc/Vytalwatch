@@ -18,6 +18,18 @@ export class ClaimsController {
   @Post(':id/finalize')
   finalize(@Param('id') id: string) { return this.service.finalize(id); }
 
+  @Post(':id/submit')
+  submit(@Param('id') id: string) { return this.service.submit(id); }
+
+  @Get('billing-summary')
+  getBillingSummary(
+    @Query('clinicId') clinicId: string,
+    @Query('periodStart') periodStart: string,
+    @Query('periodEnd') periodEnd: string,
+  ) {
+    return this.service.getBillingSummary(clinicId, new Date(periodStart), new Date(periodEnd));
+  }
+
   @Get()
   findByPatient(@Query('patientId') patientId: string) { return this.service.findByPatient(patientId); }
 }

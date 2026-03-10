@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { AIService } from '../ai/ai.service';
+import { EmailService } from '../email/email.service';
+import { SmsService } from '../sms/sms.service';
 import axios from 'axios';
 
 export interface IntegrationConfig {
@@ -12,6 +14,8 @@ export interface IntegrationConfig {
   enabled: boolean;
   configured: boolean;
   status: 'connected' | 'disconnected' | 'error';
+  category: string;
+  icon: string;
   settings?: Record<string, any>;
 }
 
@@ -27,6 +31,8 @@ export class IntegrationsService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly aiService: AIService,
+    private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
   ) {
     this.tenoviApiUrl = this.configService.get('tenovi.apiUrl') || 'https://api2.tenovi.com';
     this.tenoviApiKey = this.configService.get('tenovi.apiKey') || '';
@@ -34,66 +40,138 @@ export class IntegrationsService {
     this.initializeIntegrations();
   }
 
+  private isRealValue(key: string): boolean {
+    const val = this.configService.get<string>(key);
+    if (!val || !val.trim()) return false;
+    const placeholders = ['...', 'your-', 'change-in-', 'placeholder', 'xxx', 'TODO'];
+    return !placeholders.some((p) => val.trim().endsWith(p) || val.trim().startsWith(p));
+  }
+
   private initializeIntegrations() {
+    const stripeOk = this.isRealValue('stripe.secretKey');
+    const emailOk = this.isRealValue('email.user') && this.isRealValue('email.pass');
+    const twilioOk = this.isRealValue('twilio.accountSid') && this.isRealValue('twilio.authToken');
+    const openaiOk = this.isRealValue('openai.apiKey');
+    const grokOk = this.isRealValue('grok.apiKey');
+    const tenoviOk = this.isRealValue('tenovi.apiKey');
+    const googleOk =
+      this.isRealValue('oauth.google.clientId') && this.isRealValue('oauth.google.clientSecret');
+    const microsoftOk =
+      this.isRealValue('oauth.microsoft.clientId') &&
+      this.isRealValue('oauth.microsoft.clientSecret');
+    const appleOk =
+      this.isRealValue('oauth.apple.clientId') && this.isRealValue('oauth.apple.teamId');
+
     const integrationsList: IntegrationConfig[] = [
       {
         name: 'stripe',
         displayName: 'Stripe',
-        description: 'Payment processing and subscription management',
-        enabled: !!this.configService.get('stripe.secretKey'),
-        configured: !!this.configService.get('stripe.secretKey'),
-        status: this.configService.get('stripe.secretKey') ? 'connected' : 'disconnected',
+        description: 'Payment processing and subscriptions',
+        category: 'Payments',
+        icon: '💳',
+        enabled: stripeOk,
+        configured: stripeOk,
+        status: stripeOk ? 'connected' : 'disconnected',
       },
       {
         name: 'zoho',
-        displayName: 'Zoho SMTP',
-        description: 'Email delivery service',
-        enabled: !!this.configService.get('smtp.host'),
-        configured: !!this.configService.get('smtp.host'),
-        status: this.configService.get('smtp.host') ? 'connected' : 'disconnected',
+        displayName: 'ZeptoMail',
+        description: 'Transactional email delivery',
+        category: 'Communications',
+        icon: '✉️',
+        enabled: emailOk,
+        configured: emailOk,
+        status: emailOk ? 'connected' : 'disconnected',
       },
       {
         name: 'twilio',
         displayName: 'Twilio',
-        description: 'SMS and voice communications',
-        enabled: !!this.configService.get('twilio.accountSid'),
-        configured: !!this.configService.get('twilio.accountSid'),
-        status: this.configService.get('twilio.accountSid') ? 'connected' : 'disconnected',
+        description: 'SMS notifications and 2FA',
+        category: 'Communications',
+        icon: '📱',
+        enabled: twilioOk,
+        configured: twilioOk,
+        status: twilioOk ? 'connected' : 'disconnected',
       },
       {
         name: 'openai',
         displayName: 'OpenAI',
         description: 'AI-powered clinical insights',
-        enabled: !!this.configService.get('openai.apiKey'),
-        configured: !!this.configService.get('openai.apiKey'),
-        status: this.configService.get('openai.apiKey') ? 'connected' : 'disconnected',
+        category: 'AI/ML',
+        icon: '🤖',
+        enabled: openaiOk,
+        configured: openaiOk,
+        status: openaiOk ? 'connected' : 'disconnected',
       },
       {
         name: 'grok',
         displayName: 'Grok AI',
-        description: 'Real-time vital analysis',
-        enabled: !!this.configService.get('grok.apiKey'),
-        configured: !!this.configService.get('grok.apiKey'),
-        status: this.configService.get('grok.apiKey') ? 'connected' : 'disconnected',
+        description: 'Real-time AI analysis',
+        category: 'AI/ML',
+        icon: '🧠',
+        enabled: grokOk,
+        configured: grokOk,
+        status: grokOk ? 'connected' : 'disconnected',
       },
       {
         name: 'tenovi',
         displayName: 'Tenovi',
-        description: 'Medical device integration',
-        enabled: !!this.configService.get('tenovi.apiKey'),
-        configured: !!this.configService.get('tenovi.apiKey'),
-        status: this.configService.get('tenovi.apiKey') ? 'connected' : 'disconnected',
+        description: 'Medical device data integration',
+        category: 'Devices',
+        icon: '📊',
+        enabled: tenoviOk,
+        configured: tenoviOk,
+        status: tenoviOk ? 'connected' : 'disconnected',
+      },
+      {
+        name: 'google',
+        displayName: 'Google OAuth',
+        description: 'Social sign-in provider',
+        category: 'Authentication',
+        icon: '🔐',
+        enabled: googleOk,
+        configured: googleOk,
+        status: googleOk ? 'connected' : 'disconnected',
+      },
+      {
+        name: 'microsoft',
+        displayName: 'Microsoft OAuth',
+        description: 'Social sign-in provider',
+        category: 'Authentication',
+        icon: '🪟',
+        enabled: microsoftOk,
+        configured: microsoftOk,
+        status: microsoftOk ? 'connected' : 'disconnected',
+      },
+      {
+        name: 'apple',
+        displayName: 'Apple Sign-In',
+        description: 'Social sign-in provider',
+        category: 'Authentication',
+        icon: '🍎',
+        enabled: appleOk,
+        configured: appleOk,
+        status: appleOk ? 'connected' : 'disconnected',
       },
     ];
 
     integrationsList.forEach((int) => this.integrations.set(int.name, int));
   }
 
-  async listIntegrations() {
-    return Array.from(this.integrations.values());
+  listIntegrations() {
+    return Array.from(this.integrations.values()).map((int) => ({
+      id: int.name,
+      name: int.displayName,
+      description: int.description,
+      category: int.category,
+      icon: int.icon,
+      status: int.status,
+      enabled: int.enabled,
+      configured: int.configured,
+    }));
   }
 
-  async getIntegration(name: string) {
+  getIntegration(name: string) {
     const integration = this.integrations.get(name);
     if (!integration) {
       throw new NotFoundException('Integration not found');
@@ -101,9 +179,13 @@ export class IntegrationsService {
     return integration;
   }
 
-  async configureIntegration(name: string, dto: any, user: CurrentUserPayload) {
-    const integration = await this.getIntegration(name);
-    
+  async configureIntegration(
+    name: string,
+    dto: { settings?: Record<string, unknown> },
+    user: CurrentUserPayload,
+  ) {
+    const integration = this.getIntegration(name);
+
     // Update configuration
     integration.settings = { ...integration.settings, ...dto.settings };
     integration.configured = true;
@@ -119,8 +201,8 @@ export class IntegrationsService {
   }
 
   async enableIntegration(name: string, user: CurrentUserPayload) {
-    const integration = await this.getIntegration(name);
-    
+    const integration = this.getIntegration(name);
+
     if (!integration.configured) {
       throw new BadRequestException('Integration must be configured first');
     }
@@ -139,8 +221,8 @@ export class IntegrationsService {
   }
 
   async disableIntegration(name: string, user: CurrentUserPayload) {
-    const integration = await this.getIntegration(name);
-    
+    const integration = this.getIntegration(name);
+
     integration.enabled = false;
     integration.status = 'disconnected';
     this.integrations.set(name, integration);
@@ -154,9 +236,9 @@ export class IntegrationsService {
     return integration;
   }
 
-  async testIntegration(name: string, dto: any) {
-    const integration = await this.getIntegration(name);
-    
+  async testIntegration(name: string, _dto?: { testData?: Record<string, unknown> }) {
+    this.getIntegration(name);
+
     // Simulate integration test
     try {
       switch (name) {
@@ -181,23 +263,33 @@ export class IntegrationsService {
         default:
           throw new BadRequestException('Unknown integration');
       }
-    } catch (error) {
-      return { success: false, message: `Connection failed: ${error.message}` };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, message: `Connection failed: ${msg}` };
     }
   }
 
-  async sendZohoEmail(dto: { to: string; subject: string; body: string; html?: boolean }, user: CurrentUserPayload) {
-    // In production, use nodemailer with Zoho SMTP
+  async sendZohoEmail(
+    dto: { to: string; subject: string; body: string; html?: boolean },
+    user: CurrentUserPayload,
+  ) {
     await this.auditService.log({
       action: 'EMAIL_SENT',
       userId: user.sub,
       details: { to: dto.to, subject: dto.subject },
     });
 
-    return { success: true, messageId: `msg_${Date.now()}` };
+    const result = await this.emailService.send({
+      to: dto.to,
+      subject: dto.subject,
+      html: dto.html ? dto.body : undefined,
+      text: dto.html ? undefined : dto.body,
+    });
+
+    return { success: result.success, messageId: result.messageId, error: result.error };
   }
 
-  async getEmailTemplates() {
+  getEmailTemplates() {
     return [
       { id: 'welcome', name: 'Welcome Email', subject: 'Welcome to VytalWatch' },
       { id: 'alert', name: 'Alert Notification', subject: 'Health Alert' },
@@ -208,7 +300,9 @@ export class IntegrationsService {
 
   async analyzeWithOpenAI(dto: { prompt: string; context?: string }, user: CurrentUserPayload) {
     if (!this.aiService.isConfigured()) {
-      throw new BadRequestException('AI services not configured. Please set OPENAI_API_KEY or GROK_API_KEY.');
+      throw new BadRequestException(
+        'AI services not configured. Please set OPENAI_API_KEY or GROK_API_KEY.',
+      );
     }
 
     await this.auditService.log({
@@ -217,13 +311,13 @@ export class IntegrationsService {
       details: { promptLength: dto.prompt.length },
     });
 
-    const fullPrompt = dto.context 
+    const fullPrompt = dto.context
       ? `Context: ${dto.context}\n\nQuery: ${dto.prompt}`
       : dto.prompt;
 
-    const response = await this.aiService.chatWithAI([
-      { role: 'user', content: fullPrompt }
-    ]);
+    const response = await this.aiService.chatWithAI(
+      [{ role: 'user', content: fullPrompt }],
+    );
 
     return {
       analysis: response,
@@ -233,7 +327,10 @@ export class IntegrationsService {
     };
   }
 
-  async generateOpenAIInsight(dto: { patientId: string; vitalData: any }, user: CurrentUserPayload) {
+  async generateOpenAIInsight(
+    dto: { patientId: string; vitalData: Record<string, unknown> },
+    user: CurrentUserPayload,
+  ) {
     if (!this.aiService.isConfigured()) {
       throw new BadRequestException('AI services not configured');
     }
@@ -246,7 +343,7 @@ export class IntegrationsService {
 
     // Use real AI analysis
     const insight = await this.aiService.getPatientInsights(dto.patientId);
-    
+
     return {
       patientId: dto.patientId,
       insight: insight.summary,
@@ -260,7 +357,10 @@ export class IntegrationsService {
     };
   }
 
-  async analyzeWithGrok(dto: { data: any; analysisType: string }, user: CurrentUserPayload) {
+  async analyzeWithGrok(
+    dto: { data: Record<string, unknown>; analysisType: string },
+    user: CurrentUserPayload,
+  ) {
     if (!this.aiService.isConfigured()) {
       throw new BadRequestException('AI services not configured');
     }
@@ -273,9 +373,9 @@ export class IntegrationsService {
 
     const prompt = `Perform a ${dto.analysisType} analysis on the following healthcare data:\n\n${JSON.stringify(dto.data, null, 2)}\n\nProvide actionable insights for remote patient monitoring.`;
 
-    const response = await this.aiService.chatWithAI([
-      { role: 'user', content: prompt }
-    ]);
+    const response = await this.aiService.chatWithAI(
+      [{ role: 'user', content: prompt }],
+    );
 
     return {
       result: response,
@@ -285,7 +385,10 @@ export class IntegrationsService {
     };
   }
 
-  async grokRealTimeAnalysis(dto: { vitalReading: any }, user: CurrentUserPayload) {
+  async grokRealTimeAnalysis(
+    dto: { vitalReading: Record<string, unknown> },
+    user: CurrentUserPayload,
+  ) {
     if (!this.aiService.isConfigured()) {
       throw new BadRequestException('AI services not configured');
     }
@@ -293,19 +396,21 @@ export class IntegrationsService {
     await this.auditService.log({
       action: 'REALTIME_ANALYSIS_REQUESTED',
       userId: user.sub,
-      details: { vitalType: dto.vitalReading.type },
+      details: { vitalType: String(dto.vitalReading.type || '') },
     });
 
-    const result = await this.aiService.realTimeAnalysis({
+    const result: Record<string, unknown> = await this.aiService.realTimeAnalysis({
       vitalReading: dto.vitalReading,
-      patientId: dto.vitalReading.patientId || 'unknown',
+      patientId: String(dto.vitalReading.patientId || 'unknown'),
     });
+
+    const analysis = (result.analysis || {}) as Record<string, unknown>;
 
     return {
-      anomalyDetected: result.analysis?.isAnomalous || false,
-      confidence: result.analysis?.confidence || 0.85,
-      deviation: result.analysis?.deviation || 'normal',
-      trend: result.analysis?.trend || 'stable',
+      anomalyDetected: Boolean(analysis.isAnomalous) || false,
+      confidence: Number(analysis.confidence) || 0.85,
+      deviation: String(analysis.deviation || 'normal'),
+      trend: String(analysis.trend || 'stable'),
       alert: result.alert,
       recommendations: result.recommendations,
       provider: this.aiService.getActiveProvider(),
@@ -321,14 +426,16 @@ export class IntegrationsService {
       details: { to: dto.to },
     });
 
-    return { success: true, messageId: `sms_${Date.now()}` };
+    const result = await this.smsService.send(dto.to, dto.message);
+    return { success: result.success, messageId: result.messageId, error: result.error };
   }
 
   async getTwilioMessageStatus(messageId: string) {
+    const result = await this.smsService.getMessageStatus(messageId);
     return {
       messageId,
-      status: 'delivered',
-      deliveredAt: new Date().toISOString(),
+      status: result.status,
+      error: result.error,
     };
   }
 
@@ -350,18 +457,23 @@ export class IntegrationsService {
         },
       );
 
-      const devices = response.data.results || response.data || [];
-      return devices.map((device: any) => ({
-        id: device.hwi_device_id || device.id,
-        type: device.device?.sensor_code || 'unknown',
-        model: device.device?.model_number || device.device?.name || 'Unknown Model',
-        status: device.status || 'unknown',
-        patientId: device.patient_id,
-        lastMeasurement: device.last_measurement,
-        connectedOn: device.connected_on,
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to fetch Tenovi devices: ${error.message}`);
+      const raw = response.data as Record<string, unknown>;
+      const devices = (raw.results || raw || []) as Record<string, unknown>[];
+      return devices.map((d) => {
+        const dev = (d.device || {}) as Record<string, unknown>;
+        return {
+          id: String(d.hwi_device_id || d.id),
+          type: String(dev.sensor_code || 'unknown'),
+          model: String(dev.model_number || dev.name || 'Unknown Model'),
+          status: String(d.status || 'unknown'),
+          patientId: d.patient_id,
+          lastMeasurement: d.last_measurement,
+          connectedOn: d.connected_on,
+        };
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to fetch Tenovi devices: ${msg}`);
       return [];
     }
   }
@@ -383,7 +495,8 @@ export class IntegrationsService {
         },
       );
 
-      const devices = response.data.results || response.data || [];
+      const raw = response.data as Record<string, unknown>;
+      const devices = (raw.results || response.data || []) as unknown[];
 
       await this.auditService.log({
         action: 'TENOVI_SYNC',
@@ -396,9 +509,10 @@ export class IntegrationsService {
         syncedDevices: devices.length,
         timestamp: new Date().toISOString(),
       };
-    } catch (error) {
-      this.logger.error(`Failed to sync Tenovi devices: ${error.message}`);
-      throw new BadRequestException(`Tenovi sync failed: ${error.message}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to sync Tenovi devices: ${msg}`);
+      throw new BadRequestException(`Tenovi sync failed: ${msg}`);
     }
   }
 }

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserRole, UserStatus, OnboardingStep } from '../users/entities/user.entity';
+import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { VitalsService } from '../vitals/vitals.service';
 import { AlertsService } from '../alerts/alerts.service';
@@ -111,8 +111,6 @@ export class PatientsService {
       role: UserRole.PATIENT,
       status: UserStatus.PENDING,
       organizationId: user.organizationId,
-      providerId: dto.providerId || user.sub,
-      onboardingStep: OnboardingStep.REGISTERED,
     });
 
     const saved = await this.userRepository.save(patient);

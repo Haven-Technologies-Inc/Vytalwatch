@@ -129,15 +129,16 @@ export class AlertsService {
         message: alert.message,
       });
 
-      // Send to assigned provider if exists
-      if (patient.assignedProviderId) {
-        const provider = await this.usersService.findById(patient.assignedProviderId);
+      // Notify the assigned provider via PatientProfile
+      const profile = await this.usersService.getPatientProfile(alert.patientId);
+      if (profile?.assignedProviderId) {
+        const provider = await this.usersService.findById(profile.assignedProviderId);
         if (provider) {
           await this.notificationsService.sendAlertNotification(provider, {
             id: alert.id,
             type: alert.type,
             severity: alert.severity,
-            message: `Patient ${patient.firstName} ${patient.lastName}: ${alert.message}`,
+            message: alert.message,
           });
         }
       }

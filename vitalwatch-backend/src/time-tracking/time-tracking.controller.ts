@@ -28,6 +28,11 @@ export class TimeTrackingController {
     return this.service.getTotalMinutes(patientId, new Date(startDate), new Date(endDate));
   }
 
+  @Post('manual')
+  addManualEntry(@Body() data: { patientId: string; userId: string; category: TimeEntryCategory; minutes: number; notes?: string; enrollmentId?: string }) {
+    return this.service.addManualEntry(data);
+  }
+
   @Post(':id/confirm')
   confirm(@Param('id') id: string) {
     return this.service.confirm(id);

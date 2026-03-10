@@ -120,7 +120,7 @@ export function Sidebar({ role }: SidebarProps) {
             src="/logo.png"
             alt="VytalWatch"
             width={collapsed ? 40 : 120}
-            height={40}
+            height={collapsed ? 40 : 40}
             className="h-10"
             style={{ width: 'auto', height: 'auto', maxHeight: '2.5rem' }}
             priority

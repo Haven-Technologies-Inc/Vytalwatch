@@ -2,6 +2,8 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { Device } from './entities/device.entity';
+import { DeviceOrder } from './entities/device-order.entity';
+import { DevicePrescription } from './entities/device-prescription.entity';
 import {
   TenoviGateway,
   TenoviWhitelistedDevice,
@@ -19,6 +21,7 @@ import { AlertsModule } from '../alerts/alerts.module';
 import { VitalReading } from '../vitals/entities/vital-reading.entity';
 import { Enrollment } from '../enrollments/entities/enrollment.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -31,11 +34,14 @@ import { Task } from '../tasks/entities/task.entity';
       VitalReading,
       Enrollment,
       Task,
+      DeviceOrder,
+      DevicePrescription,
     ]),
     ConfigModule,
     forwardRef(() => VitalsModule),
     forwardRef(() => AlertsModule),
     AuditModule,
+    EmailModule,
   ],
   controllers: [DevicesController, TenoviWebhookController, TenoviController],
   providers: [DevicesService, TenoviService, TenoviSyncService],

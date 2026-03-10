@@ -704,9 +704,28 @@ export const tenoviApi = {
   deleteHwiPatient: (externalId: string) =>
     apiClient.delete<ApiResponse<void>>(`/tenovi/hwi-patients/${externalId}`),
 
-  // Device Types
+  // Device Types & Catalog
   listDeviceTypes: () =>
-    apiClient.get<ApiResponse<TenoviDeviceType[]>>('/tenovi/device-types'),
+    apiClient.get<ApiResponse<any[]>>('/tenovi/device-types'),
+
+  getCatalog: () =>
+    apiClient.get<ApiResponse<any>>('/tenovi/catalog'),
+
+  // Prescriptions
+  listPrescriptions: (params?: any) =>
+    apiClient.get<ApiResponse<any>>('/tenovi/prescriptions', { params }),
+
+  getPrescription: (id: string) =>
+    apiClient.get<ApiResponse<any>>(`/tenovi/prescriptions/${id}`),
+
+  createPrescription: (data: any) =>
+    apiClient.post<ApiResponse<any>>('/tenovi/prescriptions', data),
+
+  approvePrescription: (id: string) =>
+    apiClient.patch<ApiResponse<any>>(`/tenovi/prescriptions/${id}/approve`),
+
+  cancelPrescription: (id: string) =>
+    apiClient.patch<ApiResponse<any>>(`/tenovi/prescriptions/${id}/cancel`),
 
   // Bulk Orders
   listBulkOrders: (params?: { page?: number; limit?: number }) =>
@@ -715,7 +734,7 @@ export const tenoviApi = {
   getBulkOrder: (orderId: string) =>
     apiClient.get<ApiResponse<TenoviOrder>>(`/tenovi/bulk-orders/${orderId}`),
 
-  createBulkOrder: (data: { shippingName: string; shippingAddress: string; shippingCity: string; shippingState: string; shippingZipCode: string; notifyEmails?: string; contents: Array<{ name: string; quantity: number }> }) =>
+  createBulkOrder: (data: { shippingName: string; shippingAddress: string; shippingCity: string; shippingState: string; shippingZipCode: string; notifyEmails?: string; contents: Array<{ name: string; quantity: number; kit_id?: number }>; prescriptionId?: string }) =>
     apiClient.post<ApiResponse<TenoviOrder>>('/tenovi/bulk-orders', data),
 
   // Device Replacements
@@ -1230,9 +1249,9 @@ export const advancedAIApi = {
 // Phase 3: Claims Export API
 export const claimsExportApi = {
   preview837P: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/export/837p/preview', { claims, submitter, receiver }),
-  download837P: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/export/837p', { claims, submitter, receiver }, { responseType: 'blob' }),
+  download837P: (claims: any[], submitter: any, receiver: any) => apiClient.post('/claims/export/837p', { claims, submitter, receiver }),
   generateAuditBundle: (data: any) => apiClient.post('/claims/export/audit-bundle', data),
-  downloadAuditBundle: (data: any) => apiClient.post('/claims/export/audit-bundle/download', data, { responseType: 'blob' }),
+  downloadAuditBundle: (data: any) => apiClient.post('/claims/export/audit-bundle/download', data),
 };
 
 // Phase 4: Clearinghouse API

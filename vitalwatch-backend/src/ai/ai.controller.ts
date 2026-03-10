@@ -128,6 +128,13 @@ export class AIController {
     return this.aiService.deactivateModel(id);
   }
 
+  // Provider Status (real connectivity check)
+  @Get('status')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getStatus() {
+    return this.aiService.getProviderStatus();
+  }
+
   // Performance Metrics
   @Get('performance-metrics')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)

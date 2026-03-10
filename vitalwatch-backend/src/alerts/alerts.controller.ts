@@ -91,7 +91,7 @@ export class AlertsController {
     return this.alertsService.findById(id);
   }
 
-  @Put(':id/acknowledge')
+  @Post(':id/acknowledge')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async acknowledge(
     @Param('id', ParseUUIDPipe) id: string,
@@ -100,7 +100,7 @@ export class AlertsController {
     return this.alertsService.acknowledge(id, user.sub);
   }
 
-  @Put(':id/resolve')
+  @Post(':id/resolve')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async resolve(
     @Param('id', ParseUUIDPipe) id: string,
@@ -108,6 +108,15 @@ export class AlertsController {
     @Body('resolution') resolution?: string,
   ) {
     return this.alertsService.resolve(id, user.sub, resolution);
+  }
+
+  @Post(':id/dismiss')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async dismiss(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.alertsService.resolve(id, user.sub, 'dismissed');
   }
 
   @Put(':id/escalate')

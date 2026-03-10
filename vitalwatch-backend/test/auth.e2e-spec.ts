@@ -4,6 +4,30 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 
+interface AuthUserResponse {
+  email: string;
+  firstName: string;
+  lastName: string;
+  passwordHash?: string;
+  resetToken?: string;
+  verificationToken?: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  user: { email: string; firstName: string; lastName: string };
+}
+
+interface ErrorResponse {
+  message: string;
+}
+
+interface ResetResponse {
+  message: string;
+}
+
 /**
  * Auth E2E Tests
  *
@@ -15,7 +39,7 @@ import { AppModule } from '../src/app.module';
  */
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
-  let httpServer: any;
+  let httpServer: App;
   let accessToken: string;
   let refreshToken: string;
   let moduleInitFailed = false;
@@ -89,14 +113,15 @@ describe('Auth (e2e)', () => {
         })
         .expect(201);
 
-      expect(response.body).toBeDefined();
-      expect(response.body.email).toBe(testEmail);
-      expect(response.body.firstName).toBe(testFirstName);
-      expect(response.body.lastName).toBe(testLastName);
+      const body = response.body as AuthUserResponse;
+      expect(body).toBeDefined();
+      expect(body.email).toBe(testEmail);
+      expect(body.firstName).toBe(testFirstName);
+      expect(body.lastName).toBe(testLastName);
       // Sensitive fields must not be returned
-      expect(response.body.passwordHash).toBeUndefined();
-      expect(response.body.resetToken).toBeUndefined();
-      expect(response.body.verificationToken).toBeUndefined();
+      expect(body.passwordHash).toBeUndefined();
+      expect(body.resetToken).toBeUndefined();
+      expect(body.verificationToken).toBeUndefined();
     });
 
     it('should reject duplicate email registration', async () => {
@@ -112,7 +137,7 @@ describe('Auth (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toMatch(/already registered/i);
+      expect((response.body as ErrorResponse).message).toMatch(/already registered/i);
     });
 
     it('should reject registration with missing required fields', async () => {
@@ -166,7 +191,7 @@ describe('Auth (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toMatch(/invite code/i);
+      expect((response.body as ErrorResponse).message).toMatch(/invite code/i);
     });
   });
 
@@ -183,17 +208,18 @@ describe('Auth (e2e)', () => {
         })
         .expect(200);
 
-      expect(response.body.accessToken).toBeDefined();
-      expect(response.body.refreshToken).toBeDefined();
-      expect(response.body.expiresIn).toBeGreaterThan(0);
-      expect(response.body.user).toBeDefined();
-      expect(response.body.user.email).toBe(testEmail);
-      expect(response.body.user.firstName).toBe(testFirstName);
-      expect(response.body.user.lastName).toBe(testLastName);
+      const body = response.body as LoginResponse;
+      expect(body.accessToken).toBeDefined();
+      expect(body.refreshToken).toBeDefined();
+      expect(body.expiresIn).toBeGreaterThan(0);
+      expect(body.user).toBeDefined();
+      expect(body.user.email).toBe(testEmail);
+      expect(body.user.firstName).toBe(testFirstName);
+      expect(body.user.lastName).toBe(testLastName);
 
       // Store tokens for subsequent tests
-      accessToken = response.body.accessToken;
-      refreshToken = response.body.refreshToken;
+      accessToken = body.accessToken;
+      refreshToken = body.refreshToken;
     });
 
     it('should reject login with incorrect password', async () => {
@@ -207,7 +233,7 @@ describe('Auth (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toMatch(/invalid/i);
+      expect((response.body as ErrorResponse).message).toMatch(/invalid/i);
     });
 
     it('should reject login with non-existent email', async () => {
@@ -225,10 +251,7 @@ describe('Auth (e2e)', () => {
     it('should reject login with missing fields', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .post('/api/v1/auth/login')
-        .send({ email: testEmail })
-        .expect(400);
+      await request(httpServer).post('/api/v1/auth/login').send({ email: testEmail }).expect(400);
     });
   });
 
@@ -242,13 +265,14 @@ describe('Auth (e2e)', () => {
         .send({ refreshToken })
         .expect(200);
 
-      expect(response.body.accessToken).toBeDefined();
-      expect(response.body.refreshToken).toBeDefined();
-      expect(response.body.expiresIn).toBeGreaterThan(0);
+      const body = response.body as LoginResponse;
+      expect(body.accessToken).toBeDefined();
+      expect(body.refreshToken).toBeDefined();
+      expect(body.expiresIn).toBeGreaterThan(0);
 
       // Update tokens
-      accessToken = response.body.accessToken;
-      refreshToken = response.body.refreshToken;
+      accessToken = body.accessToken;
+      refreshToken = body.refreshToken;
     });
 
     it('should reject refresh with an invalid token', async () => {
@@ -263,10 +287,7 @@ describe('Auth (e2e)', () => {
     it('should reject refresh with missing refresh token', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .post('/api/v1/auth/refresh')
-        .send({})
-        .expect(400);
+      await request(httpServer).post('/api/v1/auth/refresh').send({}).expect(400);
     });
   });
 
@@ -280,20 +301,19 @@ describe('Auth (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(response.body.email).toBe(testEmail);
-      expect(response.body.firstName).toBe(testFirstName);
-      expect(response.body.lastName).toBe(testLastName);
+      const body = response.body as AuthUserResponse;
+      expect(body.email).toBe(testEmail);
+      expect(body.firstName).toBe(testFirstName);
+      expect(body.lastName).toBe(testLastName);
       // Sensitive data must be stripped
-      expect(response.body.passwordHash).toBeUndefined();
-      expect(response.body.resetToken).toBeUndefined();
+      expect(body.passwordHash).toBeUndefined();
+      expect(body.resetToken).toBeUndefined();
     });
 
     it('should return 401 when unauthenticated', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/api/v1/auth/me')
-        .expect(401);
+      await request(httpServer).get('/api/v1/auth/me').expect(401);
     });
 
     it('should return 401 with an invalid bearer token', async () => {
@@ -316,7 +336,7 @@ describe('Auth (e2e)', () => {
         .send({ email: testEmail })
         .expect(200);
 
-      expect(response.body.message).toMatch(/reset link/i);
+      expect((response.body as ResetResponse).message).toMatch(/reset link/i);
     });
 
     it('should return 200 even for a non-existent email (prevents enumeration)', async () => {
@@ -327,16 +347,13 @@ describe('Auth (e2e)', () => {
         .send({ email: 'nonexistent@test.vytalwatch.dev' })
         .expect(200);
 
-      expect(response.body.message).toMatch(/reset link/i);
+      expect((response.body as ResetResponse).message).toMatch(/reset link/i);
     });
 
     it('should reject when email field is missing', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .post('/api/v1/auth/request-password-reset')
-        .send({})
-        .expect(400);
+      await request(httpServer).post('/api/v1/auth/request-password-reset').send({}).expect(400);
     });
   });
 
@@ -354,9 +371,7 @@ describe('Auth (e2e)', () => {
     it('should return 401 when unauthenticated', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .post('/api/v1/auth/logout')
-        .expect(401);
+      await request(httpServer).post('/api/v1/auth/logout').expect(401);
     });
   });
 
@@ -417,10 +432,7 @@ describe('Auth (e2e)', () => {
     it('should reject empty body on login', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .post('/api/v1/auth/login')
-        .send({})
-        .expect(400);
+      await request(httpServer).post('/api/v1/auth/login').send({}).expect(400);
     });
   });
 });

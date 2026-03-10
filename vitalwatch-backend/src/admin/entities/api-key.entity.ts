@@ -18,38 +18,38 @@ export class ApiKey {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ name: 'key_hash' })
   keyHash: string;
 
-  @Column()
+  @Column({ name: 'key_prefix' })
   keyPrefix: string;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'text', array: true, nullable: true })
   scopes: string[];
 
   @Column({ nullable: true })
   organizationId: string;
 
-  @Column()
+  @Column({ name: 'created_by_id' })
   createdById: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'createdById' })
+  @JoinColumn({ name: 'created_by_id' })
   createdBy: User;
 
-  @Column({ default: 1000 })
+  @Column({ name: 'rate_limit', default: 1000 })
   rateLimit: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
   expiresAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'last_used_at', type: 'timestamp', nullable: true })
   lastUsedAt: Date;
 
-  @Column({ default: 0 })
+  @Column({ name: 'usage_count', default: 0 })
   usageCount: number;
 
-  @Column({ default: true })
+  @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
   @CreateDateColumn()
@@ -58,6 +58,6 @@ export class ApiKey {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date;
 }

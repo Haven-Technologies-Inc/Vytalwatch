@@ -53,6 +53,7 @@ import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging
 import { ComplianceModule } from './compliance/compliance.module';
 import { StaffModule } from './staff/staff.module';
 
+
 // Scheduler Module
 import { SchedulerModule } from './scheduler/scheduler.module';
 
@@ -66,10 +67,12 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     }),
 
     // Rate limiting
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
 
     // Task scheduling (cron jobs)
     ScheduleModule.forRoot(),
@@ -105,16 +108,21 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     LoggerModule,
     HealthModule,
 
+    // Global infrastructure modules (must load first)
+    EmailModule,
+    SmsModule,
+    EnterpriseLoggingModule,
+
     // Feature modules
     AuthModule,
     UsersModule,
-    VitalsModule,
-    AlertsModule,
-    DevicesModule,
-    BillingModule,
-    NotificationsModule,
     AuditModule,
     AIModule,
+    NotificationsModule,
+    AlertsModule,
+    VitalsModule,
+    DevicesModule,
+    BillingModule,
     PatientsModule,
     OrganizationsModule,
     MessagingModule,
@@ -124,12 +132,10 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     AdminModule,
     AppointmentsModule,
     MedicationsModule,
-    WebRTCModule,
-    WebSocketModule,
-    EmailModule,
-    SmsModule,
     ClinicalNotesModule,
     ConsentModule,
+    ComplianceModule,
+    StaffModule,
     TasksModule,
     TimeTrackingModule,
     EnrollmentsModule,
@@ -137,9 +143,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     AIDraftsModule,
     ClaimsModule,
     RPMBatchModule,
-    EnterpriseLoggingModule,
-    ComplianceModule,
-    StaffModule,
+    WebRTCModule,
+    WebSocketModule,
 
     // Scheduled tasks
     SchedulerModule,

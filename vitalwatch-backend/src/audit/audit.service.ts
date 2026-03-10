@@ -6,20 +6,20 @@ import { AuditLog, AuditAction } from './entities/audit-log.entity';
 export interface LogOptions {
   action: AuditAction | string;
   userId?: string;
-  resourceType?: string;
+  resource?: string;
+  resourceType?: string; // Alias for resource (backward compatibility)
   resourceId?: string;
-  details?: Record<string, any>;
+  metadata?: Record<string, any>;
+  details?: Record<string, any>; // Alias for metadata (backward compatibility)
   ipAddress?: string;
   userAgent?: string;
-  organizationId?: string;
 }
 
 export interface AuditQueryOptions {
   userId?: string;
   action?: AuditAction;
-  resourceType?: string;
+  resource?: string;
   resourceId?: string;
-  organizationId?: string;
   startDate?: Date;
   endDate?: Date;
   page?: number;
@@ -37,12 +37,11 @@ export class AuditService {
     const auditLog = this.auditRepository.create({
       action: options.action as AuditAction,
       userId: options.userId,
-      resourceType: options.resourceType,
+      resource: options.resource || options.resourceType || 'system', // Default to 'system' if not provided
       resourceId: options.resourceId,
-      details: options.details,
+      metadata: options.metadata || options.details, // Support both names
       ipAddress: options.ipAddress,
       userAgent: options.userAgent,
-      organizationId: options.organizationId,
     });
 
     return this.auditRepository.save(auditLog);
@@ -52,30 +51,20 @@ export class AuditService {
     const {
       userId,
       action,
-      resourceType,
+      resource,
       resourceId,
-      organizationId,
       startDate,
       endDate,
       page = 1,
       limit = 50,
     } = options;
 
-    const where: FindOptionsWhere<AuditLog> = {};
-
-    if (userId) where.userId = userId;
-    if (action) where.action = action;
-    if (resourceType) where.resourceType = resourceType;
-    if (resourceId) where.resourceId = resourceId;
-    if (organizationId) where.organizationId = organizationId;
-
     const queryBuilder = this.auditRepository.createQueryBuilder('audit');
 
     if (userId) queryBuilder.andWhere('audit.userId = :userId', { userId });
     if (action) queryBuilder.andWhere('audit.action = :action', { action });
-    if (resourceType) queryBuilder.andWhere('audit.resourceType = :resourceType', { resourceType });
+    if (resource) queryBuilder.andWhere('audit.resource = :resource', { resource });
     if (resourceId) queryBuilder.andWhere('audit.resourceId = :resourceId', { resourceId });
-    if (organizationId) queryBuilder.andWhere('audit.organizationId = :organizationId', { organizationId });
     if (startDate && endDate) {
       queryBuilder.andWhere('audit.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate });
     }
@@ -94,13 +83,13 @@ export class AuditService {
     return this.findAll({ userId, ...options });
   }
 
-  async findByResource(resourceType: string, resourceId: string, options?: { page?: number; limit?: number }): Promise<{ logs: AuditLog[]; total: number }> {
-    return this.findAll({ resourceType, resourceId, ...options });
+  async findByResource(resource: string, resourceId: string, options?: { page?: number; limit?: number }): Promise<{ logs: AuditLog[]; total: number }> {
+    return this.findAll({ resource, resourceId, ...options });
   }
 
-  async getRecentActivity(organizationId: string, limit: number = 20): Promise<AuditLog[]> {
+  async getRecentActivity(userId: string, limit: number = 20): Promise<AuditLog[]> {
     return this.auditRepository.find({
-      where: { organizationId },
+      where: { userId },
       order: { createdAt: 'DESC' },
       take: limit,
       relations: ['user'],
@@ -118,7 +107,7 @@ export class AuditService {
     });
   }
 
-  async getSecurityEvents(organizationId: string, startDate: Date, endDate: Date): Promise<AuditLog[]> {
+  async getSecurityEvents(startDate: Date, endDate: Date): Promise<AuditLog[]> {
     const securityActions = [
       AuditAction.LOGIN_FAILED,
       AuditAction.PASSWORD_CHANGED,
@@ -129,8 +118,7 @@ export class AuditService {
 
     return this.auditRepository
       .createQueryBuilder('audit')
-      .where('audit.organizationId = :organizationId', { organizationId })
-      .andWhere('audit.action IN (:...actions)', { actions: securityActions })
+      .where('audit.action IN (:...actions)', { actions: securityActions })
       .andWhere('audit.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
       .orderBy('audit.createdAt', 'DESC')
       .getMany();

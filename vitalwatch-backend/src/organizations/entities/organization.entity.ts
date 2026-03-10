@@ -4,10 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  DeleteDateColumn,
-  OneToMany,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 
 export enum OrganizationStatus {
   ACTIVE = 'active',
@@ -21,7 +18,15 @@ export enum OrganizationType {
   CLINIC = 'clinic',
   PRACTICE = 'practice',
   HOME_HEALTH = 'home_health',
+  SPECIALTY = 'specialty',
+  AGENCY = 'agency',
   OTHER = 'other',
+}
+
+export enum OrganizationPlan {
+  STARTER = 'starter',
+  PROFESSIONAL = 'professional',
+  ENTERPRISE = 'enterprise',
 }
 
 @Entity('organizations')
@@ -32,26 +37,11 @@ export class Organization {
   @Column()
   name: string;
 
-  @Column({ type: 'enum', enum: OrganizationType, default: OrganizationType.CLINIC })
-  type: OrganizationType;
+  @Column()
+  type: string;
 
-  @Column({ type: 'enum', enum: OrganizationStatus, default: OrganizationStatus.TRIAL })
-  status: OrganizationStatus;
-
-  @Column({ nullable: true })
-  address: string;
-
-  @Column({ nullable: true })
-  city: string;
-
-  @Column({ nullable: true })
-  state: string;
-
-  @Column({ nullable: true })
-  zipCode: string;
-
-  @Column({ nullable: true })
-  country: string;
+  @Column({ type: 'jsonb', nullable: true })
+  address: Record<string, any>;
 
   @Column({ nullable: true })
   phone: string;
@@ -69,22 +59,13 @@ export class Organization {
   npi: string;
 
   @Column({ nullable: true })
-  logo: string;
+  logoUrl: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  settings: Record<string, any>;
+  @Column({ type: 'varchar', default: OrganizationPlan.STARTER })
+  plan: string;
 
-  @Column({ nullable: true })
-  stripeCustomerId: string;
-
-  @Column({ nullable: true })
-  subscriptionPlan: string;
-
-  @Column({ type: 'timestamp', nullable: true })
-  trialEndsAt: Date;
-
-  @OneToMany(() => User, (user) => user.organizationId)
-  users: User[];
+  @Column({ type: 'varchar', default: OrganizationStatus.TRIAL })
+  status: string;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -92,6 +73,4 @@ export class Organization {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn()
-  deletedAt: Date;
 }

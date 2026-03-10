@@ -4,7 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
   ManyToOne,
   JoinColumn,
   Index,
@@ -107,16 +106,8 @@ export class TenoviGateway {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
 
-  @OneToMany(() => TenoviWhitelistedDevice, (device) => device.gatewayId, {
-    cascade: true,
-    eager: true,
-  })
   whitelistedDevices: TenoviWhitelistedDevice[];
 
-  @OneToMany(() => TenoviGatewayProperty, (prop) => prop.gatewayId, {
-    cascade: true,
-    eager: true,
-  })
   properties: TenoviGatewayProperty[];
 
   @CreateDateColumn()

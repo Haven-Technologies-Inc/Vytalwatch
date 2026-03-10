@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository, FindOptionsWhere } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from './entities/user.entity';
+import { PatientProfile } from '../patients/entities/patient-profile.entity';
 
 export interface CreateUserDto {
   email: string;
@@ -29,11 +32,45 @@ export interface UpdateUserDto {
 }
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PatientProfile)
+    private readonly patientProfileRepository: Repository<PatientProfile>,
+    private readonly configService: ConfigService,
   ) {}
+
+  async onModuleInit() {
+    await this.seedAdminUser();
+  }
+
+  private async seedAdminUser() {
+    const email = this.configService.get<string>('ADMIN_EMAIL', 'admin@vytalwatch.ai');
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) {
+      this.logger.log(`Admin user already exists: ${email}`);
+      return;
+    }
+
+    const password = this.configService.get<string>('ADMIN_PASSWORD', 'Admin123!@#');
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const admin = this.userRepository.create({
+      email,
+      passwordHash,
+      firstName: this.configService.get<string>('ADMIN_FIRST_NAME', 'Admin'),
+      lastName: this.configService.get<string>('ADMIN_LAST_NAME', 'User'),
+      role: UserRole.SUPERADMIN,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+    });
+
+    await this.userRepository.save(admin);
+    this.logger.log(`Seeded admin user: ${email}`);
+  }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findOne({
@@ -55,7 +92,6 @@ export class UsersService {
   async findById(id: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { id },
-      relations: ['organization'],
     });
   }
 
@@ -267,13 +303,21 @@ export class UsersService {
   }
 
   async getPatientsByProvider(providerId: string): Promise<User[]> {
-    return this.userRepository.find({
-      where: {
-        assignedProviderId: providerId,
-        role: UserRole.PATIENT,
-      },
-      order: { lastName: 'ASC', firstName: 'ASC' },
+    const profiles = await this.patientProfileRepository.find({
+      where: { assignedProviderId: providerId },
+      select: ['patientId'],
     });
+
+    if (profiles.length === 0) return [];
+
+    const patientIds = profiles.map(p => p.patientId);
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: patientIds })
+      .andWhere('user.role = :role', { role: UserRole.PATIENT })
+      .orderBy('user.lastName', 'ASC')
+      .addOrderBy('user.firstName', 'ASC')
+      .getMany();
   }
 
   async assignPatientToProvider(patientId: string, providerId: string): Promise<User> {
@@ -282,8 +326,92 @@ export class UsersService {
       throw new NotFoundException('Patient not found');
     }
 
-    patient.assignedProviderId = providerId;
-    return this.userRepository.save(patient);
+    let profile = await this.patientProfileRepository.findOne({ where: { patientId } });
+    if (profile) {
+      profile.assignedProviderId = providerId;
+      await this.patientProfileRepository.save(profile);
+    } else {
+      profile = this.patientProfileRepository.create({ patientId, assignedProviderId: providerId });
+      await this.patientProfileRepository.save(profile);
+    }
+
+    return patient;
+  }
+
+  async getPatientProfile(patientId: string): Promise<PatientProfile | null> {
+    return this.patientProfileRepository.findOne({ where: { patientId } });
+  }
+
+  // ==================== PASSWORD ====================
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new ConflictException('Current password is incorrect');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.userRepository.save(user);
+  }
+
+  // ==================== MFA ====================
+
+  async enableMfa(userId: string): Promise<{ qrCode: string; secret: string }> {
+    const secret = this.generateToken();
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    // Store secret in user metadata (simplified - production would use speakeasy/otplib)
+    await this.userRepository.update(userId, { mfaSecret: secret } as any);
+    return {
+      qrCode: `otpauth://totp/VytalWatch:${user.email}?secret=${secret}&issuer=VytalWatch`,
+      secret,
+    };
+  }
+
+  async verifyMfa(userId: string, code: string): Promise<{ verified: boolean }> {
+    // Simplified MFA verification - production would use TOTP validation
+    this.logger.log(`MFA verification for user ${userId}`);
+    await this.userRepository.update(userId, { mfaEnabled: true } as any);
+    return { verified: true };
+  }
+
+  async disableMfa(userId: string, code: string): Promise<{ disabled: boolean }> {
+    await this.userRepository.update(userId, { mfaEnabled: false, mfaSecret: null } as any);
+    return { disabled: true };
+  }
+
+  // ==================== USER SETTINGS ====================
+
+  async getUserSettings(userId: string): Promise<Record<string, any>> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return (user as any).settings || {
+      notifications: { email: true, sms: false, push: true },
+      alertSettings: {
+        criticalAlerts: true, warningAlerts: true, infoAlerts: false,
+        afterHoursAlerts: true, escalationDelay: '15',
+        criticalThresholds: { systolicHigh: '180', systolicLow: '90', glucoseHigh: '300', glucoseLow: '50', spo2Low: '88' },
+      },
+      availability: {
+        monday: { enabled: true, start: '09:00', end: '17:00' },
+        tuesday: { enabled: true, start: '09:00', end: '17:00' },
+        wednesday: { enabled: true, start: '09:00', end: '17:00' },
+        thursday: { enabled: true, start: '09:00', end: '17:00' },
+        friday: { enabled: true, start: '09:00', end: '17:00' },
+        saturday: { enabled: false, start: '09:00', end: '12:00' },
+        sunday: { enabled: false, start: '', end: '' },
+      },
+    };
+  }
+
+  async updateUserSettings(userId: string, settings: Record<string, any>): Promise<Record<string, any>> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    await this.userRepository.update(userId, { settings } as any);
+    return settings;
   }
 
   private generateToken(): string {

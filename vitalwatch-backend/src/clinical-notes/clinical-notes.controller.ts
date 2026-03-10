@@ -115,7 +115,7 @@ export class ClinicalNotesController {
   }
 
   @Post(':id/lock')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async lock(
     @Param('id') id: string,
     @CurrentUser() user: CurrentUserPayload,

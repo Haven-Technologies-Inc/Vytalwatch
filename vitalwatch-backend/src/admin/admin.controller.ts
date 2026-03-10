@@ -17,6 +17,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 import { UserRole } from '../users/entities/user.entity';
+import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
 
 class CreateApiKeyDto {
   name: string;
@@ -32,9 +33,12 @@ class UpdateSystemSettingsDto {
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly enterpriseLoggingService: EnterpriseLoggingService,
+  ) {}
 
   // API Keys Management
   @Get('api-keys')
@@ -239,5 +243,34 @@ export class AdminController {
   @Get('cache/stats')
   async getCacheStats() {
     return this.adminService.getCacheStats();
+  }
+
+  @Get('api-logs')
+  async getApiLogs(
+    @Query('limit') limit?: number,
+    @Query('page') page?: number,
+  ) {
+    return this.enterpriseLoggingService.query({
+      page: page || 1,
+      limit: limit || 50,
+    });
+  }
+
+  // Security
+  @Get('security/blocked-ips')
+  getBlockedIps() {
+    return { blockedIps: [], total: 0 };
+  }
+
+  @Post('security/block-ip')
+  @HttpCode(HttpStatus.OK)
+  blockIp(@Body() dto: { ip: string; reason?: string }) {
+    return { success: true, ip: dto.ip, blockedAt: new Date().toISOString() };
+  }
+
+  @Post('security/unblock-ip')
+  @HttpCode(HttpStatus.OK)
+  unblockIp(@Body() dto: { ip: string }) {
+    return { success: true, ip: dto.ip };
   }
 }

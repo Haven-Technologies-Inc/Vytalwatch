@@ -8,7 +8,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/hooks/useToast';
-import { staffApi, usersApi } from '@/services/api';
+import { staffApi } from '@/services/api';
+import { apiClient } from '@/services/api/client';
 import { Users, Shield, Plus, Edit2, Trash2, Loader2, Search, UserPlus, Settings, Check, X } from 'lucide-react';
 
 interface StaffRole {
@@ -62,12 +63,12 @@ export default function StaffManagementPage() {
         staffApi.getRoles(),
         staffApi.getMembers(),
         staffApi.getPermissions(),
-        usersApi.getAll({ limit: 200 }).catch(() => ({ data: { data: [] } })),
-      ]);
-      setRoles(rolesRes.data?.data || []);
-      setMembers(membersRes.data?.data || []);
-      setPermissions(permsRes.data || null);
-      setUsers(usersRes.data?.data || []);
+        apiClient.get('/admin/users/pending', { params: { limit: 200 } }).catch(() => ({ data: [] })),
+      ]) as any[];
+      setRoles(rolesRes?.data?.data || rolesRes?.data || []);
+      setMembers(membersRes?.data?.data || membersRes?.data || []);
+      setPermissions(permsRes?.data || null);
+      setUsers(usersRes?.data?.data || usersRes?.data || []);
     } catch (err) {
       toast({ title: 'Failed to load staff data', type: 'error' });
     } finally {
@@ -377,11 +378,11 @@ function MemberModal({ isOpen, onClose, member, roles, users, onSave }: { isOpen
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={member ? 'Edit Staff Member' : 'Add Staff Member'} size="md">
       <div className="space-y-4">
-        {!member && <Select label="User" options={userOptions} value={userId} onChange={setUserId} />}
-        <Select label="Role" options={roleOptions} value={roleId} onChange={setRoleId} />
+        {!member && <Select placeholder="Select user" options={userOptions} value={userId} onChange={setUserId} />}
+        <Select placeholder="Select role" options={roleOptions} value={roleId} onChange={setRoleId} />
         <Input label="Title" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Senior Billing Specialist" />
         <Input label="Department" value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Finance" />
-        {member && <Select label="Status" options={statusOptions} value={status} onChange={setStatus} />}
+        {member && <Select placeholder="Select status" options={statusOptions} value={status} onChange={setStatus} />}
 
         <div className="flex justify-end gap-2 pt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>

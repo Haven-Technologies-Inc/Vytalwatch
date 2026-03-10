@@ -380,4 +380,22 @@ export class DevicesService {
 
     return saved;
   }
+
+  async findAllDevices(filters?: { status?: DeviceStatus; type?: string }): Promise<Device[]> {
+    const where: any = {};
+    if (filters?.status) where.status = filters.status;
+    if (filters?.type) where.type = filters.type;
+    return this.deviceRepository.find({ where, order: { createdAt: 'DESC' }, take: 100 });
+  }
+
+  async getDeviceReadings(deviceId: string, params?: { startDate?: string; endDate?: string }): Promise<any> {
+    const device = await this.findById(deviceId);
+    if (!device) throw new NotFoundException('Device not found');
+    if (!device.patientId) return { vitals: [], total: 0 };
+    return this.vitalsService.findAll({
+      patientId: device.patientId,
+      startDate: params?.startDate ? new Date(params.startDate) : undefined,
+      endDate: params?.endDate ? new Date(params.endDate) : undefined,
+    });
+  }
 }
