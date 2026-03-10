@@ -11,8 +11,9 @@ WORKDIR /app
 # Install libc6-compat for Alpine
 RUN apk add --no-cache libc6-compat
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy package files (monorepo root lock + frontend package.json)
+COPY package-lock.json ./
+COPY vitalwatch-frontend/package.json ./
 
 # Install dependencies
 RUN npm ci
@@ -32,7 +33,7 @@ ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY vitalwatch-frontend/ .
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -11,9 +11,10 @@ WORKDIR /app
 # Install dependencies needed for native modules
 RUN apk add --no-cache libc6-compat python3 make g++
 
-# Copy package files
-COPY package.json package-lock.json ./
-COPY prisma ./prisma/
+# Copy package files (monorepo root lock + backend package.json)
+COPY package-lock.json ./
+COPY vitalwatch-backend/package.json ./
+COPY vitalwatch-backend/prisma ./prisma/
 
 # Install all dependencies (including dev for building)
 RUN npm ci
@@ -33,7 +34,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
 # Copy source code
-COPY . .
+COPY vitalwatch-backend/ .
 
 # Build the application
 RUN npm run build
@@ -57,8 +58,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
 # Install production dependencies only
-COPY package.json package-lock.json ./
-COPY prisma ./prisma/
+COPY package-lock.json ./
+COPY vitalwatch-backend/package.json ./
+COPY vitalwatch-backend/prisma ./prisma/
 RUN npm ci --only=production && npm cache clean --force
 
 # Generate Prisma client for production

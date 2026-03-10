@@ -69,8 +69,8 @@ services:
   # Backend API
   backend:
     build:
-      context: ../vitalwatch-backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: vitalwatch-backend/Dockerfile
     container_name: vitalwatch-backend
     environment:
       NODE_ENV: production
@@ -128,8 +128,8 @@ services:
   # Frontend
   frontend:
     build:
-      context: ../vitalwatch-frontend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: vitalwatch-frontend/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
         NEXT_PUBLIC_WS_URL: wss://${DOMAIN}
