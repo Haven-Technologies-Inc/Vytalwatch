@@ -16,7 +16,7 @@ COPY package-lock.json ./
 COPY vitalwatch-frontend/package.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # ============================================
 # Stage 2: Builder

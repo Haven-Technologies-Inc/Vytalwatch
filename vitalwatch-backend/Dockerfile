@@ -17,7 +17,7 @@ COPY vitalwatch-backend/package.json ./
 COPY vitalwatch-backend/prisma ./prisma/
 
 # Install all dependencies (including dev for building)
-RUN npm ci
+RUN npm install
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -61,7 +61,7 @@ RUN adduser --system --uid 1001 nestjs
 COPY package-lock.json ./
 COPY vitalwatch-backend/package.json ./
 COPY vitalwatch-backend/prisma ./prisma/
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Generate Prisma client for production
 RUN npx prisma generate
