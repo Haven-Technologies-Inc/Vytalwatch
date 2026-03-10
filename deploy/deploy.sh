@@ -53,24 +53,24 @@ fi
 # Step 2: Build Docker images
 # ============================================================
 echo -e "${BLUE}[2/6] Building Docker images...${NC}"
-docker-compose -f deploy/docker-compose.hetzner.yml build --no-cache
+docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml build --no-cache
 
 # ============================================================
 # Step 3: Run database migrations
 # ============================================================
 echo -e "${BLUE}[3/6] Running database migrations...${NC}"
 # Wait for postgres to be ready, then run migrations
-docker-compose -f deploy/docker-compose.hetzner.yml up -d postgres
+docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml up -d postgres
 sleep 10
 
 # Run Prisma migrations
-docker-compose -f deploy/docker-compose.hetzner.yml run --rm backend npx prisma migrate deploy || true
+docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml run --rm backend npx prisma migrate deploy || true
 
 # ============================================================
 # Step 4: Start all services
 # ============================================================
 echo -e "${BLUE}[4/6] Starting services...${NC}"
-docker-compose -f deploy/docker-compose.hetzner.yml up -d
+docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml up -d
 
 # ============================================================
 # Step 5: Configure Nginx
@@ -123,7 +123,7 @@ echo ""
 echo -e "Application URL: ${BLUE}https://$DOMAIN${NC}"
 echo ""
 echo -e "${YELLOW}View logs:${NC}"
-echo "  docker-compose -f deploy/docker-compose.hetzner.yml logs -f"
+echo "  docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml logs -f"
 echo ""
 echo -e "${YELLOW}Check status:${NC}"
-echo "  docker-compose -f deploy/docker-compose.hetzner.yml ps"
+echo "  docker-compose --env-file .env -f deploy/docker-compose.hetzner.yml ps"
