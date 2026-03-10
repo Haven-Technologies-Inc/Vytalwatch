@@ -188,7 +188,7 @@ function DeviceOrderPageContent() {
 
 export default function DeviceOrderPage() {
   return (
-    <Suspense fallback={<DashboardLayout title="Order Devices" icon={<Package className="h-5 w-5" />}><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div></DashboardLayout>}>
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>}>
       <DeviceOrderPageContent />
     </Suspense>
   );
