@@ -132,12 +132,12 @@ services:
       context: ..
       dockerfile: vitalwatch-frontend/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
         NEXT_PUBLIC_WS_URL: wss://${DOMAIN}
     container_name: vitalwatch-frontend
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
