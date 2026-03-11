@@ -164,17 +164,14 @@ export class AddComplianceTables1709200000000 implements MigrationInterface {
       )
     `);
 
-    // Insert default retention policies
-    await queryRunner.query(`
-      INSERT INTO "data_retention_policies" ("name", "resourceType", "retentionDays", "action", "description")
-      SELECT * FROM (VALUES
-        ('Vital Readings', 'vital_reading', 2555, 'archive'::"retention_action_enum", 'HIPAA requires 7 years retention'),
-        ('Clinical Notes', 'clinical_note', 2555, 'archive'::"retention_action_enum", 'HIPAA requires 7 years retention'),
-        ('PHI Access Logs', 'phi_access_log', 2190, 'archive'::"retention_action_enum", 'HIPAA requires 6 years for audit logs'),
-        ('Claims', 'claim', 2555, 'archive'::"retention_action_enum", 'HIPAA requires 7 years retention')
-      ) AS v("name", "resourceType", "retentionDays", "action", "description")
-      WHERE NOT EXISTS (SELECT 1 FROM "data_retention_policies" LIMIT 1)
-    `);
+    // Insert default retention policies only if table is empty
+    const existing = await queryRunner.query(`SELECT 1 FROM "data_retention_policies" LIMIT 1`);
+    if (existing.length === 0) {
+      await queryRunner.query(`INSERT INTO "data_retention_policies" ("name", "resourceType", "retentionDays", "action", "description") VALUES ('Vital Readings', 'vital_reading', 2555, 'archive', 'HIPAA requires 7 years retention')`);
+      await queryRunner.query(`INSERT INTO "data_retention_policies" ("name", "resourceType", "retentionDays", "action", "description") VALUES ('Clinical Notes', 'clinical_note', 2555, 'archive', 'HIPAA requires 7 years retention')`);
+      await queryRunner.query(`INSERT INTO "data_retention_policies" ("name", "resourceType", "retentionDays", "action", "description") VALUES ('PHI Access Logs', 'phi_access_log', 2190, 'archive', 'HIPAA requires 6 years for audit logs')`);
+      await queryRunner.query(`INSERT INTO "data_retention_policies" ("name", "resourceType", "retentionDays", "action", "description") VALUES ('Claims', 'claim', 2555, 'archive', 'HIPAA requires 7 years retention')`);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
