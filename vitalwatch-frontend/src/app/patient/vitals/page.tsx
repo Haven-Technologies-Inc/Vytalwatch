@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { vitalsApi } from '@/services/api';
+import { extractArray, extractData } from '@/lib/utils';
 import type { ApiResponse, VitalReading, PaginatedResponse } from '@/types';
 
 const vitalTypes = [
@@ -94,8 +95,8 @@ export default function PatientVitalsPage() {
 
   // Transform latest vitals into card format
   const displayVitals = useMemo(() => {
-    const vitalsMap = vitalsResponse?.data;
-    if (!vitalsMap) return [];
+    const vitalsMap = extractData<Record<string, VitalReading>>(vitalsResponse);
+    if (!vitalsMap || typeof vitalsMap !== 'object') return [];
     return Object.entries(vitalsMap)
       .filter(([type]) => selectedVital === 'all' || type === selectedVital)
       .map(([type, reading]) => ({
@@ -110,8 +111,8 @@ export default function PatientVitalsPage() {
 
   // Transform trends into chart data
   const trendData = useMemo(() => {
-    const readings = trendsResponse?.data;
-    if (!readings || !Array.isArray(readings)) return [];
+    const readings = extractArray<VitalReading>(trendsResponse);
+    if (!readings.length) return [];
     return readings.map((r) => {
       const date = new Date(r.timestamp).toLocaleDateString('en-US', { weekday: 'short' });
       return {
@@ -125,9 +126,8 @@ export default function PatientVitalsPage() {
 
   // History readings
   const historyReadings = useMemo(() => {
-    const paginated = historyResponse?.data;
-    if (!paginated) return [];
-    const items = paginated.data || paginated.items || paginated.results || [];
+    const items = extractArray<VitalReading>(historyResponse);
+    if (!items.length) return [];
     return items.slice(0, 10);
   }, [historyResponse]);
 

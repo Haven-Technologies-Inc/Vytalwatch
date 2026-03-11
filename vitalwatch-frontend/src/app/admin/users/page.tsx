@@ -81,7 +81,6 @@ export default function AdminUsersPage() {
     try {
       setLoading(true);
       const response = await usersAdminApi.getAll({ limit: 100 });
-      // ApiClient wraps in { data } — backend sends { users: [...], total }
       const raw = (response as any)?.data ?? response;
       const list: UserType[] = raw?.users ?? raw?.results ?? raw?.data ?? (Array.isArray(raw) ? raw : []);
       if (list.length > 0) {

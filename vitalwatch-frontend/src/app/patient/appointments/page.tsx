@@ -26,6 +26,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { patientsApi } from '@/services/api';
 import apiClient from '@/services/api/client';
+import { extractArray } from '@/lib/utils';
 import type { ApiResponse, Appointment as ApiAppointment } from '@/types';
 
 interface Appointment {
@@ -93,7 +94,7 @@ export default function PatientAppointmentsPage() {
   const [localAppointments, setLocalAppointments] = useState<Appointment[]>([]);
 
   const appointments = useMemo(() => {
-    const apiAppts = (appointmentsResponse?.data || []).map(mapApiAppointment);
+    const apiAppts = extractArray<ApiAppointment>(appointmentsResponse).map(mapApiAppointment);
     const allAppts = [...localAppointments, ...apiAppts];
     return allAppts.map((apt) => ({ ...apt, ...localOverrides[apt.id] }));
   }, [appointmentsResponse, localOverrides, localAppointments]);

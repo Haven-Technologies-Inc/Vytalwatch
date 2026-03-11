@@ -181,12 +181,13 @@ export default function EnrollPatientPage() {
         } as Record<string, unknown>),
       } as Partial<Patient>);
 
-      if (patientResponse.data?.id) {
+      const created = (patientResponse as any)?.data ?? patientResponse;
+      if (created?.id) {
         // Order devices for patient if any selected
         if (formData.selectedDevices.length > 0) {
           try {
             await tenoviApi.createOrder({
-              patientId: patientResponse.data.id,
+              patientId: created.id,
               deviceTypes: formData.selectedDevices,
               shippingAddress: {
                 name: `${formData.firstName} ${formData.lastName}`,
@@ -203,7 +204,7 @@ export default function EnrollPatientPage() {
         }
 
         toast({ title: 'Success', description: 'Patient enrolled successfully', type: 'success' });
-        router.push(`/provider/patients/${patientResponse.data.id}`);
+        router.push(`/provider/patients/${created.id}`);
       }
     } catch (error) {
       console.error('Enrollment error:', error);

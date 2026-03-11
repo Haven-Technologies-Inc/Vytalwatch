@@ -65,10 +65,14 @@ export default function StaffManagementPage() {
         staffApi.getPermissions(),
         apiClient.get('/admin/users/pending', { params: { limit: 200 } }).catch(() => ({ data: [] })),
       ]) as any[];
-      setRoles(rolesRes?.data?.data || rolesRes?.data || []);
-      setMembers(membersRes?.data?.data || membersRes?.data || []);
-      setPermissions(permsRes?.data || null);
-      setUsers(usersRes?.data?.data || usersRes?.data || []);
+      const rRaw = rolesRes?.data ?? rolesRes;
+      setRoles(rRaw?.data ?? (Array.isArray(rRaw) ? rRaw : []));
+      const mRaw = membersRes?.data ?? membersRes;
+      setMembers(mRaw?.data ?? (Array.isArray(mRaw) ? mRaw : []));
+      const pRaw = permsRes?.data ?? permsRes;
+      setPermissions(pRaw ?? null);
+      const uRaw = usersRes?.data ?? usersRes;
+      setUsers(uRaw?.data ?? (Array.isArray(uRaw) ? uRaw : []));
     } catch (err) {
       toast({ title: 'Failed to load staff data', type: 'error' });
     } finally {

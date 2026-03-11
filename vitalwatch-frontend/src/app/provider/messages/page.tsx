@@ -214,9 +214,11 @@ export default function ProviderMessagesPage() {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await messagingApi.getThreads({ limit: 50 });
-      if (response.data?.results) {
-        const threads = response.data.results.map((thread: MessageThread) => ({
+      const response = await messagingApi.getThreads({ limit: 50 }) as any;
+      const raw = response?.data ?? response;
+      const threadList = raw?.results ?? raw?.data ?? (Array.isArray(raw) ? raw : []);
+      if (threadList.length) {
+        const threads = threadList.map((thread: MessageThread) => ({
           id: thread.id,
           participant: {
             id: thread.participants?.[0]?.id || '',
@@ -242,9 +244,11 @@ export default function ProviderMessagesPage() {
 
   const fetchMessages = useCallback(async (threadId: string) => {
     try {
-      const response = await messagingApi.getMessages(threadId, { limit: 100 });
-      if (response.data?.results) {
-        const messages = response.data.results.map((msg: MessageType) => ({
+      const response = await messagingApi.getMessages(threadId, { limit: 100 }) as any;
+      const raw = response?.data ?? response;
+      const msgList = raw?.results ?? raw?.data ?? (Array.isArray(raw) ? raw : []);
+      if (msgList.length) {
+        const messages = msgList.map((msg: MessageType) => ({
           id: msg.id,
           senderId: msg.senderId,
           senderName: msg.senderName || 'Unknown',

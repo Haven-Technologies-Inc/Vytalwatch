@@ -336,7 +336,7 @@ export default function PatientDetailPage() {
     try {
       setDevicesLoading(true);
       const response = await patientsApi.getDevices(patientId);
-      const devicesData = response.data as unknown as { tenoviDevices?: TenoviHwiDevice[] };
+      const devicesData = (response as any)?.data as unknown as { tenoviDevices?: TenoviHwiDevice[] };
       if (devicesData?.tenoviDevices) {
         setDevices(devicesData.tenoviDevices);
       }
@@ -403,8 +403,8 @@ export default function PatientDetailPage() {
         summary: newCommunication.summary,
         durationMinutes: newCommunication.durationMinutes || undefined,
       });
-      if (response.data) {
-        setCommunicationLogs(prev => [response.data, ...prev]);
+      if ((response as any)?.data) {
+        setCommunicationLogs(prev => [(response as any).data, ...prev]);
       }
       setShowAddCommunication(false);
       setNewCommunication({ type: 'call', summary: '', durationMinutes: 0 });
@@ -432,8 +432,8 @@ export default function PatientDetailPage() {
         direction: 'outbound',
         summary: message,
       });
-      if (response.data) {
-        setCommunicationLogs(prev => [response.data, ...prev]);
+      if ((response as any)?.data) {
+        setCommunicationLogs(prev => [(response as any).data, ...prev]);
       }
       toast({ title: 'SMS Sent', description: `Message sent to ${patient.phone}`, type: 'success' });
     } catch (err) {
@@ -493,8 +493,8 @@ export default function PatientDetailPage() {
     try {
       setSavingMedication(true);
       const response = await patientsApi.addMedication(patientId, newMedication);
-      if (response.data) {
-        setMedications(prev => [...prev, response.data as Medication]);
+      if ((response as any)?.data) {
+        setMedications(prev => [...prev, (response as any).data as Medication]);
       }
       setNewMedication({ name: '', dosage: '', frequency: '', notes: '' });
       setShowAddMedication(false);
@@ -533,8 +533,8 @@ export default function PatientDetailPage() {
         title: newNote.title,
         content: newNote.content,
       });
-      if (response.data) {
-        setClinicalNotes(prev => [response.data, ...prev]);
+      if ((response as any)?.data) {
+        setClinicalNotes(prev => [(response as any).data, ...prev]);
       }
       setNewNote({ title: '', content: '', type: 'progress' });
       setShowAddNote(false);
@@ -583,8 +583,8 @@ export default function PatientDetailPage() {
         patientId,
         templateId: selectedConsentTemplate,
       });
-      if (response.data) {
-        setConsents(prev => [response.data, ...prev]);
+      if ((response as any)?.data) {
+        setConsents(prev => [(response as any).data, ...prev]);
       }
       setShowRequestConsent(false);
       setSelectedConsentTemplate('');
@@ -598,8 +598,8 @@ export default function PatientDetailPage() {
   const handleViewConsent = async (consentId: string) => {
     try {
       const response = await consentsApi.getById(consentId);
-      if (response.data) {
-        setViewingConsent(response.data);
+      if ((response as any)?.data) {
+        setViewingConsent((response as any).data);
       }
     } catch (err) {
       console.error('Error fetching consent:', err);
@@ -609,9 +609,10 @@ export default function PatientDetailPage() {
 
   const handleSendReminder = async (consentId: string) => {
     try {
-      const response = await consentsApi.sendReminder(consentId);
-      if (response.data?.success) {
-        toast({ title: 'Reminder Sent', description: response.data.message, type: 'success' });
+      const response = await consentsApi.sendReminder(consentId) as any;
+      const reminderData = response?.data ?? response;
+      if (reminderData?.success) {
+        toast({ title: 'Reminder Sent', description: reminderData.message, type: 'success' });
       }
     } catch (err) {
       console.error('Error sending reminder:', err);
@@ -636,10 +637,9 @@ export default function PatientDetailPage() {
     const fetchNotesAndConsents = async () => {
       if (activeTab === 'notes') {
         try {
-          const response = await clinicalNotesApi.getByPatient(patientId);
-          if (response.data) {
-            setClinicalNotes(Array.isArray(response.data) ? response.data : []);
-          }
+          const notesRaw = await clinicalNotesApi.getByPatient(patientId) as any;
+          const notesList = notesRaw?.data ?? notesRaw;
+          setClinicalNotes(Array.isArray(notesList) ? notesList : []);
         } catch (err) {
           console.log('Clinical notes not available');
         }
@@ -651,12 +651,10 @@ export default function PatientDetailPage() {
             consentsApi.getByPatient(patientId),
             consentsApi.getTemplates(),
           ]);
-          if (consentsRes.data) {
-            setConsents(Array.isArray(consentsRes.data) ? consentsRes.data : []);
-          }
-          if (templatesRes.data) {
-            setConsentTemplates(Array.isArray(templatesRes.data) ? templatesRes.data : []);
-          }
+          const cData = (consentsRes as any)?.data ?? consentsRes;
+          setConsents(Array.isArray(cData) ? cData : []);
+          const tData = (templatesRes as any)?.data ?? templatesRes;
+          setConsentTemplates(Array.isArray(tData) ? tData : []);
         } catch (err) {
           console.log('Consents not available');
         }
@@ -664,10 +662,9 @@ export default function PatientDetailPage() {
 
       if (activeTab === 'communication') {
         try {
-          const response = await clinicalNotesApi.getCommunicationLogs(patientId);
-          if (response.data) {
-            setCommunicationLogs(Array.isArray(response.data) ? response.data : []);
-          }
+          const commRaw = await clinicalNotesApi.getCommunicationLogs(patientId) as any;
+          const commList = commRaw?.data ?? commRaw;
+          setCommunicationLogs(Array.isArray(commList) ? commList : []);
         } catch (err) {
           console.log('Communication logs not available');
         }

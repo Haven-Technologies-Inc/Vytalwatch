@@ -22,7 +22,7 @@ import {
   CheckCircle,
   MessageSquare,
 } from "lucide-react";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, extractArray } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import apiClient from "@/services/api/client";
@@ -181,8 +181,7 @@ export default function ProviderDashboard() {
   }, [statsData]);
 
   const alerts = useMemo(() => {
-    const inner = alertsData?.data as any;
-    const results: DashboardAlert[] = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
+    const results: DashboardAlert[] = extractArray<DashboardAlert>(alertsData);
     return results.map((a) => ({
       ...a,
       time: new Date(a.time),
@@ -190,8 +189,7 @@ export default function ProviderDashboard() {
   }, [alertsData]);
 
   const patients = useMemo(() => {
-    const inner = patientsData?.data as any;
-    const results: DashboardPatient[] = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
+    const results: DashboardPatient[] = extractArray<DashboardPatient>(patientsData);
     return results.map((p) => ({
       ...p,
       lastReading: new Date(p.lastReading),
@@ -199,7 +197,7 @@ export default function ProviderDashboard() {
   }, [patientsData]);
 
   const aiInsights = useMemo(() => {
-    const data = insightsData?.data ?? [];
+    const data: DashboardInsight[] = extractArray<DashboardInsight>(insightsData);
     return data.map((i) => ({
       ...i,
       icon: insightIconMap[i.type] || Brain,

@@ -228,7 +228,6 @@ class ApiClient {
         );
       }
 
-      // Wrap response so callers can access response.data consistently
       return { data, status: response.status } as unknown as T;
     } catch (error) {
       clearTimeout(timeoutId);

@@ -22,7 +22,7 @@ import {
   Camera,
   RefreshCw
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractArray } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { authApi, usersApi } from '@/services/api';
@@ -125,7 +125,7 @@ export default function PatientSettingsPage() {
     { enabled: activeTab === 'devices' }
   );
 
-  const settingsDevices = devicesResponse?.data || [];
+  const settingsDevices = extractArray<{ name: string; serial: string; status: string; battery: number }>(devicesResponse);
 
   const handleSaveProfile = useCallback(async () => {
     setIsSaving(true);

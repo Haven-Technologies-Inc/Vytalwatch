@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { patientsApi } from '@/services/api';
+import { extractArray } from '@/lib/utils';
 import type { ApiResponse, Medication as ApiMedication } from '@/types';
 
 interface Medication {
@@ -64,7 +65,7 @@ export default function PatientMedicationsPage() {
   const [takenOverrides, setTakenOverrides] = useState<Record<string, boolean[]>>({});
 
   const medications = useMemo(() => {
-    const apiMeds = (medicationsResponse?.data || []).map(mapApiMedication);
+    const apiMeds = extractArray<ApiMedication>(medicationsResponse).map(mapApiMedication);
     return apiMeds.map((med) => {
       if (takenOverrides[med.id]) {
         return {

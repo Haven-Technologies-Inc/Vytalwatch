@@ -107,3 +107,35 @@ export function generateId(): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Extract an array from an API response that may be wrapped by ApiClient { data, status }
+ * and/or paginated { data: [], meta: {} }.
+ * Safe for any backend response shape.
+ */
+export function extractArray<T = unknown>(response: unknown): T[] {
+  if (!response || typeof response !== 'object') return [];
+  const r = response as Record<string, unknown>;
+  // ApiClient wrapper: { data: <backend_json>, status }
+  const inner = r.data !== undefined ? r.data : response;
+  if (Array.isArray(inner)) return inner as T[];
+  if (inner && typeof inner === 'object') {
+    const i = inner as Record<string, unknown>;
+    // Paginated: { data: [], meta: {} } or { results: [] }
+    if (Array.isArray(i.data)) return i.data as T[];
+    if (Array.isArray(i.results)) return i.results as T[];
+    if (Array.isArray(i.items)) return i.items as T[];
+    if (Array.isArray(i.users)) return i.users as T[];
+  }
+  return [];
+}
+
+/**
+ * Extract a plain object from an API response that may be wrapped by ApiClient { data, status }.
+ */
+export function extractData<T = Record<string, unknown>>(response: unknown): T | null {
+  if (!response || typeof response !== 'object') return null;
+  const r = response as Record<string, unknown>;
+  const inner = r.data !== undefined ? r.data : response;
+  return (inner as T) ?? null;
+}

@@ -87,10 +87,10 @@ export default function AdminDevicesPage() {
       const [devicesRes, statsRes, patientsRes, orgsRes] = await Promise.all([
         tenoviApi.listDevices({ limit: 100 }),
         tenoviApi.getStats(),
-        patientsApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
-        organizationsApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
+        patientsApi.getAll({ limit: 100 }).catch(() => ({ data: [] })),
+        organizationsApi.getAll({ limit: 100 }).catch(() => ({ data: [] })),
       ]);
-      // ApiClient wraps in { data } — extract raw backend response
+      // ApiClient wraps in { data, status } — unwrap then extract arrays
       const rawDevices = (devicesRes as any)?.data ?? devicesRes;
       const deviceList = rawDevices?.results ?? rawDevices?.data ?? (Array.isArray(rawDevices) ? rawDevices : []);
       if (Array.isArray(deviceList)) setDevices(deviceList);

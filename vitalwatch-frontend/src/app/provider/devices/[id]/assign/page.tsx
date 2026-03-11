@@ -56,9 +56,10 @@ export default function AssignDevicePage() {
 
   const fetchDevice = useCallback(async () => {
     try {
-      const response = await tenoviApi.getDevice(deviceId);
-      if (response.data) {
-        setDevice(response.data);
+      const response = await tenoviApi.getDevice(deviceId) as any;
+      const deviceData = response?.data ?? response;
+      if (deviceData) {
+        setDevice(deviceData);
       }
     } catch (error) {
       console.error('Error fetching device:', error);
@@ -68,11 +69,11 @@ export default function AssignDevicePage() {
 
   const fetchPatients = useCallback(async () => {
     try {
-      const response = await patientsApi.getAll({ page: 1, limit: 100 });
-      if (response.data?.data) {
-        setPatients(response.data.data);
-        setFilteredPatients(response.data.data);
-      }
+      const response = await patientsApi.getAll({ page: 1, limit: 100 }) as any;
+      const raw = response?.data ?? response;
+      const list = raw?.data ?? (Array.isArray(raw) ? raw : []);
+      setPatients(list);
+      setFilteredPatients(list);
     } catch (error) {
       console.error('Error fetching patients:', error);
       toast({ title: 'Error', description: 'Failed to load patients', type: 'error' });

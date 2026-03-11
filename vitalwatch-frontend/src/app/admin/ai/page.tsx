@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Brain, Zap, Activity, TrendingUp, Play, Pause, RefreshCw, Eye } from 'lucide-react';
+import { extractArray, extractData } from '@/lib/utils';
 
 interface AIModel {
   id: string;
@@ -89,8 +90,9 @@ export default function AdminAIPage() {
     () => apiClient.get<AIProviderStatus>('/ai/status'),
   );
 
-  const models: AIModel[] = Array.isArray(modelsRaw) ? modelsRaw : [];
-  const perfData = perfRaw?.overall;
+  const models: AIModel[] = extractArray<AIModel>(modelsRaw);
+  const perfInner = extractData<PerformanceMetrics>(perfRaw);
+  const perfData = perfInner?.overall;
 
   // Build trend from training history of all models
   const performanceData = models
@@ -295,7 +297,7 @@ export default function AdminAIPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
               <h3 className="mb-4 text-lg font-semibold">AI Providers</h3>
               <div className="space-y-3">
-                {(providerStatus?.providers ?? [{ name: 'OpenAI', model: 'GPT-4', status: 'loading', configured: false }, { name: 'Grok', model: 'Grok-2', status: 'loading', configured: false }]).map((provider) => (
+                {(extractData<AIProviderStatus>(providerStatus)?.providers ?? [{ name: 'OpenAI', model: 'GPT-4', status: 'loading', configured: false }, { name: 'Grok', model: 'Grok-2', status: 'loading', configured: false }]).map((provider) => (
                   <div key={provider.name} className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
                     <div>
                       <p className="font-medium">{provider.name}</p>

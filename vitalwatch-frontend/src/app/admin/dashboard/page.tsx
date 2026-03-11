@@ -30,7 +30,7 @@ import {
   RefreshCw,
   Settings,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData } from "@/lib/utils";
 
 // --- API response types ---
 
@@ -132,6 +132,8 @@ export default function AdminDashboard() {
   );
 
   // Derive display values from API responses (with safe fallbacks)
+  // ApiClient wraps in { data, status }. useApiQuery stores that wrapper.
+  // So xData?.data gives the raw backend JSON.
   const stats = statsData?.data;
   const systemStats = stats
     ? [
@@ -170,12 +172,13 @@ export default function AdminDashboard() {
       ]
     : [];
 
-  const systemHealth: HealthService[] = healthData?.data?.services ?? [];
-  const overallHealth = healthData?.data?.overall ?? "operational";
+  const healthInner = extractData<{ services: HealthService[]; overall: string }>(healthData);
+  const systemHealth: HealthService[] = healthInner?.services ?? [];
+  const overallHealth = healthInner?.overall ?? "operational";
 
-  const recentApiLogs: ApiLogEntry[] = logsData?.data ?? [];
+  const recentApiLogs: ApiLogEntry[] = extractArray<ApiLogEntry>(logsData);
 
-  const aiModels = aiData?.data ?? [];
+  const aiModels: AiModel[] = extractArray<AiModel>(aiData);
   const topModel = aiModels[0];
   const aiMetrics = {
     predictionsToday: aiModels.reduce((s, m) => s + (m.predictionsToday ?? 0), 0),

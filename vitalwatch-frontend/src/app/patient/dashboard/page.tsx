@@ -23,7 +23,7 @@ import {
   ChevronRight,
   ClipboardList,
 } from "lucide-react";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useAuthStore } from "@/stores/authStore";
@@ -110,8 +110,8 @@ export default function PatientDashboard() {
 
   // Transform vitals data into display format
   const vitals = useMemo(() => {
-    const vitalsMap = vitalsResponse?.data;
-    if (!vitalsMap) return [];
+    const vitalsMap = extractData<Record<string, VitalReading>>(vitalsResponse);
+    if (!vitalsMap || typeof vitalsMap !== 'object') return [];
     return Object.entries(vitalsMap).map(([type, reading]) => {
       const meta = vitalMeta[type] || { icon: Activity, color: "slate", label: type, unit: "" };
       return {
@@ -130,8 +130,8 @@ export default function PatientDashboard() {
 
   // AI insights
   const aiInsights = useMemo(() => {
-    const insights = insightsResponse?.data;
-    if (!insights || !Array.isArray(insights)) return [];
+    const insights = extractArray<AIInsight>(insightsResponse);
+    if (!insights.length) return [];
     return insights.slice(0, 5).map((insight) => ({
       type: insight.type || "tip",
       title: insight.title,
@@ -142,8 +142,8 @@ export default function PatientDashboard() {
 
   // Appointments
   const appointments = useMemo(() => {
-    const appts = appointmentsResponse?.data;
-    if (!appts || !Array.isArray(appts)) return [];
+    const appts = extractArray<Appointment>(appointmentsResponse);
+    if (!appts.length) return [];
     return appts.slice(0, 3).map((apt) => ({
       title: apt.notes || "Appointment",
       doctor: apt.providerId || "Provider",
@@ -161,8 +161,8 @@ export default function PatientDashboard() {
   const [medicationsTaken, setMedicationsTaken] = useState<Record<string, boolean[]>>({});
 
   const medications = useMemo(() => {
-    const meds = medicationsResponse?.data;
-    if (!meds || !Array.isArray(meds)) return [];
+    const meds = extractArray<Medication>(medicationsResponse);
+    if (!meds.length) return [];
     return meds.flatMap((med) =>
       (med.schedule || []).map((sched, idx) => ({
         medId: med.id,
@@ -333,7 +333,7 @@ export default function PatientDashboard() {
                     No insights available yet. Keep tracking your vitals!
                   </p>
                 ) : (
-                  aiInsights.map((insight, index) => (
+                  aiInsights.map((insight: { type: string; title: string; message: string; icon: string }, index: number) => (
                     <div
                       key={index}
                       className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl"
@@ -374,7 +374,7 @@ export default function PatientDashboard() {
                     No medications scheduled.
                   </p>
                 ) : (
-                  medications.map((med, index) => (
+                  medications.map((med: { medId: string; schedIdx: number; name: string; time: string; taken: boolean }, index: number) => (
                     <div
                       key={`${med.medId}-${med.schedIdx}`}
                       className={`flex items-center justify-between p-3 rounded-lg ${

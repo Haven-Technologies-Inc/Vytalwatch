@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Send, Search, Paperclip, MoreVertical, Phone, Video, User, X, File as FileIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractArray } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { VideoCall, IncomingCallModal } from '@/components/video';
 import { webrtcClient, IncomingCallData, CallType } from '@/lib/webrtc';
@@ -94,9 +94,8 @@ export default function PatientMessagesPage() {
   );
 
   const apiConversations = useMemo(() => {
-    const paginated = threadsResponse?.data;
-    if (!paginated) return [];
-    const threads = paginated.data || paginated.items || paginated.results || [];
+    const threads = extractArray<MessageThread>(threadsResponse);
+    if (!threads.length) return [];
     return threads.map((t) => mapThreadToConversation(t, currentUserId));
   }, [threadsResponse, currentUserId]);
 
