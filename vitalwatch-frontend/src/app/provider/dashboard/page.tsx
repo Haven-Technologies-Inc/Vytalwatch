@@ -181,7 +181,8 @@ export default function ProviderDashboard() {
   }, [statsData]);
 
   const alerts = useMemo(() => {
-    const results = alertsData?.data?.results ?? [];
+    const inner = alertsData?.data as any;
+    const results: DashboardAlert[] = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
     return results.map((a) => ({
       ...a,
       time: new Date(a.time),
@@ -189,7 +190,8 @@ export default function ProviderDashboard() {
   }, [alertsData]);
 
   const patients = useMemo(() => {
-    const results = patientsData?.data?.results ?? [];
+    const inner = patientsData?.data as any;
+    const results: DashboardPatient[] = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
     return results.map((p) => ({
       ...p,
       lastReading: new Date(p.lastReading),

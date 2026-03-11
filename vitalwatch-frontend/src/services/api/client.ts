@@ -222,13 +222,14 @@ class ApiClient {
 
       if (!response.ok) {
         throw new ApiError(
-          data.error?.message || `Request failed with status ${response.status}`,
+          data.error?.message || data.message || `Request failed with status ${response.status}`,
           data.error?.code || 'UNKNOWN_ERROR',
           response.status
         );
       }
 
-      return data;
+      // Wrap response so callers can access response.data consistently
+      return { data, status: response.status } as unknown as T;
     } catch (error) {
       clearTimeout(timeoutId);
 

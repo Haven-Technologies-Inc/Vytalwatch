@@ -67,8 +67,10 @@ export default function AdminReportsPage() {
     try {
       setLoading(true);
       const response = await reportsApi.getAll({ limit: 100 });
-      if (response.data?.results) {
-        const mapped: Report[] = response.data.results.map((r: ReportType) => ({
+      const raw = (response as any)?.data ?? response;
+      const results = raw?.data ?? raw?.results ?? (Array.isArray(raw) ? raw : []);
+      if (Array.isArray(results) && results.length > 0) {
+        const mapped: Report[] = results.map((r: ReportType) => ({
           id: r.id,
           name: r.title || r.name || 'Untitled Report',
           type: r.type || 'Operations',

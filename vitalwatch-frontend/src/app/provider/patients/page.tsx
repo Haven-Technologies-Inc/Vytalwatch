@@ -82,8 +82,9 @@ export default function ProviderPatientsPage() {
     () => patientsApi.getAll({ limit: 100 }) as unknown as Promise<PatientsApiResponse>,
   );
 
-  const patients = useMemo(() => {
-    return patientsResponse?.data?.results ?? [];
+  const patients: Patient[] = useMemo(() => {
+    const inner = patientsResponse?.data as any;
+    return inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
   }, [patientsResponse]);
 
   const handleMessagePatient = useCallback((patientId: string, patientName: string) => {

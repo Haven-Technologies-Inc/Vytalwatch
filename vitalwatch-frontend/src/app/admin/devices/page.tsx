@@ -90,18 +90,21 @@ export default function AdminDevicesPage() {
         patientsApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
         organizationsApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
       ]);
-      if (devicesRes.data?.results) {
-        setDevices(devicesRes.data.results);
-      }
-      if (statsRes.data) {
-        setStats(statsRes.data);
-      }
-      if (patientsRes.data?.data) {
-        setPatients(patientsRes.data.data);
-      }
-      if (orgsRes.data?.data) {
-        setOrganizations(orgsRes.data.data);
-      }
+      // ApiClient wraps in { data } — extract raw backend response
+      const rawDevices = (devicesRes as any)?.data ?? devicesRes;
+      const deviceList = rawDevices?.results ?? rawDevices?.data ?? (Array.isArray(rawDevices) ? rawDevices : []);
+      if (Array.isArray(deviceList)) setDevices(deviceList);
+
+      const rawStats = (statsRes as any)?.data ?? statsRes;
+      if (rawStats) setStats(rawStats);
+
+      const rawPatients = (patientsRes as any)?.data ?? patientsRes;
+      const patientList = rawPatients?.data ?? rawPatients?.results ?? (Array.isArray(rawPatients) ? rawPatients : []);
+      if (Array.isArray(patientList)) setPatients(patientList);
+
+      const rawOrgs = (orgsRes as any)?.data ?? orgsRes;
+      const orgList = rawOrgs?.data ?? rawOrgs?.results ?? (Array.isArray(rawOrgs) ? rawOrgs : []);
+      if (Array.isArray(orgList)) setOrganizations(orgList);
     } catch (err) {
       setError('Failed to load devices. Please try again.');
       console.error('Error fetching devices:', err);

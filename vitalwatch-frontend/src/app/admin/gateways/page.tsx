@@ -37,8 +37,10 @@ export default function AdminGatewaysPage() {
       setLoading(true);
       setError(null);
       const response = await tenoviApi.listGateways({ limit: 100 });
-      if (response.data?.results) {
-        setGateways(response.data.results);
+      const raw = (response as any)?.data ?? response;
+      const results = raw?.results ?? raw?.data ?? (Array.isArray(raw) ? raw : []);
+      if (Array.isArray(results)) {
+        setGateways(results);
       }
     } catch (err) {
       setError('Failed to load gateways. Please try again.');

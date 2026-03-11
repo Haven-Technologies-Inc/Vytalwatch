@@ -70,9 +70,9 @@ export default function AdminOrganizationsPage() {
     try {
       setLoading(true);
       const response = await organizationsApi.getAll({ limit: 100 });
-      // Backend returns { data: [...], meta: {...} } directly
-      const raw = response.data as any;
-      const list: OrgType[] = raw?.results ?? raw?.data ?? raw?.organizations ?? (Array.isArray(raw) ? raw : []);
+      // ApiClient wraps in { data } — backend sends { data: [...], meta: {...} }
+      const raw = (response as any)?.data ?? response;
+      const list: OrgType[] = raw?.data ?? raw?.results ?? raw?.organizations ?? (Array.isArray(raw) ? raw : []);
       if (list.length > 0) {
         const mapped = list.map((org: OrgType) => ({
           id: org.id,
