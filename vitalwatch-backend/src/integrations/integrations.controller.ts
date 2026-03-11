@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsOptional, IsString, IsObject } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,14 +20,14 @@ import { IntegrationsService } from './integrations.service';
 import { UserRole } from '../users/entities/user.entity';
 
 class ConfigureIntegrationDto {
-  apiKey?: string;
-  apiSecret?: string;
-  webhookUrl?: string;
-  settings?: Record<string, any>;
+  @IsOptional() @IsString() apiKey?: string;
+  @IsOptional() @IsString() apiSecret?: string;
+  @IsOptional() @IsString() webhookUrl?: string;
+  @IsOptional() @IsObject() settings?: Record<string, any>;
 }
 
 class TestIntegrationDto {
-  testData?: Record<string, any>;
+  @IsOptional() @IsObject() testData?: Record<string, any>;
 }
 
 @Controller('integrations')
