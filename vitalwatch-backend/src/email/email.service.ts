@@ -263,7 +263,7 @@ export class EmailService implements OnModuleInit {
     email: string,
     invite: { code: string; role: string; organizationName: string; inviterName: string }
   ): Promise<EmailResult> {
-    const signupUrl = `${this.configService.get('app.frontendUrl')}/register?invite=${invite.code}`;
+    const signupUrl = `${this.configService.get('app.frontendUrl')}/auth/register?invite=${invite.code}`;
     
     const html = this.getTemplate('inviteCode', {
       code: invite.code,

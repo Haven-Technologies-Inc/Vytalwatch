@@ -41,12 +41,11 @@ export class IntegrationsService {
   }
 
   private isRealValue(key: string): boolean {
-    // Check ConfigService first, then fall back to process.env for runtime updates
-    let val = this.configService.get<string>(key);
+    // Check process.env FIRST for runtime-configured keys, then ConfigService
+    const envKey = this.configKeyToEnv(key);
+    let val = envKey ? process.env[envKey] : undefined;
     if (!val || !val.trim()) {
-      // Try direct env lookup for runtime-configured keys
-      const envKey = this.configKeyToEnv(key);
-      if (envKey) val = process.env[envKey];
+      val = this.configService.get<string>(key);
     }
     if (!val || !val.trim()) return false;
     const placeholders = ['...', 'your-', 'change-in-', 'placeholder', 'xxx', 'TODO'];
@@ -56,7 +55,7 @@ export class IntegrationsService {
   private configKeyToEnv(key: string): string | undefined {
     const map: Record<string, string> = {
       'stripe.secretKey': 'STRIPE_SECRET_KEY',
-      'email.user': 'SMTP_USER', 'email.pass': 'SMTP_PASS',
+      'email.host': 'SMTP_HOST', 'email.user': 'SMTP_USER', 'email.pass': 'SMTP_PASS', 'email.from': 'SMTP_FROM',
       'twilio.accountSid': 'TWILIO_ACCOUNT_SID', 'twilio.authToken': 'TWILIO_AUTH_TOKEN',
       'openai.apiKey': 'OPENAI_API_KEY',
       'grok.apiKey': 'GROK_API_KEY',
