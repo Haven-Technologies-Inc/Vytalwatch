@@ -674,6 +674,15 @@ export const tenoviApi = {
   unassignDevice: (hwiDeviceId: string) =>
     apiClient.post<ApiResponse<TenoviHwiDevice>>(`/tenovi/devices/${hwiDeviceId}/unassign`),
 
+  createDevice: (data: any) =>
+    apiClient.post<ApiResponse<TenoviHwiDevice>>('/tenovi/devices', data),
+
+  updateDevice: (hwiDeviceId: string, data: any) =>
+    apiClient.patch<ApiResponse<TenoviHwiDevice>>(`/tenovi/devices/${hwiDeviceId}`, data),
+
+  deleteDevice: (hwiDeviceId: string) =>
+    apiClient.delete<ApiResponse<void>>(`/tenovi/devices/${hwiDeviceId}`),
+
   // Device Measurements
   getDeviceMeasurements: (hwiDeviceId: string, params?: { page?: number; limit?: number; startDate?: string; endDate?: string }) =>
     apiClient.get<ApiResponse<TenoviPaginatedResponse<TenoviMeasurement>>>(`/tenovi/devices/${hwiDeviceId}/measurements`, { params }),
@@ -685,8 +694,14 @@ export const tenoviApi = {
   getDeviceProperties: (hwiDeviceId: string) =>
     apiClient.get<ApiResponse<TenoviDeviceProperty[]>>(`/tenovi/devices/${hwiDeviceId}/properties`),
 
+  createDeviceProperty: (hwiDeviceId: string, key: string, value: string) =>
+    apiClient.post<ApiResponse<TenoviDeviceProperty>>(`/tenovi/devices/${hwiDeviceId}/properties`, { key, value }),
+
   updateDeviceProperty: (hwiDeviceId: string, propertyId: string, value: string) =>
     apiClient.patch<ApiResponse<TenoviDeviceProperty>>(`/tenovi/devices/${hwiDeviceId}/properties/${propertyId}`, { value }),
+
+  deleteDeviceProperty: (hwiDeviceId: string, propertyId: string) =>
+    apiClient.delete<ApiResponse<void>>(`/tenovi/devices/${hwiDeviceId}/properties/${propertyId}`),
 
   // HWI Patients
   listHwiPatients: (params?: { page?: number; limit?: number }) =>
@@ -703,6 +718,9 @@ export const tenoviApi = {
 
   deleteHwiPatient: (externalId: string) =>
     apiClient.delete<ApiResponse<void>>(`/tenovi/hwi-patients/${externalId}`),
+
+  replaceHwiPatient: (externalId: string, data: Partial<TenoviPatient>) =>
+    apiClient.patch<ApiResponse<TenoviPatient>>(`/tenovi/hwi-patients/${externalId}/replace`, data),
 
   // Device Types & Catalog
   listDeviceTypes: () =>
@@ -746,6 +764,9 @@ export const tenoviApi = {
 
   createReplacement: (data: { hwiDeviceId: string; newHardwareUuid: string; reason?: string }) =>
     apiClient.post<ApiResponse<TenoviHardwareChange>>('/tenovi/replacements', data),
+
+  cancelReplacement: (replacementId: string) =>
+    apiClient.delete<ApiResponse<void>>(`/tenovi/replacements/${replacementId}`),
 
   // Sync Operations
   syncAll: (organizationId?: string) =>

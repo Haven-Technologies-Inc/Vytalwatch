@@ -453,6 +453,13 @@ export class TenoviController {
     return this.tenoviService.deleteHwiPatient(externalId);
   }
 
+  // PUT replace HWI patient (full update)
+  @Patch('hwi-patients/:externalId/replace')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async replaceHwiPatient(@Param('externalId') externalId: string, @Body() body: TenoviPatientDto) {
+    return this.tenoviService.replaceHwiPatient(externalId, body);
+  }
+
   // Unassign Device
   @Post('devices/:hwiDeviceId/unassign')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
@@ -460,11 +467,23 @@ export class TenoviController {
     return this.tenoviService.unassignHwiDeviceFromPatient(hwiDeviceId);
   }
 
-  // List All Gateways
-  @Get('gateways')
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
-  async listAllGateways(@Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.tenoviService.listAllGateways(page, limit);
+  // HWI Device CRUD (Tenovi API proxy)
+  @Post('devices')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async createDevice(@Body() body: any) {
+    return this.tenoviService.createHwiDevice(body);
+  }
+
+  @Patch('devices/:hwiDeviceId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async updateDevice(@Param('hwiDeviceId') hwiDeviceId: string, @Body() body: any) {
+    return this.tenoviService.updateHwiDevice(hwiDeviceId, body);
+  }
+
+  @Delete('devices/:hwiDeviceId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async deleteDevice(@Param('hwiDeviceId') hwiDeviceId: string) {
+    return this.tenoviService.deleteHwiDevice(hwiDeviceId);
   }
 
   @Get('gateways/local')
@@ -499,6 +518,15 @@ export class TenoviController {
     return this.tenoviService.getDeviceProperty(hwiDeviceId, propertyId);
   }
 
+  @Post('devices/:hwiDeviceId/properties')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async createDeviceProperty(
+    @Param('hwiDeviceId') hwiDeviceId: string,
+    @Body() body: { key: string; value: string },
+  ) {
+    return this.tenoviService.createDeviceProperty(hwiDeviceId, body.key, body.value);
+  }
+
   @Patch('devices/:hwiDeviceId/properties/:propertyId')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async updateDeviceProperty(
@@ -507,6 +535,15 @@ export class TenoviController {
     @Body() body: { value: string },
   ) {
     return this.tenoviService.updateDeviceProperty(hwiDeviceId, propertyId, body.value);
+  }
+
+  @Delete('devices/:hwiDeviceId/properties/:propertyId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async deleteDeviceProperty(
+    @Param('hwiDeviceId') hwiDeviceId: string,
+    @Param('propertyId') propertyId: string,
+  ) {
+    return this.tenoviService.deleteDeviceProperty(hwiDeviceId, propertyId);
   }
 
   // Bulk Orders
@@ -609,6 +646,31 @@ export class TenoviController {
     @Body() body: { hwiDeviceId: string; newHardwareUuid: string; reason?: string },
   ) {
     return this.tenoviService.createReplacement(body);
+  }
+
+  @Delete('replacements/:replacementId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async cancelReplacement(@Param('replacementId') replacementId: string) {
+    return this.tenoviService.cancelReplacement(replacementId);
+  }
+
+  // Webhook CRUD
+  @Get('webhooks/:webhookId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getWebhook(@Param('webhookId') webhookId: string) {
+    return this.tenoviService.getWebhook(webhookId);
+  }
+
+  @Patch('webhooks/:webhookId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async updateWebhook(@Param('webhookId') webhookId: string, @Body() body: any) {
+    return this.tenoviService.updateWebhook(webhookId, body);
+  }
+
+  @Delete('webhooks/:webhookId')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  async deleteWebhook(@Param('webhookId') webhookId: string) {
+    return this.tenoviService.deleteWebhook(webhookId);
   }
 
   // Webhook Resend/Test
