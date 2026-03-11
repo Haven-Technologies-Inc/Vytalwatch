@@ -41,10 +41,31 @@ export class IntegrationsService {
   }
 
   private isRealValue(key: string): boolean {
-    const val = this.configService.get<string>(key);
+    // Check ConfigService first, then fall back to process.env for runtime updates
+    let val = this.configService.get<string>(key);
+    if (!val || !val.trim()) {
+      // Try direct env lookup for runtime-configured keys
+      const envKey = this.configKeyToEnv(key);
+      if (envKey) val = process.env[envKey];
+    }
     if (!val || !val.trim()) return false;
     const placeholders = ['...', 'your-', 'change-in-', 'placeholder', 'xxx', 'TODO'];
-    return !placeholders.some((p) => val.trim().endsWith(p) || val.trim().startsWith(p));
+    return !placeholders.some((p) => val!.trim().endsWith(p) || val!.trim().startsWith(p));
+  }
+
+  private configKeyToEnv(key: string): string | undefined {
+    const map: Record<string, string> = {
+      'stripe.secretKey': 'STRIPE_SECRET_KEY',
+      'email.user': 'SMTP_USER', 'email.pass': 'SMTP_PASS',
+      'twilio.accountSid': 'TWILIO_ACCOUNT_SID', 'twilio.authToken': 'TWILIO_AUTH_TOKEN',
+      'openai.apiKey': 'OPENAI_API_KEY',
+      'grok.apiKey': 'GROK_API_KEY',
+      'tenovi.apiKey': 'TENOVI_API_KEY',
+      'oauth.google.clientId': 'GOOGLE_CLIENT_ID', 'oauth.google.clientSecret': 'GOOGLE_CLIENT_SECRET',
+      'oauth.microsoft.clientId': 'MICROSOFT_CLIENT_ID', 'oauth.microsoft.clientSecret': 'MICROSOFT_CLIENT_SECRET',
+      'oauth.apple.clientId': 'APPLE_CLIENT_ID', 'oauth.apple.teamId': 'APPLE_TEAM_ID',
+    };
+    return map[key];
   }
 
   private initializeIntegrations() {
@@ -179,25 +200,50 @@ export class IntegrationsService {
     return integration;
   }
 
+  private readonly ENV_MAP: Record<string, Record<string, string>> = {
+    stripe: { apiKey: 'STRIPE_SECRET_KEY', webhookSecret: 'STRIPE_WEBHOOK_SECRET' },
+    zoho: { smtpHost: 'SMTP_HOST', smtpUser: 'SMTP_USER', smtpPass: 'SMTP_PASS', fromEmail: 'SMTP_FROM' },
+    twilio: { accountSid: 'TWILIO_ACCOUNT_SID', authToken: 'TWILIO_AUTH_TOKEN', phoneNumber: 'TWILIO_PHONE_NUMBER' },
+    openai: { apiKey: 'OPENAI_API_KEY' },
+    grok: { apiKey: 'GROK_API_KEY' },
+    tenovi: { apiKey: 'TENOVI_API_KEY', apiUrl: 'TENOVI_API_URL', clientDomain: 'TENOVI_CLIENT_DOMAIN' },
+    google: { clientId: 'GOOGLE_CLIENT_ID', clientSecret: 'GOOGLE_CLIENT_SECRET' },
+    microsoft: { clientId: 'MICROSOFT_CLIENT_ID', clientSecret: 'MICROSOFT_CLIENT_SECRET' },
+    apple: { clientId: 'APPLE_CLIENT_ID', teamId: 'APPLE_TEAM_ID' },
+  };
+
   async configureIntegration(
     name: string,
     dto: { settings?: Record<string, unknown> },
     user: CurrentUserPayload,
   ) {
     const integration = this.getIntegration(name);
+    const settings = dto.settings || {};
 
-    // Update configuration
-    integration.settings = { ...integration.settings, ...dto.settings };
+    // Map frontend keys to environment variables at runtime
+    const envMap = this.ENV_MAP[name] || {};
+    for (const [key, val] of Object.entries(settings)) {
+      if (typeof val === 'string' && val.trim() && envMap[key]) {
+        process.env[envMap[key]] = val.trim();
+        this.logger.log(`Updated env ${envMap[key]} for integration ${name}`);
+      }
+    }
+
+    // Update in-memory config
+    integration.settings = { ...integration.settings, ...settings };
     integration.configured = true;
     this.integrations.set(name, integration);
+
+    // Re-initialize integration status based on new env values
+    this.initializeIntegrations();
 
     await this.auditService.log({
       action: 'INTEGRATION_CONFIGURED',
       userId: user.sub,
-      details: { integration: name },
+      details: { integration: name, keys: Object.keys(settings) },
     });
 
-    return integration;
+    return this.getIntegration(name);
   }
 
   async enableIntegration(name: string, user: CurrentUserPayload) {
