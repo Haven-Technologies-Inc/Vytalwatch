@@ -32,7 +32,9 @@ export function buildOrderEmailHtml(
     <p style="color:#6b7280;font-size:13px">You will receive updates as your order is processed and shipped.</p>
   </div>
   <div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px">
-    VytalWatch AI &mdash; Remote Patient Monitoring
+    VytalWatch &mdash; Intelligent Remote Patient Monitoring<br>
+    <a href="https://vytalwatch.com" style="color:#6b7280;text-decoration:none">vytalwatch.com</a> &bull;
+    <a href="mailto:support@vytalwatch.com" style="color:#6b7280;text-decoration:none">support@vytalwatch.com</a>
   </div>
 </div>`;
 }

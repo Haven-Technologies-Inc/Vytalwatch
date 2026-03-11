@@ -107,7 +107,7 @@ export class EmailController {
           {
             month: dto.data?.month || 'February',
             year: dto.data?.year || 2026,
-            downloadUrl: dto.data?.downloadUrl || 'https://vytalwatch.ai/reports/123',
+            downloadUrl: dto.data?.downloadUrl || 'https://vytalwatch.com/reports/123',
             summary:
               dto.data?.summary ||
               'Your health metrics have improved this month. Blood pressure averages are within normal range.',

@@ -21,7 +21,10 @@ export const metadata: Metadata = {
     template: "%s | VytalWatch AI",
   },
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     shortcut: "/favicon.png",
     apple: "/logo.png",
   },
@@ -144,7 +147,7 @@ export default function RootLayout({
                     addressCountry: "US",
                   },
                   telephone: "+1-800-848-2524",
-                  email: "hello@vytalwatch.ai",
+                  email: "info@vytalwatch.com",
                   openingHours: "Mo-Fr 08:00-18:00",
                   isAcceptingNewPatients: true,
                 },

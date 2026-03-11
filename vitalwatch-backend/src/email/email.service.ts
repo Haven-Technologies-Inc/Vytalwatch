@@ -131,7 +131,7 @@ export class EmailService implements OnModuleInit {
   }
 
   async sendEmailVerification(user: { email: string; firstName: string }, token: string): Promise<EmailResult> {
-    const verifyUrl = `${this.configService.get('app.frontendUrl')}/auth/verify?token=${token}`;
+    const verifyUrl = `${this.configService.get('app.frontendUrl')}/auth/verify-email?token=${token}`;
     
     const html = this.getTemplate('verification', {
       firstName: user.firstName,
@@ -330,22 +330,25 @@ export class EmailService implements OnModuleInit {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VytalWatch AI</title>
+  <title>VytalWatch</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fa;">
   <table role="presentation" style="width: 100%; border-collapse: collapse;">
     <tr>
       <td style="padding: 40px 20px;">
         <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
+          <!-- Header with Logo -->
           <tr>
-            <td style="background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); padding: 32px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
-                VytalWatch<span style="color: #60a5fa;">AI</span>
-              </h1>
-              <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;">
-                Intelligent Remote Patient Monitoring
-              </p>
+            <td style="padding: 28px 40px 0; text-align: center;">
+              <a href="https://vytalwatch.com" style="text-decoration: none;">
+                <img src="${this.configService.get('app.frontendUrl') || 'https://vytalwatch.com'}/logo.png" alt="VytalWatch" width="180" style="display: inline-block; height: 48px; width: auto; border: 0;" />
+              </a>
+            </td>
+          </tr>
+          <!-- Gradient Divider -->
+          <tr>
+            <td style="padding: 16px 40px 0;">
+              <div style="height: 3px; background: linear-gradient(90deg, #0066cc 0%, #00a3ff 50%, #0066cc 100%); border-radius: 2px;"></div>
             </td>
           </tr>
           <!-- Content -->
@@ -357,13 +360,14 @@ export class EmailService implements OnModuleInit {
           <!-- Footer -->
           <tr>
             <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">
-                © ${new Date().getFullYear()} VytalWatch AI. All rights reserved.
+              <p style="margin: 0 0 6px; color: #475569; font-size: 13px; font-weight: 600;">VytalWatch — Intelligent Remote Patient Monitoring</p>
+              <p style="margin: 0 0 10px; color: #64748b; font-size: 12px;">&copy; ${new Date().getFullYear()} VytalWatch. All rights reserved.</p>
+              <p style="margin: 0 0 6px; color: #94a3b8; font-size: 11px;">
+                <a href="https://vytalwatch.com" style="color:#0066cc;text-decoration:none;">vytalwatch.com</a> &bull;
+                <a href="mailto:support@vytalwatch.com" style="color:#94a3b8;text-decoration:none;">support@vytalwatch.com</a> &bull;
+                <a href="mailto:info@vytalwatch.com" style="color:#94a3b8;text-decoration:none;">info@vytalwatch.com</a>
               </p>
-              <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                This email was sent by VytalWatch AI Healthcare Platform.<br>
-                If you have questions, contact support@vytalwatch.ai
-              </p>
+              <p style="margin: 0; color: #cbd5e1; font-size: 10px;">This is an automated message. Please do not reply directly.</p>
             </td>
           </tr>
         </table>

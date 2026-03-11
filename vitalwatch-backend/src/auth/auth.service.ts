@@ -410,6 +410,13 @@ export class AuthService {
       action: 'EMAIL_VERIFIED',
       userId: user.id,
     });
+
+    // Send welcome email after successful verification (non-blocking)
+    if (this.notificationsService) {
+      this.notificationsService.sendWelcomeNotification(user).catch(err => {
+        this.logger.warn(`Failed to send welcome email after verification: ${err.message}`);
+      });
+    }
   }
 
   private async generateTokens(payload: JwtPayload): Promise<TokenPair> {

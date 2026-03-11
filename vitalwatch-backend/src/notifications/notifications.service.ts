@@ -140,8 +140,31 @@ export class NotificationsService {
     return results;
   }
 
+  async sendWelcomeNotification(user: User): Promise<void> {
+    const notification = await this.createNotification({
+      userId: user.id,
+      type: NotificationType.EMAIL,
+      category: NotificationCategory.SYSTEM,
+      title: 'Welcome to VytalWatch',
+      body: 'Your account has been verified. Welcome to VytalWatch!',
+      recipient: user.email,
+      data: {},
+    });
+
+    try {
+      await this.emailService.sendWelcomeEmail({
+        email: user.email,
+        firstName: user.firstName,
+      });
+      await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
+    } catch (error) {
+      this.logger.error(`Failed to send welcome email to ${user.email}`, error);
+      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+    }
+  }
+
   async sendEmailVerification(user: User): Promise<void> {
-    const verificationUrl = `${this.configService.get('app.frontendUrl')}/auth/verify?token=${user.verificationToken}`;
+    const verificationUrl = `${this.configService.get('app.frontendUrl')}/auth/verify-email?token=${user.verificationToken}`;
 
     const notification = await this.createNotification({
       userId: user.id,
