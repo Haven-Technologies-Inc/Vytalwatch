@@ -81,8 +81,11 @@ export default function AdminUsersPage() {
     try {
       setLoading(true);
       const response = await usersAdminApi.getAll({ limit: 100 });
-      if (response.data?.results) {
-        const mappedUsers = response.data.results.map((u: UserType) => ({
+      // Backend returns { users: [...], total } directly
+      const raw = response.data as any;
+      const list: UserType[] = raw?.results ?? raw?.users ?? raw?.data ?? (Array.isArray(raw) ? raw : []);
+      if (list.length > 0) {
+        const mappedUsers = list.map((u: UserType) => ({
           id: u.id,
           name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
           email: u.email,
