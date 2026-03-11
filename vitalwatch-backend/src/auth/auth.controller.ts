@@ -48,6 +48,13 @@ export class AuthController {
   }
 
   @Public()
+  @Get('invite-info')
+  async getInviteInfo(@Query('code') code: string) {
+    if (!code) throw new BadRequestException('Invite code is required');
+    return this.authService.getInviteInfo(code);
+  }
+
+  @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);

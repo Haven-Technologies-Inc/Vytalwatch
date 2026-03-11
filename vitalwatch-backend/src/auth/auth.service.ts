@@ -628,6 +628,21 @@ export class AuthService {
     return safeUser;
   }
 
+  async getInviteInfo(code: string): Promise<{ valid: boolean; role?: string; email?: string; organizationId?: string; error?: string }> {
+    const inviteCode = await this.inviteCodeRepository.findOne({ where: { code } });
+    if (!inviteCode) {
+      return { valid: false, error: 'Invalid invite code' };
+    }
+    if (!inviteCode.isValid()) {
+      return { valid: false, error: 'Invite code is no longer valid' };
+    }
+    return {
+      valid: true,
+      role: inviteCode.allowedRole,
+      organizationId: inviteCode.organizationId || undefined,
+    };
+  }
+
   async validateInviteCode(
     code: string,
     requestedRole: UserRole,

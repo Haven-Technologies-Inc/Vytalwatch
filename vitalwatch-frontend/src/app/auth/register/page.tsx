@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Check,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 type AccountType = "provider" | "organization" | "patient";
@@ -37,11 +38,14 @@ interface FormData {
   inviteCode: string;
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inviteLocked, setInviteLocked] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     accountType: "provider",
@@ -56,6 +60,34 @@ export default function RegisterPage() {
     specialty: "",
     inviteCode: "",
   });
+
+  // Read invite code from URL and look up its role
+  useEffect(() => {
+    const code = searchParams.get("invite");
+    if (!code) return;
+    setInviteLoading(true);
+    setFormData((prev) => ({ ...prev, inviteCode: code }));
+    fetch(`${config.api.baseUrl}/auth/invite-info?code=${encodeURIComponent(code)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.valid && data.role) {
+          const roleToType: Record<string, AccountType> = {
+            provider: "provider",
+            admin: "organization",
+            patient: "patient",
+          };
+          const mapped = roleToType[data.role] || "provider";
+          setFormData((prev) => ({ ...prev, accountType: mapped, inviteCode: code }));
+          setInviteLocked(true);
+          // Skip step 1 (account type) since invite determines it
+          setStep(2);
+        } else {
+          setError(data.error || "Invalid invite code");
+        }
+      })
+      .catch(() => setError("Failed to validate invite code"))
+      .finally(() => setInviteLoading(false));
+  }, [searchParams]);
 
   const updateFormData = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -144,6 +176,17 @@ export default function RegisterPage() {
     },
   ];
 
+  if (inviteLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Validating invite code...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 py-12">
       <div className="w-full max-w-lg">
@@ -163,7 +206,7 @@ export default function RegisterPage() {
             Create your account
           </h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">
-            Start your free 30-day trial
+            {inviteLocked ? "Complete your registration" : "Start your free 30-day trial"}
           </p>
         </div>
 
@@ -315,12 +358,13 @@ export default function RegisterPage() {
                 />
               )}
 
-              {formData.accountType === "patient" && (
+              {(formData.inviteCode || formData.accountType === "patient") && (
                 <Input
                   label="Invite Code"
                   placeholder="Enter code from your provider"
                   value={formData.inviteCode}
                   onChange={(e) => updateFormData("inviteCode", e.target.value)}
+                  disabled={inviteLocked}
                   required
                 />
               )}
@@ -457,5 +501,19 @@ export default function RegisterPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }
