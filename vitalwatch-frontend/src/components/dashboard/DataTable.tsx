@@ -52,15 +52,18 @@ export function DataTable<T extends Record<string, any>>({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Defensive: guarantee data is always a real array at runtime
+  const safeData = Array.isArray(data) ? data : [];
+
   const filteredData = useMemo(() => {
-    if (!searchQuery) return data;
-    return data.filter((row) =>
+    if (!searchQuery) return safeData;
+    return safeData.filter((row) =>
       columns.some((col) => {
         const value = row[col.key as keyof T];
         return String(value).toLowerCase().includes(searchQuery.toLowerCase());
       })
     );
-  }, [data, columns, searchQuery]);
+  }, [safeData, columns, searchQuery]);
 
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;

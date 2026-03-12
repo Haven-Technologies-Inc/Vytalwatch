@@ -24,6 +24,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
+import { extractData } from '@/lib/utils';
 
 const sensorCodeToType: Record<string, string> = {
   'BP': 'Blood Pressure Monitor',
@@ -151,9 +152,8 @@ export default function AdminDevicesPage() {
     try {
       setSyncing(true);
       const result = await tenoviApi.syncAll();
-      if (result.data) {
-        toast({ title: 'Sync complete', description: `${result.data.synced} devices synced, ${result.data.errors} errors`, type: 'success' });
-      }
+      const syncData = extractData<{ synced?: number; errors?: number }>(result);
+      toast({ title: 'Sync complete', description: `${syncData?.synced ?? 0} devices synced, ${syncData?.errors ?? 0} errors`, type: 'success' });
       await fetchDevices();
     } catch (err) {
       setError('Failed to sync devices');

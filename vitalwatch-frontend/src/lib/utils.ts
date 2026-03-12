@@ -115,17 +115,22 @@ export function sleep(ms: number): Promise<void> {
  */
 export function extractArray<T = unknown>(response: unknown): T[] {
   if (!response || typeof response !== 'object') return [];
-  const r = response as Record<string, unknown>;
-  // ApiClient wrapper: { data: <backend_json>, status }
-  const inner = r.data !== undefined ? r.data : response;
-  if (Array.isArray(inner)) return inner as T[];
-  if (inner && typeof inner === 'object') {
-    const i = inner as Record<string, unknown>;
-    // Paginated: { data: [], meta: {} } or { results: [] }
-    if (Array.isArray(i.data)) return i.data as T[];
-    if (Array.isArray(i.results)) return i.results as T[];
-    if (Array.isArray(i.items)) return i.items as T[];
-    if (Array.isArray(i.users)) return i.users as T[];
+  // Recursively unwrap .data wrappers (ApiClient + ApiResponse + PaginatedResponse)
+  let cur: unknown = response;
+  for (let depth = 0; depth < 5; depth++) {
+    if (Array.isArray(cur)) return cur as T[];
+    if (!cur || typeof cur !== 'object') return [];
+    const obj = cur as Record<string, unknown>;
+    // Check named array keys at each level
+    if (Array.isArray(obj.results)) return obj.results as T[];
+    if (Array.isArray(obj.items)) return obj.items as T[];
+    if (Array.isArray(obj.users)) return obj.users as T[];
+    // Descend into .data
+    if (obj.data !== undefined) {
+      cur = obj.data;
+      continue;
+    }
+    break;
   }
   return [];
 }
@@ -135,7 +140,17 @@ export function extractArray<T = unknown>(response: unknown): T[] {
  */
 export function extractData<T = Record<string, unknown>>(response: unknown): T | null {
   if (!response || typeof response !== 'object') return null;
-  const r = response as Record<string, unknown>;
-  const inner = r.data !== undefined ? r.data : response;
-  return (inner as T) ?? null;
+  // Recursively unwrap .data wrappers until we reach a non-wrapper object
+  let cur: unknown = response;
+  for (let depth = 0; depth < 5; depth++) {
+    if (!cur || typeof cur !== 'object' || Array.isArray(cur)) break;
+    const obj = cur as Record<string, unknown>;
+    // If it has .data and looks like a wrapper (has status or meta), descend
+    if (obj.data !== undefined && (obj.status !== undefined || obj.meta !== undefined || Object.keys(obj).length <= 3)) {
+      cur = obj.data;
+      continue;
+    }
+    break;
+  }
+  return (cur as T) ?? null;
 }

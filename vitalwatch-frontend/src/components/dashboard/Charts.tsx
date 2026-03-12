@@ -255,14 +255,15 @@ export function DonutChart({
   showLabel = true,
   className,
 }: DonutChartProps) {
-  const total = useMemo(() => data.reduce((sum, item) => sum + item[dataKey], 0), [data, dataKey]);
+  const safeData = Array.isArray(data) ? data : [];
+  const total = useMemo(() => safeData.reduce((sum, item) => sum + item[dataKey], 0), [safeData, dataKey]);
 
   return (
     <div className={cn('w-full', className)}>
       <ResponsiveContainer width="100%" height={height}>
         <PieChart>
           <Pie
-            data={data}
+            data={safeData}
             dataKey={dataKey}
             nameKey={nameKey}
             cx="50%"
@@ -273,7 +274,7 @@ export function DonutChart({
             label={showLabel ? ({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%` : false}
             labelLine={showLabel}
           >
-            {data.map((_, index) => (
+            {safeData.map((_, index) => (
               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Pie>

@@ -95,13 +95,12 @@ export default function ProviderDevicesPage() {
     try {
       setSyncing(true);
       const result = await tenoviApi.syncAll();
-      if (result.data) {
-        toast({ 
-          title: 'Sync complete', 
-          description: `${result.data.synced} devices synced, ${result.data.errors} errors`,
-          type: result.data.errors > 0 ? 'warning' : 'success'
-        });
-      }
+      const syncData = extractData<{ synced?: number; errors?: number }>(result);
+      toast({ 
+        title: 'Sync complete', 
+        description: `${syncData?.synced ?? 0} devices synced, ${syncData?.errors ?? 0} errors`,
+        type: (syncData?.errors ?? 0) > 0 ? 'warning' : 'success'
+      });
       await fetchDevices();
     } catch {
       toast({ title: 'Sync failed', description: 'Failed to sync devices from Tenovi', type: 'error' });
