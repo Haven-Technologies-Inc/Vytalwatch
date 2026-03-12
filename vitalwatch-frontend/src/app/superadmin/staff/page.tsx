@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/useToast';
 import { staffApi } from '@/services/api';
 import { apiClient } from '@/services/api/client';
 import { Users, Shield, Plus, Edit2, Trash2, Loader2, Search, UserPlus, Settings, Check, X } from 'lucide-react';
+import { safeArray } from '@/lib/utils';
 
 interface StaffRole {
   id: string;
@@ -258,14 +259,14 @@ export default function StaffManagementPage() {
                   )}
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">{role.permissions.length} permissions</span>
+                  <span className="text-gray-500">{safeArray(role.permissions).length} permissions</span>
                   <Badge variant={role.status === 'active' ? 'success' : 'secondary'}>{role.status}</Badge>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1">
-                  {role.permissions.slice(0, 5).map(p => (
+                  {safeArray<string>(role.permissions).slice(0, 5).map(p => (
                     <span key={p} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{p.split(':')[0]}</span>
                   ))}
-                  {role.permissions.length > 5 && <span className="text-xs text-gray-500">+{role.permissions.length - 5} more</span>}
+                  {safeArray(role.permissions).length > 5 && <span className="text-xs text-gray-500">+{safeArray(role.permissions).length - 5} more</span>}
                 </div>
               </div>
             ))}

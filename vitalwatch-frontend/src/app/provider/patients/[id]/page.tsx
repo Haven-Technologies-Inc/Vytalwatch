@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import Link from 'next/link';
-import { cn, extractData, extractArray } from '@/lib/utils';
+import { cn, extractData, extractArray, safeArray } from '@/lib/utils';
 
 const tabs = [
   { id: 'overview', label: 'Overview', icon: Activity },
@@ -346,8 +346,8 @@ export default function PatientDetailPage() {
         if (carePlanRes.data) {
           const cp = carePlanRes.data as unknown as { goals?: Array<{description?: string} | string>; interventions?: Array<{description?: string} | string>; notes?: string };
           setCarePlan({
-            goals: (cp.goals || []).map(g => typeof g === 'string' ? g : g.description || ''),
-            interventions: (cp.interventions || []).map(i => typeof i === 'string' ? i : i.description || ''),
+            goals: safeArray<{description?: string} | string>(cp.goals).map(g => typeof g === 'string' ? g : g.description || ''),
+            interventions: safeArray<{description?: string} | string>(cp.interventions).map(i => typeof i === 'string' ? i : i.description || ''),
             notes: cp.notes || '',
           });
         }
@@ -513,19 +513,19 @@ export default function PatientDetailPage() {
   };
 
   const handleAddGoal = () => {
-    setEditedCarePlan(prev => ({ ...prev, goals: [...prev.goals, ''] }));
+    setEditedCarePlan(prev => ({ ...prev, goals: [...safeArray<string>(prev.goals), ''] }));
   };
 
   const handleRemoveGoal = (index: number) => {
-    setEditedCarePlan(prev => ({ ...prev, goals: prev.goals.filter((_, i) => i !== index) }));
+    setEditedCarePlan(prev => ({ ...prev, goals: safeArray<string>(prev.goals).filter((_, i) => i !== index) }));
   };
 
   const handleAddIntervention = () => {
-    setEditedCarePlan(prev => ({ ...prev, interventions: [...prev.interventions, ''] }));
+    setEditedCarePlan(prev => ({ ...prev, interventions: [...safeArray<string>(prev.interventions), ''] }));
   };
 
   const handleRemoveIntervention = (index: number) => {
-    setEditedCarePlan(prev => ({ ...prev, interventions: prev.interventions.filter((_, i) => i !== index) }));
+    setEditedCarePlan(prev => ({ ...prev, interventions: safeArray<string>(prev.interventions).filter((_, i) => i !== index) }));
   };
 
   // Medication handlers
@@ -1056,12 +1056,12 @@ export default function PatientDetailPage() {
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        {editedCarePlan.goals.map((goal, i) => (
+                        {safeArray<string>(editedCarePlan.goals).map((goal, i) => (
                           <div key={i} className="flex gap-2">
                             <Input
                               value={goal}
                               onChange={(e) => {
-                                const newGoals = [...editedCarePlan.goals];
+                                const newGoals = [...safeArray<string>(editedCarePlan.goals)];
                                 newGoals[i] = e.target.value;
                                 setEditedCarePlan(prev => ({ ...prev, goals: newGoals }));
                               }}
@@ -1072,7 +1072,7 @@ export default function PatientDetailPage() {
                             </Button>
                           </div>
                         ))}
-                        {editedCarePlan.goals.length === 0 && (
+                        {safeArray(editedCarePlan.goals).length === 0 && (
                           <p className="text-sm text-gray-500">No goals yet. Click &ldquo;Add Goal&rdquo; to create one.</p>
                         )}
                       </div>
@@ -1087,12 +1087,12 @@ export default function PatientDetailPage() {
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        {editedCarePlan.interventions.map((intervention, i) => (
+                        {safeArray<string>(editedCarePlan.interventions).map((intervention, i) => (
                           <div key={i} className="flex gap-2">
                             <Input
                               value={intervention}
                               onChange={(e) => {
-                                const newInterventions = [...editedCarePlan.interventions];
+                                const newInterventions = [...safeArray<string>(editedCarePlan.interventions)];
                                 newInterventions[i] = e.target.value;
                                 setEditedCarePlan(prev => ({ ...prev, interventions: newInterventions }));
                               }}
@@ -1103,7 +1103,7 @@ export default function PatientDetailPage() {
                             </Button>
                           </div>
                         ))}
-                        {editedCarePlan.interventions.length === 0 && (
+                        {safeArray(editedCarePlan.interventions).length === 0 && (
                           <p className="text-sm text-gray-500">No interventions yet. Click &ldquo;Add Intervention&rdquo; to create one.</p>
                         )}
                       </div>
@@ -1124,9 +1124,9 @@ export default function PatientDetailPage() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">Goals</h3>
-                      {carePlan.goals.length > 0 ? (
+                      {safeArray<string>(carePlan.goals).length > 0 ? (
                         <ul className="mt-2 space-y-2">
-                          {carePlan.goals.map((goal, i) => (
+                          {safeArray<string>(carePlan.goals).map((goal, i) => (
                             <li key={i} className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                               <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                               {goal}
@@ -1139,9 +1139,9 @@ export default function PatientDetailPage() {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">Interventions</h3>
-                      {carePlan.interventions.length > 0 ? (
+                      {safeArray<string>(carePlan.interventions).length > 0 ? (
                         <ul className="mt-2 space-y-2">
-                          {carePlan.interventions.map((intervention, i) => (
+                          {safeArray<string>(carePlan.interventions).map((intervention, i) => (
                             <li key={i} className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                               <Activity className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
                               {intervention}

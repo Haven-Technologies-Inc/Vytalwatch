@@ -109,6 +109,15 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Ensures a value is always an array. Use this before any .map() call on data
+ * that may come from API responses or props that could be undefined/null/non-array.
+ */
+export function safeArray<T = unknown>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  return [];
+}
+
+/**
  * Extract an array from an API response that may be wrapped by ApiClient { data, status }
  * and/or paginated { data: [], meta: {} }.
  * Safe for any backend response shape.

@@ -22,7 +22,7 @@ import {
   CheckCircle,
   MessageSquare,
 } from "lucide-react";
-import { formatRelativeTime, extractArray, extractData } from "@/lib/utils";
+import { formatRelativeTime, extractArray, extractData, safeArray } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import apiClient from "@/services/api/client";
@@ -503,7 +503,7 @@ export default function ProviderDashboard() {
                     </td>
                     <td className="table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {patient.conditions.map((condition) => (
+                        {safeArray<string>(patient.conditions).map((condition) => (
                           <span
                             key={condition}
                             className="px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded"

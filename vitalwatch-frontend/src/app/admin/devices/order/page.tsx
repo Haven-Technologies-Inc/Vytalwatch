@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { tenoviApi } from '@/services/api';
 import { Package, Loader2, Plus, Trash2, Truck, Search, ShieldCheck, Wifi } from 'lucide-react';
 import Link from 'next/link';
+import { safeArray } from '@/lib/utils';
 
 interface CatalogDevice { id: string; name: string; sensor_code: string; category: string; brand: string; description: string; connection: string; in_stock: boolean; deprecated: boolean; fda_status: string | null; metrics: Array<{ metric: string; unit: string }>; }
 interface DeviceCategory { key: string; label: string; icon: string; }
@@ -126,7 +127,7 @@ function DeviceOrderPageContent() {
                       {device.connection === 'cellular_gateway' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Wifi className="h-3 w-3" />Gateway</span>}
                       {device.fda_status && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1"><ShieldCheck className="h-3 w-3" />FDA {device.fda_status}</span>}
                     </div>
-                    {device.metrics.length > 0 && <p className="text-xs text-gray-500">Metrics: {device.metrics.map(m => m.metric.replace(/_/g, ' ')).join(', ')}</p>}
+                    {safeArray(device.metrics).length > 0 && <p className="text-xs text-gray-500">Metrics: {safeArray<{ metric: string }>(device.metrics).map(m => m.metric.replace(/_/g, ' ')).join(', ')}</p>}
                     <div className="flex items-center justify-between pt-2 border-t">
                       {inCart ? (
                         <div className="flex items-center gap-2">

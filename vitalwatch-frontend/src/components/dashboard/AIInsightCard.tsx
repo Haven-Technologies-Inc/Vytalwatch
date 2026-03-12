@@ -126,7 +126,7 @@ export function AIInsightsPanel({ insights, title = 'AI Insights', className }: 
         <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
       </div>
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
-        {insights.length === 0 ? (
+        {(!Array.isArray(insights) || insights.length === 0) ? (
           <div className="p-6 text-center text-gray-500">
             No insights available yet
           </div>

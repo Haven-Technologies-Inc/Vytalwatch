@@ -14,7 +14,7 @@ import { authApi, usersApi } from '@/services/api';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { User, Mail, Phone, Building2, Stethoscope, Edit2, Save, X, RefreshCw, Award, Calendar, Users } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { extractData } from '@/lib/utils';
+import { extractData, safeArray } from '@/lib/utils';
 
 interface ProviderProfile {
   firstName: string;
@@ -194,7 +194,7 @@ export default function ProviderProfilePage() {
               </h2>
               <p className="text-gray-500 dark:text-gray-400">{profile.specialty}</p>
               <div className="mt-2 flex flex-wrap justify-center gap-1">
-                {profile.credentials.map((cred) => (
+                {safeArray<string>(profile.credentials).map((cred) => (
                   <Badge key={cred} variant="info">{cred}</Badge>
                 ))}
               </div>

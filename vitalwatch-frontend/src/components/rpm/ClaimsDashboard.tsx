@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, safeArray } from '@/lib/utils';
 import { DollarSign, CheckCircle, AlertCircle, Clock, FileText, Send, Loader2, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -61,7 +61,7 @@ export function ClaimsDashboard({ claims, summaries, onBuildClaim, onFinalize, o
           pendingSummaries.length === 0 ? <p className="text-center text-slate-500 py-8">No pending billing periods</p> : (
             <div className="space-y-3">{pendingSummaries.map(s => (
               <div key={s.enrollmentId} className="p-4 border rounded-lg flex items-center justify-between">
-                <div><p className="font-medium">{s.patientName}</p><p className="text-sm text-slate-500">{s.readingDaysCount} days • {s.totalMinutes} min</p><div className="flex gap-1 mt-1">{s.eligibleCodes.map(c => <Badge key={c} variant="info" className="text-xs">{codeLabels[c] || c}</Badge>)}</div></div>
+                <div><p className="font-medium">{s.patientName}</p><p className="text-sm text-slate-500">{s.readingDaysCount} days • {s.totalMinutes} min</p><div className="flex gap-1 mt-1">{safeArray<string>(s.eligibleCodes).map(c => <Badge key={c} variant="info" className="text-xs">{codeLabels[c] || c}</Badge>)}</div></div>
                 <Button size="sm" onClick={() => build(s)} disabled={loading === s.enrollmentId}>{loading === s.enrollmentId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Build Claim'}</Button>
               </div>
             ))}</div>

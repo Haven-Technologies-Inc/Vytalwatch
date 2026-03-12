@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { patientsApi } from '@/services/api';
-import { extractArray } from '@/lib/utils';
+import { extractArray, safeArray } from '@/lib/utils';
 import type { ApiResponse, Medication as ApiMedication } from '@/types';
 
 interface Medication {
@@ -30,7 +30,7 @@ interface Medication {
 }
 
 function mapApiMedication(med: ApiMedication): Medication {
-  const scheduleItems = med.schedule || [];
+  const scheduleItems = safeArray<{ time: string; taken?: boolean }>(med.schedule);
   return {
     id: med.id,
     name: med.name,
@@ -107,9 +107,9 @@ export default function PatientMedicationsPage() {
     router.push('/patient/medications/add');
   }, [router, toast]);
 
-  const totalDoses = medications.reduce((sum, m) => sum + m.schedule.length, 0);
+  const totalDoses = medications.reduce((sum, m) => sum + safeArray(m.schedule).length, 0);
   const takenDoses = medications.reduce(
-    (sum, m) => sum + m.takenToday.filter(Boolean).length,
+    (sum, m) => sum + safeArray<boolean>(m.takenToday).filter(Boolean).length,
     0
   );
   const adherenceRate = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
@@ -235,7 +235,7 @@ export default function PatientMedicationsPage() {
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {medications.map((med) =>
-              med.schedule.map((time, index) => (
+              safeArray<string>(med.schedule).map((time, index) => (
                 <div
                   key={`${med.id}-${index}`}
                   className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50"

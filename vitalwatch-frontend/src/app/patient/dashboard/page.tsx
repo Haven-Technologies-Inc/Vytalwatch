@@ -23,7 +23,7 @@ import {
   ChevronRight,
   ClipboardList,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData, safeArray } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useAuthStore } from "@/stores/authStore";
@@ -164,7 +164,7 @@ export default function PatientDashboard() {
     const meds = extractArray<Medication>(medicationsResponse);
     if (!meds.length) return [];
     return meds.flatMap((med) =>
-      (med.schedule || []).map((sched, idx) => ({
+      safeArray<{ time: string; taken?: boolean }>(med.schedule).map((sched, idx) => ({
         medId: med.id,
         schedIdx: idx,
         name: `${med.name} ${med.dosage}`,

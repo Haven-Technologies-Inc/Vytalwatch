@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { tenoviApi } from '@/services/api';
 import { ClipboardList, Loader2, Eye, CheckCircle, XCircle, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { safeArray } from '@/lib/utils';
 
 interface Prescription {
   id: string;
@@ -101,7 +102,7 @@ export default function PrescriptionsPage() {
                   <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[rx.status] || 'bg-gray-100 text-gray-800'}`}>{rx.status}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {rx.devices.map((d, i) => (
+                  {safeArray<{ name: string; quantity: number }>(rx.devices).map((d, i) => (
                     <span key={i} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{d.name} x{d.quantity}</span>
                   ))}
                 </div>

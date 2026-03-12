@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Send, Search, Paperclip, MoreVertical, Phone, Video, Plus, X, File as FileIcon } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { cn } from '@/lib/utils';
+import { cn, safeArray } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/useToast';
 import { VideoCall } from '@/components/video';
@@ -164,7 +164,7 @@ export default function ProviderMessagesPage() {
         setSelectedConversation((prev) =>
           prev ? {
             ...prev,
-            messages: prev.messages.map((m) =>
+            messages: safeArray<LocalMessage>(prev.messages).map((m) =>
               m.id === data.messageId ? { ...m, read: true } : m
             ),
           } : prev
@@ -596,7 +596,7 @@ export default function ProviderMessagesPage() {
 
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
-                {selectedConversation.messages.map((message) => (
+                {safeArray<LocalMessage>(selectedConversation.messages).map((message) => (
                   <div
                     key={message.id}
                     className={cn(

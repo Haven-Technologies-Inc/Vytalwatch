@@ -14,7 +14,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { apiClient } from '@/services/api/client';
 import { User, Mail, Phone, Building2, Shield, Edit2, Save, X, RefreshCw, Key, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { extractData } from '@/lib/utils';
+import { extractData, safeArray } from '@/lib/utils';
 
 interface AdminProfile {
   firstName: string;
@@ -264,10 +264,10 @@ export default function AdminProfilePage() {
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Active Permissions</label>
                 <div className="flex flex-wrap gap-2">
-                  {profile.permissions.map((permission) => (
+                  {safeArray<string>(profile.permissions).map((permission) => (
                     <Badge key={permission} variant="success">{permission}</Badge>
                   ))}
-                  {profile.permissions.length === 0 && (
+                  {safeArray(profile.permissions).length === 0 && (
                     <span className="text-sm text-gray-400">No permissions assigned</span>
                   )}
                 </div>

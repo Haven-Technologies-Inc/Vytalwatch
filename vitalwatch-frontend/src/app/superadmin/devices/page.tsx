@@ -14,7 +14,7 @@ import { OrderTimeline } from '@/components/devices/OrderTimeline';
 import type { TenoviOrder, TenoviHwiDevice, TenoviDeviceStats, Organization } from '@/types';
 import { Package, Truck, CheckCircle2, Clock, AlertTriangle, RefreshCw, Loader2, Eye, ShoppingCart, Wifi } from 'lucide-react';
 import Link from 'next/link';
-import { extractData, extractArray } from '@/lib/utils';
+import { extractData, extractArray, safeArray } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -216,11 +216,11 @@ export default function SuperAdminDevicesPage() {
                 </div>
               </div>
 
-              {selectedOrder.contents && selectedOrder.contents.length > 0 && (
+              {safeArray(selectedOrder.contents).length > 0 && (
                 <div>
                   <p className="text-sm text-gray-500 mb-2">Ordered Devices</p>
                   <div className="space-y-2">
-                    {selectedOrder.contents.map((item: { name: string; quantity: number }, i: number) => (
+                    {safeArray<{ name: string; quantity: number }>(selectedOrder.contents).map((item, i) => (
                       <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                         <span>{item.name}</span>
                         <Badge variant="secondary">x{item.quantity}</Badge>

@@ -1,6 +1,6 @@
 ﻿'use client';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, safeArray } from '@/lib/utils';
 import { Sparkles, FileText, CheckCircle, Edit3, Loader2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -29,7 +29,7 @@ export function AIChartingAssistant({ onGenerate, className }: { onGenerate: () 
           <div><p className="font-medium text-slate-500">Objective</p><p className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded">{note.objective}</p></div>
           <div><p className="font-medium text-slate-500">Assessment</p><p className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded">{note.assessment}</p></div>
           <div><p className="font-medium text-slate-500">Plan</p><p className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded">{note.plan}</p></div>
-          <div className="flex gap-2 flex-wrap">{note.icd10Codes.map(c => <Badge key={c} variant="info">{c}</Badge>)}{note.cptCodes.map(c => <Badge key={c} variant="success">{c}</Badge>)}</div>
+          <div className="flex gap-2 flex-wrap">{safeArray<string>(note.icd10Codes).map(c => <Badge key={c} variant="info">{c}</Badge>)}{safeArray<string>(note.cptCodes).map(c => <Badge key={c} variant="success">{c}</Badge>)}</div>
         </div>
       )}
     </div>

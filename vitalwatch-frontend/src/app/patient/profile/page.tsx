@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { authApi, usersApi } from '@/services/api';
 import type { ApiResponse, User as UserType } from '@/types';
+import { safeArray } from '@/lib/utils';
 
 interface PatientProfile {
   firstName: string;
@@ -312,8 +313,8 @@ export default function PatientProfilePage() {
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-medium">Medical Conditions</label>
                 <div className="flex flex-wrap gap-2">
-                  {profile.conditions.length > 0 ? (
-                    profile.conditions.map((condition) => (
+                  {safeArray<string>(profile.conditions).length > 0 ? (
+                    safeArray<string>(profile.conditions).map((condition) => (
                       <Badge key={condition} variant="info">{condition}</Badge>
                     ))
                   ) : (
@@ -325,8 +326,8 @@ export default function PatientProfilePage() {
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-medium">Allergies</label>
                 <div className="flex flex-wrap gap-2">
-                  {profile.allergies.length > 0 ? (
-                    profile.allergies.map((allergy) => (
+                  {safeArray<string>(profile.allergies).length > 0 ? (
+                    safeArray<string>(profile.allergies).map((allergy) => (
                       <Badge key={allergy} variant="danger">{allergy}</Badge>
                     ))
                   ) : (

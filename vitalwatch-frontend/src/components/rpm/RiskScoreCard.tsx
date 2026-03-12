@@ -1,5 +1,5 @@
 ﻿'use client';
-import { cn } from '@/lib/utils';
+import { cn, safeArray } from '@/lib/utils';
 import { AlertTriangle, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 
@@ -18,8 +18,8 @@ export function RiskScoreCard({ score, className }: { score: RiskScore; classNam
       <div className="flex items-center justify-center mb-4">
         <div className={cn('w-24 h-24 rounded-full flex items-center justify-center text-white text-2xl font-bold', cfg.color)}>{score.overallScore}</div>
       </div>
-      <div className="space-y-2 mb-4">{score.factors.slice(0,3).map(f => <div key={f.name} className="flex justify-between text-sm"><span>{f.name}</span><span className="font-medium">{f.score}%</span></div>)}</div>
-      {score.predictions.length > 0 && <div className="border-t pt-3"><p className="text-xs text-slate-500 mb-2">Predictions</p>{score.predictions.map(p => <div key={p.event} className="flex justify-between text-sm"><span>{p.event}</span><span>{Math.round(p.probability*100)}%</span></div>)}</div>}
+      <div className="space-y-2 mb-4">{safeArray<{ name: string; score: number }>(score.factors).slice(0,3).map(f => <div key={f.name} className="flex justify-between text-sm"><span>{f.name}</span><span className="font-medium">{f.score}%</span></div>)}</div>
+      {safeArray<{ event: string; probability: number }>(score.predictions).length > 0 && <div className="border-t pt-3"><p className="text-xs text-slate-500 mb-2">Predictions</p>{safeArray<{ event: string; probability: number }>(score.predictions).map(p => <div key={p.event} className="flex justify-between text-sm"><span>{p.event}</span><span>{Math.round(p.probability*100)}%</span></div>)}</div>}
     </div>
   );
 }

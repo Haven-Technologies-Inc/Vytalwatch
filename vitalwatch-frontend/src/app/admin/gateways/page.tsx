@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { tenoviApi } from '@/services/api';
 import { useToast } from '@/hooks/useToast';
-import type { TenoviGateway } from '@/types';
+import { safeArray } from '@/lib/utils';
+import type { TenoviGateway, TenoviWhitelistedDevice, TenoviGatewayProperty } from '@/types';
 import { 
   Router, 
   Wifi,
@@ -271,7 +272,7 @@ export default function AdminGatewaysPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedGateway.whitelistedDevices.map((device, idx) => (
+                        {safeArray<TenoviWhitelistedDevice>(selectedGateway.whitelistedDevices).map((device, idx) => (
                           <tr key={idx} className="border-b last:border-0 dark:border-gray-700">
                             <td className="px-4 py-2">{device.sensorCode}</td>
                             <td className="px-4 py-2 font-mono text-xs">{device.macAddress}</td>
@@ -288,9 +289,9 @@ export default function AdminGatewaysPage() {
                 </div>
               )}
 
-              {selectedGateway.properties && selectedGateway.properties.length > 0 && (
+              {safeArray(selectedGateway.properties).length > 0 && (
                 <div>
-                  <h4 className="mb-3 font-semibold">Properties ({selectedGateway.properties.length})</h4>
+                  <h4 className="mb-3 font-semibold">Properties ({safeArray(selectedGateway.properties).length})</h4>
                   <div className="rounded-lg border dark:border-gray-700">
                     <table className="w-full text-sm">
                       <thead className="border-b bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
@@ -300,7 +301,7 @@ export default function AdminGatewaysPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedGateway.properties.map((prop, idx) => (
+                        {safeArray<TenoviGatewayProperty>(selectedGateway.properties).map((prop, idx) => (
                           <tr key={idx} className="border-b last:border-0 dark:border-gray-700">
                             <td className="px-4 py-2 font-mono">{prop.key}</td>
                             <td className="px-4 py-2">{prop.value}</td>

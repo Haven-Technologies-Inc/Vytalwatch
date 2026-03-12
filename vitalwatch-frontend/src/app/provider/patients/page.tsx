@@ -25,7 +25,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
-import { extractData } from '@/lib/utils';
+import { extractData, safeArray } from '@/lib/utils';
 
 interface Patient {
   id: string;
@@ -105,7 +105,7 @@ export default function ProviderPatientsPage() {
   const filteredPatients = patients.filter((p) => {
     if (riskFilter !== 'all' && p.riskCategory !== riskFilter) return false;
     if (conditionFilter !== 'all') {
-      const hasCondition = p.conditions.some((c) =>
+      const hasCondition = safeArray<string>(p.conditions).some((c) =>
         c.toLowerCase().includes(conditionFilter)
       );
       if (!hasCondition) return false;
@@ -134,7 +134,7 @@ export default function ProviderPatientsPage() {
       header: 'Conditions',
       render: (conditions: string[]) => (
         <div className="flex flex-wrap gap-1">
-          {conditions.map((c) => (
+          {safeArray<string>(conditions).map((c) => (
             <Badge key={c} variant="secondary" className="text-xs">
               {c}
             </Badge>
@@ -329,7 +329,7 @@ export default function ProviderPatientsPage() {
                     <h3 className="text-lg font-semibold">{selectedPatient.name}</h3>
                     <p className="text-gray-500">{selectedPatient.age} years old</p>
                     <div className="mt-1 flex gap-1">
-                      {selectedPatient.conditions.map((c) => (
+                      {safeArray<string>(selectedPatient.conditions).map((c) => (
                         <Badge key={c} variant="secondary">{c}</Badge>
                       ))}
                     </div>

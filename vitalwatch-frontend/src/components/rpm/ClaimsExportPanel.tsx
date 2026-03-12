@@ -1,6 +1,6 @@
 ﻿'use client';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, safeArray } from '@/lib/utils';
 import { FileDown, FileText, Loader2, CheckCircle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -11,7 +11,7 @@ export function ClaimsExportPanel({ claims, onExport837P, onExportAuditBundle, c
   const [loading, setLoading] = useState<string | null>(null);
 
   const toggle = (id: string) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  const selectAll = () => setSelected(claims.map(c => c.id));
+  const selectAll = () => setSelected(safeArray<Claim>(claims).map(c => c.id));
 
   const export837P = async () => {
     if (!selected.length) return;
@@ -36,7 +36,7 @@ export function ClaimsExportPanel({ claims, onExport837P, onExportAuditBundle, c
         </div>
       </div>
       <div className="space-y-2 max-h-64 overflow-auto">
-        {claims.map(c => (
+        {safeArray<Claim>(claims).map(c => (
           <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg">
             <label className="flex items-center gap-3 cursor-pointer">
               <input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} className="rounded" />
