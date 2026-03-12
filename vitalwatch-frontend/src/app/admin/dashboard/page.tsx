@@ -30,7 +30,7 @@ import {
   RefreshCw,
   Settings,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRelativeTime, extractArray, extractData, safeArray } from "@/lib/utils";
 
 // --- API response types ---
 
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
     : [];
 
   const healthInner = extractData<{ services: HealthService[]; overall: string }>(healthData);
-  const systemHealth: HealthService[] = healthInner?.services ?? [];
+  const systemHealth: HealthService[] = safeArray<HealthService>(healthInner?.services);
   const overallHealth = healthInner?.overall ?? "operational";
 
   const recentApiLogs: ApiLogEntry[] = extractArray<ApiLogEntry>(logsData);
