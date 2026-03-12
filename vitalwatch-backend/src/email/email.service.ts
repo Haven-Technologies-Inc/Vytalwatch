@@ -68,9 +68,14 @@ export class EmailService implements OnModuleInit {
       });
 
       await this.transporter.verify();
-      this.logger.log(`ZeptoMail SMTP transport verified (${host}:${this.configService.get<number>('email.port') || 587})`);
-    } catch (err: any) {
-      this.logger.error(`Failed to initialize SMTP transport: ${err.message}`, err.stack);
+      this.logger.log(
+        `ZeptoMail SMTP transport verified (${host}:${this.configService.get<number>('email.port') || 587})`,
+      );
+    } catch (err: unknown) {
+      const errMsg =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown SMTP error';
+      const errStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Failed to initialize SMTP transport: ${errMsg}`, errStack);
       this.transporter = null;
     }
   }
@@ -81,37 +86,64 @@ export class EmailService implements OnModuleInit {
     this.logger.debug(`Sending email to ${recipients.join(', ')}: ${options.subject}`);
 
     if (!this.transporter) {
-      this.logger.warn(`[DEV MODE] Email would be sent to: ${recipients.join(', ')} | Subject: ${options.subject}`);
+      this.logger.warn(
+        `[DEV MODE] Email would be sent to: ${recipients.join(', ')} | Subject: ${options.subject}`,
+      );
       return { success: true, messageId: `dev_${Date.now()}` };
     }
 
     const startTime = Date.now();
     try {
-      const info = await this.transporter.sendMail({
+      const info = (await this.transporter.sendMail({
         from: `"${this.fromName}" <${this.fromEmail}>`,
         to: recipients.join(', '),
         subject: options.subject,
         html: options.html,
         text: options.text,
-      });
+      })) as { messageId?: string };
 
-      this.logger.log(`Email sent successfully to ${recipients.join(', ')} [messageId: ${info.messageId}]`);
+      this.logger.log(
+        `Email sent successfully to ${recipients.join(', ')} [messageId: ${info.messageId}]`,
+      );
       await this.enterpriseLogger.logEmail({
-        operation: ApiOperation.EMAIL_SEND, success: true,
-        endpoint: `smtp://${this.configService.get<string>('email.host')}`, method: 'SMTP',
+        operation: ApiOperation.EMAIL_SEND,
+        success: true,
+        endpoint: `smtp://${this.configService.get<string>('email.host')}`,
+        method: 'SMTP',
         durationMs: Date.now() - startTime,
-        metadata: { recipientCount: recipients.length, subject: options.subject, messageId: info.messageId },
+        metadata: {
+          recipientCount: recipients.length,
+          subject: options.subject,
+          messageId: info.messageId,
+        },
       });
       return { success: true, messageId: info.messageId };
-    } catch (error: any) {
-      this.logger.error(`Failed to send email: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const errMsg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown email error';
+      const errStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to send email: ${errMsg}`, errStack);
       await this.enterpriseLogger.logEmail({
-        operation: ApiOperation.EMAIL_SEND, success: false, severity: LogSeverity.ERROR,
-        endpoint: `smtp://${this.configService.get<string>('email.host')}`, method: 'SMTP',
-        durationMs: Date.now() - startTime, errorMessage: error.message,
-        metadata: { recipientCount: recipients.length, subject: options.subject },
+        operation: ApiOperation.EMAIL_SEND,
+        success: false,
+        severity: LogSeverity.ERROR,
+        endpoint: `smtp://${this.configService.get<string>('email.host')}`,
+        method: 'SMTP',
+        durationMs: Date.now() - startTime,
+        errorMessage: errMsg,
+        metadata: {
+          recipientCount: recipients.length,
+          subject: options.subject,
+        },
       });
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: errMsg,
+      };
     }
   }
 
@@ -130,9 +162,11 @@ export class EmailService implements OnModuleInit {
     });
   }
 
-  async sendEmailVerification(user: { email: string; firstName: string }, token: string): Promise<EmailResult> {
+  async sendEmailVerification(
+    user: { email: string; firstName: string },
+    token: string,
+  ): Promise<EmailResult> {
     const verifyUrl = `${this.configService.get('app.frontendUrl')}/auth/verify-email?token=${token}`;
-    
     const html = this.getTemplate('verification', {
       firstName: user.firstName,
       verifyUrl,
@@ -146,9 +180,11 @@ export class EmailService implements OnModuleInit {
     });
   }
 
-  async sendPasswordReset(user: { email: string; firstName: string }, token: string): Promise<EmailResult> {
+  async sendPasswordReset(
+    user: { email: string; firstName: string },
+    token: string,
+  ): Promise<EmailResult> {
     const resetUrl = `${this.configService.get('app.frontendUrl')}/auth/reset-password?token=${token}`;
-    
     const html = this.getTemplate('passwordReset', {
       firstName: user.firstName,
       resetUrl,
@@ -162,9 +198,11 @@ export class EmailService implements OnModuleInit {
     });
   }
 
-  async sendMagicLink(user: { email: string; firstName: string }, token: string): Promise<EmailResult> {
+  async sendMagicLink(
+    user: { email: string; firstName: string },
+    token: string,
+  ): Promise<EmailResult> {
     const magicUrl = `${this.configService.get('app.frontendUrl')}/auth/magic-link?token=${token}`;
-    
     const html = this.getTemplate('magicLink', {
       firstName: user.firstName,
       magicUrl,
@@ -180,10 +218,16 @@ export class EmailService implements OnModuleInit {
 
   async sendHealthAlert(
     user: { email: string; firstName: string },
-    alert: { id: string; type: string; severity: 'info' | 'warning' | 'critical'; message: string; patientName?: string }
+    alert: {
+      id: string;
+      type: string;
+      severity: 'info' | 'warning' | 'critical';
+      message: string;
+      patientName?: string;
+    },
   ): Promise<EmailResult> {
     const alertUrl = `${this.configService.get('app.frontendUrl')}/alerts/${alert.id}`;
-    
+
     const html = this.getTemplate('healthAlert', {
       firstName: user.firstName,
       alertType: alert.type,
@@ -203,10 +247,10 @@ export class EmailService implements OnModuleInit {
 
   async sendAppointmentReminder(
     user: { email: string; firstName: string },
-    appointment: { id: string; providerName: string; dateTime: Date; type: string }
+    appointment: { id: string; providerName: string; dateTime: Date; type: string },
   ): Promise<EmailResult> {
     const appointmentUrl = `${this.configService.get('app.frontendUrl')}/appointments/${appointment.id}`;
-    
+
     const html = this.getTemplate('appointmentReminder', {
       firstName: user.firstName,
       providerName: appointment.providerName,
@@ -224,7 +268,7 @@ export class EmailService implements OnModuleInit {
 
   async sendMedicationReminder(
     user: { email: string; firstName: string },
-    medication: { name: string; dosage: string; time: string }
+    medication: { name: string; dosage: string; time: string },
   ): Promise<EmailResult> {
     const html = this.getTemplate('medicationReminder', {
       firstName: user.firstName,
@@ -242,7 +286,7 @@ export class EmailService implements OnModuleInit {
 
   async sendMonthlyReport(
     user: { email: string; firstName: string },
-    report: { month: string; year: number; downloadUrl: string; summary: string }
+    report: { month: string; year: number; downloadUrl: string; summary: string },
   ): Promise<EmailResult> {
     const html = this.getTemplate('monthlyReport', {
       firstName: user.firstName,
@@ -261,10 +305,10 @@ export class EmailService implements OnModuleInit {
 
   async sendInviteCode(
     email: string,
-    invite: { code: string; role: string; organizationName: string; inviterName: string }
+    invite: { code: string; role: string; organizationName: string; inviterName: string },
   ): Promise<EmailResult> {
     const signupUrl = `${this.configService.get('app.frontendUrl')}/auth/register?invite=${invite.code}`;
-    
+
     const html = this.getTemplate('inviteCode', {
       code: invite.code,
       role: invite.role,
@@ -282,7 +326,12 @@ export class EmailService implements OnModuleInit {
 
   async sendDeviceShipped(
     user: { email: string; firstName: string },
-    device: { name: string; trackingNumber: string; trackingUrl: string; estimatedDelivery: string }
+    device: {
+      name: string;
+      trackingNumber: string;
+      trackingUrl: string;
+      estimatedDelivery: string;
+    },
   ): Promise<EmailResult> {
     const html = this.getTemplate('deviceShipped', {
       firstName: user.firstName,
@@ -302,25 +351,34 @@ export class EmailService implements OnModuleInit {
   // ==================== Template Engine ====================
 
   private getTemplate(templateName: string, data: Record<string, any>): string {
-    const templates: Record<string, (data: Record<string, any>) => string> = {
-      welcome: this.welcomeTemplate,
-      verification: this.verificationTemplate,
-      passwordReset: this.passwordResetTemplate,
-      magicLink: this.magicLinkTemplate,
-      healthAlert: this.healthAlertTemplate,
-      appointmentReminder: this.appointmentReminderTemplate,
-      medicationReminder: this.medicationReminderTemplate,
-      monthlyReport: this.monthlyReportTemplate,
-      inviteCode: this.inviteCodeTemplate,
-      deviceShipped: this.deviceShippedTemplate,
-    };
-
-    const templateFn = templates[templateName];
-    if (!templateFn) {
-      throw new Error(`Unknown email template: ${templateName}`);
+    switch (templateName) {
+      case 'welcome':
+        return this.welcomeTemplate(data as Parameters<typeof this.welcomeTemplate>[0]);
+      case 'verification':
+        return this.verificationTemplate(data as Parameters<typeof this.verificationTemplate>[0]);
+      case 'passwordReset':
+        return this.passwordResetTemplate(data as Parameters<typeof this.passwordResetTemplate>[0]);
+      case 'magicLink':
+        return this.magicLinkTemplate(data as Parameters<typeof this.magicLinkTemplate>[0]);
+      case 'healthAlert':
+        return this.healthAlertTemplate(data as Parameters<typeof this.healthAlertTemplate>[0]);
+      case 'appointmentReminder':
+        return this.appointmentReminderTemplate(
+          data as Parameters<typeof this.appointmentReminderTemplate>[0],
+        );
+      case 'medicationReminder':
+        return this.medicationReminderTemplate(
+          data as Parameters<typeof this.medicationReminderTemplate>[0],
+        );
+      case 'monthlyReport':
+        return this.monthlyReportTemplate(data as Parameters<typeof this.monthlyReportTemplate>[0]);
+      case 'inviteCode':
+        return this.inviteCodeTemplate(data as Parameters<typeof this.inviteCodeTemplate>[0]);
+      case 'deviceShipped':
+        return this.deviceShippedTemplate(data as Parameters<typeof this.deviceShippedTemplate>[0]);
+      default:
+        throw new Error(`Unknown email template: ${templateName}`);
     }
-
-    return templateFn.call(this, data);
   }
 
   private baseTemplate(content: string): string {
@@ -402,7 +460,11 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private verificationTemplate(data: { firstName: string; verifyUrl: string; expiresIn: string }): string {
+  private verificationTemplate(data: {
+    firstName: string;
+    verifyUrl: string;
+    expiresIn: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">Verify Your Email</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -423,7 +485,11 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private passwordResetTemplate(data: { firstName: string; resetUrl: string; expiresIn: string }): string {
+  private passwordResetTemplate(data: {
+    firstName: string;
+    resetUrl: string;
+    expiresIn: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">Reset Your Password</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -441,7 +507,11 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private magicLinkTemplate(data: { firstName: string; magicUrl: string; expiresIn: string }): string {
+  private magicLinkTemplate(data: {
+    firstName: string;
+    magicUrl: string;
+    expiresIn: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">Sign In to VytalWatch AI</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -459,21 +529,22 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private healthAlertTemplate(data: { 
-    firstName: string; 
-    alertType: string; 
-    severity: string; 
-    message: string; 
+  private healthAlertTemplate(data: {
+    firstName: string;
+    alertType: string;
+    severity: string;
+    message: string;
     patientName?: string;
-    alertUrl: string; 
-    timestamp: string 
+    alertUrl: string;
+    timestamp: string;
   }): string {
     const severityColors = {
       info: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
       warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
       critical: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
     };
-    const colors = severityColors[data.severity as keyof typeof severityColors] || severityColors.info;
+    const colors =
+      severityColors[data.severity as keyof typeof severityColors] || severityColors.info;
 
     return this.baseTemplate(`
       <div style="background-color: ${colors.bg}; border-left: 4px solid ${colors.border}; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
@@ -500,12 +571,12 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private appointmentReminderTemplate(data: { 
-    firstName: string; 
-    providerName: string; 
-    dateTime: string; 
+  private appointmentReminderTemplate(data: {
+    firstName: string;
+    providerName: string;
+    dateTime: string;
     appointmentType: string;
-    appointmentUrl: string 
+    appointmentUrl: string;
   }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">📅 Appointment Reminder</h2>
@@ -529,7 +600,12 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private medicationReminderTemplate(data: { firstName: string; medicationName: string; dosage: string; time: string }): string {
+  private medicationReminderTemplate(data: {
+    firstName: string;
+    medicationName: string;
+    dosage: string;
+    time: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">💊 Medication Reminder</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -549,7 +625,13 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private monthlyReportTemplate(data: { firstName: string; month: string; year: number; downloadUrl: string; summary: string }): string {
+  private monthlyReportTemplate(data: {
+    firstName: string;
+    month: string;
+    year: number;
+    downloadUrl: string;
+    summary: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">📊 Your Monthly Health Report</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -568,7 +650,13 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private inviteCodeTemplate(data: { code: string; role: string; organizationName: string; inviterName: string; signupUrl: string }): string {
+  private inviteCodeTemplate(data: {
+    code: string;
+    role: string;
+    organizationName: string;
+    inviterName: string;
+    signupUrl: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">You're Invited! 🎉</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
@@ -587,7 +675,13 @@ export class EmailService implements OnModuleInit {
     `);
   }
 
-  private deviceShippedTemplate(data: { firstName: string; deviceName: string; trackingNumber: string; trackingUrl: string; estimatedDelivery: string }): string {
+  private deviceShippedTemplate(data: {
+    firstName: string;
+    deviceName: string;
+    trackingNumber: string;
+    trackingUrl: string;
+    estimatedDelivery: string;
+  }): string {
     return this.baseTemplate(`
       <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 24px;">📦 Your Device Has Shipped!</h2>
       <p style="margin: 0 0 16px; color: #475569; font-size: 16px; line-height: 1.6;">
