@@ -43,7 +43,8 @@ function LoginContent() {
       await login(email, password);
       const user = useAuthStore.getState().user;
       if (user) {
-        router.push(getRedirectPath(user.role));
+        const redirectTo = searchParams.get("redirect");
+        router.push(redirectTo && redirectTo.startsWith("/") ? redirectTo : getRedirectPath(user.role));
       }
     } catch (err) {
       setError("Invalid email or password. Please check your credentials and try again.");

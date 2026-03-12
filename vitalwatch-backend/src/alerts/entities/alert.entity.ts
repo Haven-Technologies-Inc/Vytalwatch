@@ -5,7 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { VitalReading } from '../../vitals/entities/vital-reading.entity';
 
 export enum AlertSeverity {
   INFO = 'info',
@@ -47,9 +51,17 @@ export class Alert {
   @Index()
   patientId: string;
 
+  @ManyToOne(() => User, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'patientId' })
+  patient: User;
+
   @Column('uuid')
   @Index()
   providerId: string;
+
+  @ManyToOne(() => User, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'providerId' })
+  provider: User;
 
   @Column('uuid', { nullable: true })
   organizationId: string;
@@ -84,6 +96,10 @@ export class Alert {
 
   @Column('uuid', { nullable: true })
   vitalReadingId: string;
+
+  @ManyToOne(() => VitalReading, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'vitalReadingId' })
+  vitalReading: VitalReading;
 
   @Column('jsonb', { nullable: true })
   triggerData: {
