@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Search, Download, Filter, Eye, User, FileText, Settings, Shield, Database } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractArray } from '@/lib/utils';
 
 interface AuditLog {
   id: string;
@@ -89,7 +89,7 @@ export default function AdminAuditLogsPage() {
     () => apiClient.get<AuditLogsResponse>('/audit-logs'),
   );
 
-  const logs: AuditLog[] = logsRes?.data ?? [];
+  const logs: AuditLog[] = extractArray<AuditLog>(logsRes);
 
   const handleExportLogs = useCallback(async () => {
     setIsExporting(true);

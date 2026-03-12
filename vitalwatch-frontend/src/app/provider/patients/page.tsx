@@ -25,6 +25,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
+import { extractData } from '@/lib/utils';
 
 interface Patient {
   id: string;
@@ -83,7 +84,7 @@ export default function ProviderPatientsPage() {
   );
 
   const patients: Patient[] = useMemo(() => {
-    const inner = patientsResponse?.data as any;
+    const inner = extractData<{ results?: Patient[]; data?: Patient[] }>(patientsResponse);
     return inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
   }, [patientsResponse]);
 

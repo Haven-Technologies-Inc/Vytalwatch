@@ -14,6 +14,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { apiClient } from '@/services/api/client';
 import { User, Mail, Phone, Building2, Shield, Edit2, Save, X, RefreshCw, Key, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { extractData } from '@/lib/utils';
 
 interface AdminProfile {
   firstName: string;
@@ -69,8 +70,8 @@ export default function AdminProfilePage() {
 
   // Sync API data to local state
   useEffect(() => {
-    if (profileRes?.data) {
-      const p = profileRes.data;
+    const p = extractData<AdminProfile>(profileRes);
+    if (p) {
       const merged: AdminProfile = {
         firstName: p.firstName || user?.firstName || '',
         lastName: p.lastName || user?.lastName || '',

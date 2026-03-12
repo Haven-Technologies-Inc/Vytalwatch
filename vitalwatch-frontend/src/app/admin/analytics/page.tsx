@@ -23,6 +23,7 @@ import {
   Download,
   Calendar
 } from 'lucide-react';
+import { extractData } from '@/lib/utils';
 
 // --- API response types ---
 
@@ -123,8 +124,9 @@ export default function AdminAnalyticsPage() {
     }
   }, [toast]);
 
-  const overview = overviewRes?.data;
-  const revenueData: RevenueDataPoint[] = revenueRes?.data?.trend ?? [];
+  const overview = extractData<OverviewResponse['data']>(overviewRes);
+  const revenueInner = extractData<RevenueResponse['data']>(revenueRes);
+  const revenueData: RevenueDataPoint[] = revenueInner?.trend ?? [];
   const userGrowthData: UserGrowthPoint[] = overview?.userGrowth ?? [];
   const planDistribution: PlanDist[] = overview?.planDistribution ?? [];
   const topOrganizations: TopOrg[] = overview?.topOrganizations ?? [];

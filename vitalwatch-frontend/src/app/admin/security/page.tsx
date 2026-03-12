@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Shield, Lock, AlertTriangle, UserX, Globe, Ban } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractArray } from '@/lib/utils';
 
 interface SecurityEvent {
   id: string;
@@ -74,13 +74,14 @@ export default function AdminSecurityPage() {
     () => apiClient.get<BlockedIPsResponse>('/admin/security/blocked-ips'),
   );
 
-  const events: SecurityEvent[] = eventsRes?.data ?? [];
+  const events: SecurityEvent[] = extractArray<SecurityEvent>(eventsRes);
   const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
 
   // Sync API data to local state for blocked IPs
   useEffect(() => {
-    if (blockedRes?.data) {
-      setBlockedIPs(blockedRes.data);
+    const extracted = extractArray<BlockedIP>(blockedRes);
+    if (extracted.length > 0) {
+      setBlockedIPs(extracted);
     }
   }, [blockedRes]);
 

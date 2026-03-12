@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import apiClient from '@/services/api/client';
+import { extractData } from '@/lib/utils';
 
 interface AnalyticsOverview {
   data: {
@@ -75,7 +76,7 @@ export default function ProviderAnalyticsPage() {
     { deps: [timeRange] },
   );
 
-  const d = analyticsData?.data;
+  const d = extractData<AnalyticsOverview['data']>(analyticsData);
 
   const patientGrowth = d?.patientGrowth ?? [];
   const readingsData = d?.readingsData ?? [];

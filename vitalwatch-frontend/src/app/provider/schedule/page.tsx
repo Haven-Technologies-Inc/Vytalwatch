@@ -11,7 +11,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Calendar, Plus, ChevronLeft, ChevronRight, Video, Phone, MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractData } from '@/lib/utils';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import apiClient from '@/services/api/client';
 import { useToast } from '@/hooks/useToast';
@@ -70,10 +70,10 @@ export default function ProviderSchedulePage() {
   );
 
   const allAppointments = useMemo(() => {
-    if (!appointmentsData?.data) return [];
-    const data = appointmentsData.data;
-    if (Array.isArray(data)) return data;
-    if ('results' in data) return data.results;
+    const inner = extractData<Appointment[] | { results: Appointment[] }>(appointmentsData);
+    if (!inner) return [];
+    if (Array.isArray(inner)) return inner;
+    if ('results' in inner) return inner.results;
     return [];
   }, [appointmentsData]);
 

@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Key, Plus, Copy, Eye, EyeOff, Trash2, RefreshCw, Shield } from 'lucide-react';
+import { extractArray } from '@/lib/utils';
 
 interface APIKey {
   id: string;
@@ -62,8 +63,9 @@ export default function AdminAPIKeysPage() {
 
   // Sync API data to local state
   useEffect(() => {
-    if (keysRes?.data) {
-      setKeys(keysRes.data);
+    const extracted = extractArray<APIKey>(keysRes);
+    if (extracted.length > 0) {
+      setKeys(extracted);
     }
   }, [keysRes]);
 

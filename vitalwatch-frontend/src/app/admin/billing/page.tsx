@@ -24,6 +24,7 @@ import {
   Users,
   Building2
 } from 'lucide-react';
+import { extractArray, extractData } from '@/lib/utils';
 
 interface Invoice {
   id: string;
@@ -84,8 +85,9 @@ export default function AdminBillingPage() {
     () => apiClient.get<RevenueResponse>('/analytics/revenue'),
   );
 
-  const invoices: Invoice[] = invoicesRes?.data ?? [];
-  const revenueData: RevenueDataPoint[] = revenueRes?.data?.trend ?? [];
+  const invoices: Invoice[] = extractArray<Invoice>(invoicesRes);
+  const revenueInner = extractData<{ trend: RevenueDataPoint[]; totalRevenue: number; mrrGrowth: number }>(revenueRes);
+  const revenueData: RevenueDataPoint[] = revenueInner?.trend ?? [];
 
   const handleExportReport = useCallback(async () => {
     setIsExporting(true);

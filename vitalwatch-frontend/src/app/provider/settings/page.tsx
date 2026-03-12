@@ -23,7 +23,7 @@ import {
   RefreshCw,
   Moon
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractData } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import apiClient from '@/services/api/client';
@@ -165,8 +165,8 @@ export default function ProviderSettingsPage() {
 
   // Populate state from API responses
   useEffect(() => {
-    if (meResponse?.data) {
-      const d = meResponse.data;
+    const d = extractData<MeApiResponse['data']>(meResponse);
+    if (d) {
       setProfile({
         firstName: d.firstName || '',
         lastName: d.lastName || '',
@@ -182,8 +182,8 @@ export default function ProviderSettingsPage() {
   }, [meResponse]);
 
   useEffect(() => {
-    if (settingsResponse?.data) {
-      const s = settingsResponse.data;
+    const s = extractData<SettingsData>(settingsResponse);
+    if (s) {
       if (s.alertSettings) {
         setAlertSettings({
           ...defaultAlertSettings,

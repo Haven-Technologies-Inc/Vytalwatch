@@ -21,7 +21,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, extractData, extractArray } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/useToast';
 
@@ -70,11 +70,15 @@ export default function ProviderDevicesPage() {
         tenoviApi.listDevices({ limit: 100 }),
         tenoviApi.getStats(),
       ]);
-      if (devicesRes.data?.results) {
-        setDevices(devicesRes.data.results);
+      const devInner = extractData<{ results?: TenoviHwiDevice[] }>(devicesRes);
+      if (devInner?.results) {
+        setDevices(devInner.results);
+      } else {
+        setDevices(extractArray<TenoviHwiDevice>(devicesRes));
       }
-      if (statsRes.data) {
-        setStats(statsRes.data);
+      const statsInner = extractData<TenoviDeviceStats>(statsRes);
+      if (statsInner) {
+        setStats(statsInner);
       }
     } catch {
       setError('Failed to load devices. Please try again.');

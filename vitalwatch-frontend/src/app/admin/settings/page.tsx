@@ -11,7 +11,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Settings, Bell, Shield, Database, Mail, Save, Zap, AlertTriangle, Server } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractData } from '@/lib/utils';
 
 // Backend returns a flat key-value map from Redis
 interface SystemSettings {
@@ -73,14 +73,16 @@ export default function AdminSettingsPage() {
 
   // Sync API data to local state
   useEffect(() => {
-    if (settingsRaw && typeof settingsRaw === 'object') {
-      setSettings((prev) => ({ ...prev, ...settingsRaw }));
+    const extracted = extractData<SystemSettings>(settingsRaw);
+    if (extracted && typeof extracted === 'object') {
+      setSettings((prev) => ({ ...prev, ...extracted }));
     }
   }, [settingsRaw]);
 
   useEffect(() => {
-    if (maintenanceRaw) {
-      setMaintenanceEnabled(maintenanceRaw.enabled ?? false);
+    const maint = extractData<MaintenanceStatus>(maintenanceRaw);
+    if (maint) {
+      setMaintenanceEnabled(maint.enabled ?? false);
     }
   }, [maintenanceRaw]);
 

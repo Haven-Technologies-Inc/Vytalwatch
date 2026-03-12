@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Activity, Clock, AlertTriangle, CheckCircle, Search, Download, Eye, Filter } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractArray } from '@/lib/utils';
 
 interface APILog {
   id: string;
@@ -77,7 +77,7 @@ export default function AdminAPILogsPage() {
     () => apiClient.get<ApiLogsResponse>('/admin/api-logs'),
   );
 
-  const logs: APILog[] = logsRes?.data ?? [];
+  const logs: APILog[] = extractArray<APILog>(logsRes);
 
   const handleExportLogs = useCallback(async () => {
     setIsExporting(true);

@@ -14,6 +14,7 @@ import { authApi, usersApi } from '@/services/api';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { User, Mail, Phone, Building2, Stethoscope, Edit2, Save, X, RefreshCw, Award, Calendar, Users } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { extractData } from '@/lib/utils';
 
 interface ProviderProfile {
   firstName: string;
@@ -89,8 +90,8 @@ export default function ProviderProfilePage() {
 
   // Populate profile from API response
   useEffect(() => {
-    if (meData?.data) {
-      const d = meData.data;
+    const d = extractData<MeApiResponse['data']>(meData);
+    if (d) {
       const newProfile: ProviderProfile = {
         firstName: d.firstName || user?.firstName || '',
         lastName: d.lastName || user?.lastName || '',

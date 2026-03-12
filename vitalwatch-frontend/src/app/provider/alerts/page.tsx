@@ -17,7 +17,7 @@ import {
   RefreshCw,
   Settings
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, extractData } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { alertsApi } from '@/services/api';
@@ -82,7 +82,8 @@ export default function ProviderAlertsPage() {
   );
 
   const alerts: Alert[] = useMemo(() => {
-    const items = alertsResponse?.data?.results ?? [];
+    const inner = extractData<{ results: AlertApiItem[]; total: number }>(alertsResponse);
+    const items = inner?.results ?? [];
     return items.map((a) => ({
       ...a,
       timestamp: new Date(a.timestamp || a.createdAt),

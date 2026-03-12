@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { billingApi } from '@/services/api';
+import { extractData } from '@/lib/utils';
 
 interface BillingRecord {
   id: string;
@@ -75,7 +76,8 @@ export default function ProviderBillingPage() {
   );
 
   const records = useMemo(() => {
-    return billingResponse?.data?.records ?? [];
+    const inner = extractData<{ records: BillingRecord[]; total: number }>(billingResponse);
+    return inner?.records ?? [];
   }, [billingResponse]);
 
   const handleExportReport = useCallback(async () => {
