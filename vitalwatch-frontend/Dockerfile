@@ -39,6 +39,13 @@ COPY vitalwatch-frontend/ .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Validate that NEXT_PUBLIC_API_URL has a real domain (not empty or bare protocol)
+RUN if [ -z "$NEXT_PUBLIC_API_URL" ] || [ "$NEXT_PUBLIC_API_URL" = "https://" ] || [ "$NEXT_PUBLIC_API_URL" = "http://" ]; then \
+      echo "ERROR: NEXT_PUBLIC_API_URL is missing or invalid: '$NEXT_PUBLIC_API_URL'"; \
+      echo "Pass --env-file .env to docker compose build"; \
+      exit 1; \
+    fi && echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
+
 # Build the application
 RUN npm run build
 

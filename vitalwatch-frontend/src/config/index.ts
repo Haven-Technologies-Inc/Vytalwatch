@@ -5,7 +5,7 @@
 
 function getApiUrl(): string {
   const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) {
+  if (!url || url === 'https://' || url === 'http://') {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('NEXT_PUBLIC_API_URL must be set in production');
     }
