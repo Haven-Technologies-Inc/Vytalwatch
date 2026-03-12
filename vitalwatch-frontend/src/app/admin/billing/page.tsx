@@ -180,7 +180,7 @@ export default function AdminBillingPage() {
             title="Total Revenue (MTD)"
             value={`$${totalRevenue.toLocaleString()}`}
             icon={<DollarSign className="h-5 w-5" />}
-            trend={{ value: revenueRes?.data?.mrrGrowth ?? 0, isPositive: true }}
+            trend={{ value: revenueInner?.mrrGrowth ?? 0, isPositive: true }}
             className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
           />
           <MetricCard
@@ -198,7 +198,7 @@ export default function AdminBillingPage() {
           />
           <MetricCard
             title="MRR Growth"
-            value={`+${revenueRes?.data?.mrrGrowth ?? 0}%`}
+            value={`+${revenueInner?.mrrGrowth ?? 0}%`}
             subtitle="vs last month"
             icon={<TrendingUp className="h-5 w-5" />}
           />

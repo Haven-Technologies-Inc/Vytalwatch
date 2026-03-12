@@ -132,9 +132,7 @@ export default function AdminDashboard() {
   );
 
   // Derive display values from API responses (with safe fallbacks)
-  // ApiClient wraps in { data, status }. useApiQuery stores that wrapper.
-  // So xData?.data gives the raw backend JSON.
-  const stats = statsData?.data;
+  const stats = extractData<SystemStatsResponse['data']>(statsData);
   const systemStats = stats
     ? [
         {

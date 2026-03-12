@@ -7,11 +7,12 @@ import { tenoviApi } from '@/services/api';
 import type { TenoviOrder } from '@/types';
 import { Package, Plus, Loader2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { extractData, extractArray } from '@/lib/utils';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<TenoviOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { tenoviApi.listBulkOrders({limit:50}).then(r => setOrders(r.data?.results||[])).finally(() => setLoading(false)); }, []);
+  useEffect(() => { tenoviApi.listBulkOrders({limit:50}).then(r => { const inner = extractData<{ results?: TenoviOrder[] }>(r); setOrders(inner?.results ?? extractArray<TenoviOrder>(r)); }).finally(() => setLoading(false)); }, []);
   if (loading) return <DashboardLayout><div className="flex h-96 justify-center items-center"><Loader2 className="h-8 w-8 animate-spin"/></div></DashboardLayout>;
   return (
     <DashboardLayout>

@@ -14,6 +14,7 @@ import { OrderTimeline } from '@/components/devices/OrderTimeline';
 import type { TenoviOrder, TenoviHwiDevice, TenoviDeviceStats, Organization } from '@/types';
 import { Package, Truck, CheckCircle2, Clock, AlertTriangle, RefreshCw, Loader2, Eye, ShoppingCart, Wifi } from 'lucide-react';
 import Link from 'next/link';
+import { extractData, extractArray } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -48,10 +49,12 @@ export default function SuperAdminDevicesPage() {
         tenoviApi.getStats(),
         organizationsApi.getAll({ limit: 50 }).catch(() => ({ data: { data: [] } })),
       ]);
-      setOrders(ordersRes.data?.results || []);
-      setDevices(devicesRes.data?.results || []);
-      setStats(statsRes.data || null);
-      setOrganizations(orgsRes.data?.data || []);
+      const ordersInner = extractData<{ results?: TenoviOrder[] }>(ordersRes);
+      setOrders(ordersInner?.results ?? extractArray<TenoviOrder>(ordersRes));
+      const devicesInner = extractData<{ results?: TenoviHwiDevice[] }>(devicesRes);
+      setDevices(devicesInner?.results ?? extractArray<TenoviHwiDevice>(devicesRes));
+      setStats(extractData<TenoviDeviceStats>(statsRes));
+      setOrganizations(extractArray<Organization>(orgsRes));
     } catch (err) {
       console.error('Failed to fetch data:', err);
       toast({ title: 'Error', description: 'Failed to load device data', type: 'error' });
@@ -66,7 +69,8 @@ export default function SuperAdminDevicesPage() {
     setSyncing(true);
     try {
       const result = await tenoviApi.syncAll();
-      toast({ title: 'Sync Complete', description: `Synced ${result.data?.synced || 0} devices`, type: 'success' });
+      const syncResult = extractData<{ synced?: number }>(result);
+      toast({ title: 'Sync Complete', description: `Synced ${syncResult?.synced || 0} devices`, type: 'success' });
       await fetchData();
     } catch { toast({ title: 'Sync Failed', type: 'error' }); }
     setSyncing(false);

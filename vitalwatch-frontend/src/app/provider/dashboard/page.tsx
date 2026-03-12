@@ -22,7 +22,7 @@ import {
   CheckCircle,
   MessageSquare,
 } from "lucide-react";
-import { formatRelativeTime, extractArray } from "@/lib/utils";
+import { formatRelativeTime, extractArray, extractData } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import apiClient from "@/services/api/client";
@@ -142,7 +142,7 @@ export default function ProviderDashboard() {
   const error = statsError || alertsError || patientsError;
 
   const stats = useMemo(() => {
-    const s = statsData?.data;
+    const s = extractData<ProviderStatsResponse['data']>(statsData);
     if (!s) return [];
     return [
       {

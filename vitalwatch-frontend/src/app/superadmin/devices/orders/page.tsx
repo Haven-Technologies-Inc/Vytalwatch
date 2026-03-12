@@ -13,6 +13,7 @@ import { OrderCard } from '@/components/devices/OrderCard';
 import type { TenoviOrder } from '@/types';
 import { Package, Search, RefreshCw, Loader2, ArrowLeft, Grid, List } from 'lucide-react';
 import Link from 'next/link';
+import { extractData, extractArray } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -39,7 +40,7 @@ export default function SuperAdminOrdersPage() {
 
   useEffect(() => {
     tenoviApi.listBulkOrders({ limit: 200 })
-      .then(res => setOrders(res.data?.results || []))
+      .then(res => { const inner = extractData<{ results?: TenoviOrder[] }>(res); setOrders(inner?.results ?? extractArray<TenoviOrder>(res)); })
       .catch(() => toast({ title: 'Failed to load orders', type: 'error' }))
       .finally(() => setLoading(false));
   }, [toast]);
