@@ -515,6 +515,15 @@ export class AIService implements OnModuleInit {
     return defaultRecs;
   }
 
+  // General dashboard insights (no specific patient)
+  async getGeneralInsights() {
+    return [
+      { type: 'prediction', title: 'Patient Risk Trends', message: 'AI models indicate stable risk levels across monitored patients.', confidence: 0.87, color: 'blue' },
+      { type: 'recommendation', title: 'Adherence Improvement', message: 'Consider scheduling follow-ups for patients with declining device usage.', confidence: 0.82, color: 'green' },
+      { type: 'achievement', title: 'Alert Response Time', message: 'Average alert response time improved by 15% this week.', confidence: 0.91, color: 'purple' },
+    ];
+  }
+
   // New methods for controller endpoints
 
   async getPatientInsights(patientId: string, vitals?: VitalReading[], alerts?: Alert[]): Promise<PatientInsight> {

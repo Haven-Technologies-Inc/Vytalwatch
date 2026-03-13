@@ -66,6 +66,13 @@ export class AIController {
     return { summary };
   }
 
+  // General Insights (dashboard summary)
+  @Get('insights')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getGeneralInsights() {
+    return this.aiService.getGeneralInsights();
+  }
+
   // Patient Insights
   @Get('insights/:patientId')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)

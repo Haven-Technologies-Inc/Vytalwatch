@@ -68,7 +68,7 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -88,19 +88,19 @@ export class PatientsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.findOne(id, user);
   }
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   async create(@Body() dto: CreatePatientDto, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.create(dto, user);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async update(
     @Param('id') id: string,
     @Body() dto: UpdatePatientDto,
@@ -118,13 +118,13 @@ export class PatientsController {
 
   // Vitals endpoints
   @Get(':id/vitals/latest')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getLatestVitals(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getLatestVitals(id, user);
   }
 
   @Get(':id/vitals/history')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getVitalsHistory(
     @Param('id') id: string,
     @Query('type') type?: string,
@@ -136,7 +136,7 @@ export class PatientsController {
   }
 
   @Get(':id/vitals/:type')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getVitalsByType(
     @Param('id') id: string,
     @Param('type') type: string,
@@ -148,7 +148,7 @@ export class PatientsController {
 
   // Alerts endpoints
   @Get(':id/alerts')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getAlerts(
     @Param('id') id: string,
     @Query('status') status?: string,
@@ -158,20 +158,20 @@ export class PatientsController {
   }
 
   @Get(':id/alerts/active')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getActiveAlerts(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getActiveAlerts(id, user);
   }
 
   // Devices endpoints
   @Get(':id/devices')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getDevices(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getDevices(id, user);
   }
 
   @Post(':id/devices/:deviceId/assign')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async assignDevice(
     @Param('id') id: string,
@@ -182,7 +182,7 @@ export class PatientsController {
   }
 
   @Post(':id/devices/:deviceId/unassign')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   async unassignDevice(
     @Param('id') id: string,
@@ -194,13 +194,13 @@ export class PatientsController {
 
   // Medications endpoints
   @Get(':id/medications')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getMedications(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getMedications(id, user);
   }
 
   @Post(':id/medications')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   async addMedication(
     @Param('id') id: string,
     @Body() dto: AddMedicationDto,
@@ -210,7 +210,7 @@ export class PatientsController {
   }
 
   @Put(':id/medications/:medicationId')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   async updateMedication(
     @Param('id') id: string,
     @Param('medicationId') medicationId: string,
@@ -221,7 +221,7 @@ export class PatientsController {
   }
 
   @Delete(':id/medications/:medicationId')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeMedication(
     @Param('id') id: string,
@@ -233,13 +233,13 @@ export class PatientsController {
 
   // Care Plan endpoints
   @Get(':id/care-plan')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getCarePlan(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getCarePlan(id, user);
   }
 
   @Put(':id/care-plan')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.SUPERADMIN)
   async updateCarePlan(
     @Param('id') id: string,
     @Body() dto: UpdateCarePlanDto,
@@ -250,21 +250,21 @@ export class PatientsController {
 
   // AI Insights endpoints
   @Get(':id/ai-insights')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getAIInsights(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getAIInsights(id, user);
   }
 
   // Risk Score endpoint
   @Get(':id/risk-score')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getRiskScore(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.patientsService.getRiskScore(id, user);
   }
 
   // Adherence endpoint
   @Get(':id/adherence')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getAdherence(
     @Param('id') id: string,
     @Query('startDate') startDate?: string,
@@ -276,7 +276,7 @@ export class PatientsController {
 
   // Appointments endpoint
   @Get(':id/appointments')
-  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
+  @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT, UserRole.SUPERADMIN)
   async getAppointments(
     @Param('id') id: string,
     @Query('status') status?: string,

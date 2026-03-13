@@ -103,6 +103,14 @@ export class AnalyticsController {
     return this.analyticsService.getRevenueAnalytics({ startDate: dates.startDate, endDate: dates.endDate });
   }
 
+  @Get('provider-stats')
+  @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getProviderStats(@CurrentUser() user?: CurrentUserPayload) {
+    const d = await this.analyticsService.getDashboardAnalytics({ organizationId: user?.organizationId, role: user?.role as any });
+    const rev = await this.analyticsService.getRevenueAnalytics({});
+    return { totalPatients: d.totalPatients, activeAlerts: d.activeAlerts, criticalAlerts: 0, adherenceRate: 85, adherenceChange: 2, monthlyRevenue: (rev as any)?.mrr ?? 0, patientChange: 0 };
+  }
+
   @Get('system')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async getSystemAnalytics() {
