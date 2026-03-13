@@ -83,7 +83,8 @@ export default function AdminIntegrationsPage() {
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.list();
-      const l = (r as { data?: Integration[] })?.data ?? (r as unknown as Integration[]) ?? [];
+      const raw = (r as any)?.data ?? r;
+      const l = raw?.data ?? raw?.results ?? (Array.isArray(raw) ? raw : []);
       setIts(Array.isArray(l) ? l : []);
     } catch {
       toast({ title: 'Error', description: 'Failed to load integrations', type: 'error' });
