@@ -15,50 +15,133 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { IsString, IsOptional, IsEmail, IsDate, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PatientsService } from './patients.service';
 import { UserRole } from '../users/entities/user.entity';
 
 class CreatePatientDto {
+  @IsEmail()
   email: string;
+
+  @IsString()
   firstName: string;
+
+  @IsString()
   lastName: string;
+
+  @IsOptional() @IsString()
   phone?: string;
+
+  @IsOptional() @Type(() => Date) @IsDate()
   dateOfBirth?: Date;
+
+  @IsOptional() @IsString()
   gender?: string;
-  address?: string;
-  emergencyContact?: string;
+
+  @IsOptional()
+  address?: any;
+
+  @IsOptional()
+  emergencyContact?: any;
+
+  @IsOptional() @IsString()
   emergencyPhone?: string;
+
+  @IsOptional()
+  insuranceInfo?: any;
+
+  @IsOptional() @IsString()
   insuranceProvider?: string;
+
+  @IsOptional() @IsString()
   insuranceId?: string;
+
+  @IsOptional() @IsString()
   providerId?: string;
+
+  @IsOptional() @IsArray()
+  conditions?: string[];
+
+  @IsOptional() @IsString()
+  notes?: string;
 }
 
 class UpdatePatientDto {
+  @IsOptional() @IsString()
   firstName?: string;
+
+  @IsOptional() @IsString()
   lastName?: string;
+
+  @IsOptional() @IsString()
   phone?: string;
+
+  @IsOptional() @Type(() => Date) @IsDate()
   dateOfBirth?: Date;
+
+  @IsOptional() @IsString()
   gender?: string;
-  address?: string;
-  emergencyContact?: string;
+
+  @IsOptional()
+  address?: any;
+
+  @IsOptional()
+  emergencyContact?: any;
+
+  @IsOptional() @IsString()
   emergencyPhone?: string;
+
+  @IsOptional()
+  insuranceInfo?: any;
+
+  @IsOptional() @IsString()
   insuranceProvider?: string;
+
+  @IsOptional() @IsString()
   insuranceId?: string;
+
+  @IsOptional() @IsArray()
+  conditions?: string[];
+
+  @IsOptional() @IsString()
+  notes?: string;
+
+  @IsOptional() @IsString()
+  status?: string;
 }
 
 class AddMedicationDto {
+  @IsString()
   name: string;
+
+  @IsString()
   dosage: string;
+
+  @IsString()
   frequency: string;
+
+  @Type(() => Date) @IsDate()
   startDate: Date;
+
+  @IsOptional() @Type(() => Date) @IsDate()
   endDate?: Date;
+
+  @IsOptional() @IsString()
   instructions?: string;
+
+  @IsOptional() @IsString()
   prescribedBy?: string;
 }
 
 class UpdateCarePlanDto {
+  @IsOptional() @IsArray()
   goals?: string[];
+
+  @IsOptional() @IsArray()
   interventions?: string[];
+
+  @IsOptional() @IsString()
   notes?: string;
 }
 
