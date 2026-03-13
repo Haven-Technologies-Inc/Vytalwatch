@@ -57,7 +57,9 @@ export class PatientsService {
     }
 
     if (providerId) {
-      query.andWhere('user.providerId = :providerId', { providerId });
+      query
+        .leftJoin('patient_profiles', 'pp', 'pp.patient_id = user.id')
+        .andWhere('pp.assigned_provider_id = :providerId', { providerId });
     }
 
     if (status) {

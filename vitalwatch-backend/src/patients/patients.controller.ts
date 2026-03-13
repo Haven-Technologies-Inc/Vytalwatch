@@ -82,7 +82,7 @@ export class PatientsController {
       limit,
       search,
       status,
-      providerId: providerId || (user?.role === UserRole.PROVIDER ? user.sub : undefined),
+      providerId: providerId || undefined,
       organizationId: user?.organizationId,
     });
   }
