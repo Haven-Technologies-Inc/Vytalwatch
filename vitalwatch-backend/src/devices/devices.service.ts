@@ -144,7 +144,7 @@ export class DevicesService {
     this.logger.log(`Processing Tenovi webhook: ${payload.event}`);
 
     // Find device by Tenovi device ID
-    let device = await this.findByTenoviId(payload.device_id);
+    const device = await this.findByTenoviId(payload.device_id);
 
     if (!device) {
       this.logger.warn(`Device not found for Tenovi ID: ${payload.device_id}`);

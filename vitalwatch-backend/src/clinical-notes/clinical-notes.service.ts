@@ -6,8 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { ClinicalNote, CommunicationLog, NoteStatus, NoteType } from './entities/clinical-note.entity';
+import { Repository, Between } from 'typeorm';
+import { ClinicalNote, CommunicationLog, NoteStatus } from './entities/clinical-note.entity';
 import {
   CreateClinicalNoteDto,
   UpdateClinicalNoteDto,
@@ -267,7 +267,7 @@ export class ClinicalNotesService {
     });
   }
 
-  async getTimeTrackingSummary(patientId: string, startDate: Date, endDate: Date, user: CurrentUserPayload) {
+  async getTimeTrackingSummary(patientId: string, startDate: Date, endDate: Date, _user: CurrentUserPayload) {
     const notes = await this.noteRepository.find({
       where: {
         patientId,

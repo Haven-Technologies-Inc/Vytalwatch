@@ -96,7 +96,7 @@ export class ConsentService {
     return saved;
   }
 
-  async sendConsent(dto: SendConsentDto, user: CurrentUserPayload, ip?: string, userAgent?: string): Promise<PatientConsent> {
+  async sendConsent(dto: SendConsentDto, user: CurrentUserPayload, _ip?: string, _userAgent?: string): Promise<PatientConsent> {
     const template = await this.findTemplateById(dto.templateId);
 
     const existingActive = await this.consentRepository.findOne({
@@ -435,7 +435,7 @@ export class ConsentService {
         this.logger.log('Consent templates already exist, skipping seed');
         return [];
       }
-    } catch (error) {
+    } catch {
       this.logger.warn('Could not check consent templates - table may not exist yet. Will retry on next startup.');
       return [];
     }
@@ -689,7 +689,7 @@ export class ConsentService {
 
       this.logger.log(`Seeded ${templates.length} default consent templates`);
       return templates;
-    } catch (error) {
+    } catch {
       this.logger.warn('Could not seed consent templates - table may not be ready. Will retry on next startup.');
       return [];
     }

@@ -32,7 +32,7 @@ export class ReportsService {
     organizationId?: string;
     userId?: string;
   }) {
-    const { page, limit, type, status, organizationId, userId } = options;
+    const { page, limit, type, status, organizationId } = options;
     const skip = (page - 1) * limit;
 
     const query = this.reportRepository.createQueryBuilder('report');
@@ -376,7 +376,7 @@ export class ReportsService {
     });
   }
 
-  async getScheduledReports(user: CurrentUserPayload) {
+  async getScheduledReports(_user: CurrentUserPayload) {
     // Return scheduled reports for the user/organization
     return [];
   }
@@ -403,7 +403,7 @@ export class ReportsService {
     });
   }
 
-  async generatePatientSummary(patientId: string, options: any, user: CurrentUserPayload) {
+  async generatePatientSummary(patientId: string, options: any, _user: CurrentUserPayload) {
     return {
       patientId,
       generatedAt: new Date().toISOString(),
@@ -428,7 +428,7 @@ export class ReportsService {
     };
   }
 
-  async generateVitalsReport(patientId: string, options: any, user: CurrentUserPayload) {
+  async generateVitalsReport(patientId: string, options: any, _user: CurrentUserPayload) {
     return {
       patientId,
       vitalType: options.type || 'all',

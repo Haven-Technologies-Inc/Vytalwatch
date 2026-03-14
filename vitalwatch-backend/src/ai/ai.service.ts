@@ -831,7 +831,7 @@ export class AIService implements OnModuleInit {
     // Calculate risk based on available data
     let vitalScore = 50;
     let alertScore = 0;
-    let adherenceScore = 80;
+    const adherenceScore = 80;
     
     if (vitals && vitals.length > 0) {
       const criticalCount = vitals.filter(v => v.status === 'critical').length;

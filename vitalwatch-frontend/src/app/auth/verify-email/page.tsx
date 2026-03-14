@@ -152,7 +152,7 @@ function VerifyEmailContent() {
             Verify Your Email
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Please check your inbox for a verification link. If you haven't received an email, you can request a new one.
+            Please check your inbox for a verification link. If you haven&apos;t received an email, you can request a new one.
           </p>
         </div>
         <div className="space-y-3">

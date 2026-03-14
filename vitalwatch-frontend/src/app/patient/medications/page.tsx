@@ -114,12 +114,15 @@ export default function PatientMedicationsPage() {
   );
   const adherenceRate = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
 
-  const needsRefillSoon = medications.filter((m) => {
-    if (!m.refillDate) return false;
-    const refillDate = new Date(m.refillDate);
-    const daysUntilRefill = Math.ceil((refillDate.getTime() - Date.now()) / 86400000);
-    return daysUntilRefill <= 14;
-  });
+  const [currentTime] = useState(() => Date.now());
+  const needsRefillSoon = useMemo(() => {
+    return medications.filter((m) => {
+      if (!m.refillDate) return false;
+      const refillDate = new Date(m.refillDate);
+      const daysUntilRefill = Math.ceil((refillDate.getTime() - currentTime) / 86400000);
+      return daysUntilRefill <= 14;
+    });
+  }, [medications, currentTime]);
 
   if (isLoading) {
     return (

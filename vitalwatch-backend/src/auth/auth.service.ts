@@ -4,8 +4,11 @@ import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
+import * as jwksRsa from 'jwks-rsa';
+import * as jsonwebtoken from 'jsonwebtoken';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { InviteCode, InviteCodeStatus } from './entities/invite-code.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -228,7 +231,6 @@ export class AuthService {
   }
 
   private generateVerificationToken(): string {
-    const crypto = require('crypto');
     return crypto.randomBytes(32).toString('hex');
   }
 
@@ -295,7 +297,7 @@ export class AuthService {
       };
 
       return this.generateTokens(newPayload);
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -563,16 +565,18 @@ export class AuthService {
 
   private async verifyAppleToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string }> {
     try {
-      const jwksClient = require('jwks-rsa');
-      const jwt = require('jsonwebtoken');
+      // Dynamic imports for optional Apple auth dependencies
+      const jwksRsaModule = await import('jwks-rsa');
+      const jwtModule = await import('jsonwebtoken');
 
       // Decode header to get the key ID (kid)
-      const decodedHeader = jwt.decode(token, { complete: true });
-      if (!decodedHeader || !decodedHeader.header?.kid) {
+      const decodedHeader = jwtModule.decode(token, { complete: true });
+      if (!decodedHeader || typeof decodedHeader === 'string' || !decodedHeader.header?.kid) {
         throw new BadRequestException('Invalid Apple token format');
       }
 
       // Fetch Apple's public keys and verify the signature
+      const jwksClient = (jwksRsaModule as any).default || jwksRsaModule;
       const client = jwksClient({
         jwksUri: 'https://appleid.apple.com/auth/keys',
         cache: true,
@@ -583,21 +587,21 @@ export class AuthService {
       const publicKey = signingKey.getPublicKey();
 
       // Verify the token with Apple's public key
-      const verified = jwt.verify(token, publicKey, {
+      const verified = jwtModule.verify(token, publicKey, {
         algorithms: ['RS256'],
         issuer: 'https://appleid.apple.com',
         audience: this.configService.get('oauth.apple.clientId'),
       });
 
-      if (!verified || !verified.sub) {
+      if (!verified || typeof verified === 'string' || !verified.sub) {
         throw new BadRequestException('Invalid Apple token');
       }
 
       return {
         providerId: verified.sub,
-        email: verified.email || '',
-        firstName: verified.firstName || '',
-        lastName: verified.lastName || '',
+        email: (verified as any).email || '',
+        firstName: (verified as any).firstName || '',
+        lastName: (verified as any).lastName || '',
       };
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
@@ -649,7 +653,7 @@ export class AuthService {
     }
 
     // Return user without sensitive data
-    const { passwordHash, resetToken, verificationToken, magicLinkToken, ...safeUser } = user as any;
+    const { passwordHash: _passwordHash, resetToken: _resetToken, verificationToken: _verificationToken, magicLinkToken: _magicLinkToken, ...safeUser } = user as any;
     return safeUser;
   }
 
@@ -789,7 +793,6 @@ export class AuthService {
   }
 
   private generateInviteCode(): string {
-    const crypto = require('crypto');
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const bytes = crypto.randomBytes(8);
     let code = '';

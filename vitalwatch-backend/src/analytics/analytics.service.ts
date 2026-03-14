@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { Alert, AlertSeverity, AlertStatus } from '../alerts/entities/alert.entity';
 import { Device } from '../devices/entities/device.entity';
@@ -43,7 +43,7 @@ export class AnalyticsService {
     organizationId?: string;
     role?: UserRole;
   }) {
-    const { organizationId, role } = options;
+    const { organizationId } = options;
 
     const patientQuery = this.userRepository.createQueryBuilder('user')
       .where('user.role = :role', { role: UserRole.PATIENT });
@@ -306,15 +306,6 @@ export class AnalyticsService {
       this.logger.warn('Failed to get database stats', error);
     }
 
-    // Check Redis connection status
-    let redisStatus = 'unknown';
-    try {
-      // DataSource is available, so the database is connected
-      redisStatus = 'connected';
-    } catch {
-      redisStatus = 'disconnected';
-    }
-
     // Total readings as a proxy for query volume
     const totalReadings = await this.vitalRepository.count();
     const totalAlerts = await this.alertRepository.count();
@@ -399,7 +390,7 @@ export class AnalyticsService {
     return query.getCount();
   }
 
-  private async getReadingCount(organizationId?: string): Promise<number> {
+  private async getReadingCount(_organizationId?: string): Promise<number> {
     return this.vitalRepository.count();
   }
 

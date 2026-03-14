@@ -1,5 +1,5 @@
 ﻿import { Injectable, Logger } from '@nestjs/common';
-import PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
 import { Claim } from './entities/claim.entity';
 import { VitalReading } from '../vitals/entities/vital-reading.entity';
 import { TimeEntry } from '../time-tracking/entities/time-entry.entity';
@@ -45,7 +45,7 @@ export class AuditBundleService {
       doc.fontSize(10).font('Helvetica');
       doc.text('Claim ID: ' + data.claim.id);
       doc.text('Patient: ' + (data.claim.patientName || 'N/A'));
-      doc.text('Period: ' + data.claim.periodStart + ' to ' + data.claim.periodEnd);
+      doc.text('Period: ' + String(data.claim.periodStart) + ' to ' + String(data.claim.periodEnd));
       if (data.claim.codes?.length) doc.text('Codes: ' + data.claim.codes.map(c => c.code).join(', '));
       doc.moveDown();
 

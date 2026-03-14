@@ -17,7 +17,7 @@ export function TestimonialsSection() {
           {testimonials.map((t, i) => (
             <div key={i} className="p-6 rounded-2xl bg-slate-950 border border-slate-800">
               <div className="flex gap-1 mb-4">{[...Array(t.rating)].map((_, j) => <Star key={j} className="h-5 w-5 text-yellow-500 fill-yellow-500" />)}</div>
-              <p className="text-slate-300 mb-6">"{t.text}"</p>
+              <p className="text-slate-300 mb-6">&ldquo;{t.text}&rdquo;</p>
               <div><p className="text-white font-semibold">{t.name}</p><p className="text-slate-500 text-sm">{t.role}, {t.org}</p></div>
             </div>
           ))}

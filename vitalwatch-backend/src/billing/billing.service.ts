@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, DataSource } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Subscription, SubscriptionStatus, PlanType } from './entities/subscription.entity';
@@ -301,7 +301,7 @@ export class BillingService {
     billingPeriodEnd.setDate(0);
 
     switch (cptCode) {
-      case CPTCode.INITIAL_SETUP:
+      case CPTCode.INITIAL_SETUP: {
         // 99453 can only be billed once per patient
         const existingSetup = await this.billingRecordRepository.findOne({
           where: { patientId, cptCode: CPTCode.INITIAL_SETUP },
@@ -310,22 +310,25 @@ export class BillingService {
           throw new BadRequestException('Initial setup (99453) already billed for this patient');
         }
         break;
+      }
 
-      case CPTCode.DEVICE_SUPPLY:
+      case CPTCode.DEVICE_SUPPLY: {
         // 99454 requires at least 16 days of readings per month
         if (dto.daysWithReadings && dto.daysWithReadings < 16) {
           throw new BadRequestException('Device supply (99454) requires at least 16 days of readings');
         }
         break;
+      }
 
-      case CPTCode.CLINICAL_REVIEW_20:
+      case CPTCode.CLINICAL_REVIEW_20: {
         // 99457 requires at least 20 minutes of interaction
         if (dto.minutesSpent && dto.minutesSpent < 20) {
           throw new BadRequestException('Clinical review (99457) requires at least 20 minutes');
         }
         break;
+      }
 
-      case CPTCode.CLINICAL_REVIEW_ADDITIONAL:
+      case CPTCode.CLINICAL_REVIEW_ADDITIONAL: {
         // 99458 can be billed up to 2 times per month after 99457
         const existingBase = await this.billingRecordRepository.findOne({
           where: {
@@ -351,6 +354,7 @@ export class BillingService {
           throw new BadRequestException('Maximum of 2 additional reviews (99458) per month');
         }
         break;
+      }
     }
   }
 

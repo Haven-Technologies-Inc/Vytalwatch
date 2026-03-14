@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
 import { ApiKey } from './entities/api-key.entity';
@@ -62,13 +61,13 @@ export class AdminService {
         where: { organizationId: user.organizationId },
         order: { createdAt: 'DESC' },
       });
-    } catch (error) {
+    } catch {
       // Return empty array if table doesn't exist or other DB error
       return [];
     }
   }
 
-  async getApiKey(id: string, user: CurrentUserPayload) {
+  async getApiKey(id: string, _user: CurrentUserPayload) {
     const apiKey = await this.apiKeyRepository.findOne({ where: { id } });
     if (!apiKey) {
       throw new NotFoundException('API key not found');
@@ -103,8 +102,8 @@ export class AdminService {
   }
 
   async updateApiKey(id: string, dto: any, user: CurrentUserPayload) {
-    const apiKey = await this.getApiKey(id, user);
-    
+    await this.getApiKey(id, user);
+
     await this.apiKeyRepository.update(id, dto);
 
     await this.auditService.log({
@@ -160,7 +159,7 @@ export class AdminService {
     return { id, level: 'info', message: 'Log entry', timestamp: new Date().toISOString() };
   }
 
-  async getLogStats(options: any) {
+  async getLogStats(_options: any) {
     return {
       totalLogs: 15420,
       byLevel: {
@@ -232,14 +231,14 @@ export class AdminService {
     if (this.redisAvailable) {
       try {
         await this.redis.set(SETTINGS_KEY, JSON.stringify(settings));
-      } catch (err) {
+      } catch {
         this.logger.warn('Failed to persist settings to Redis');
       }
     }
   }
 
   // Usage Statistics — real DB queries
-  async getUsageStats(options: any) {
+  async getUsageStats(_options: any) {
     try {
       const totalUsers = await this.userRepository.count();
       const activeUsers = await this.userRepository.count({ where: { status: UserStatus.ACTIVE } });
@@ -257,7 +256,7 @@ export class AdminService {
     }
   }
 
-  async getApiUsage(options: any) {
+  async getApiUsage(_options: any) {
     return {
       totalRequests: 0,
       byEndpoint: [],
@@ -348,7 +347,7 @@ export class AdminService {
 
     return {
       data: users.map((u) => {
-        const { passwordHash, ...safe } = u as any;
+        const { passwordHash: _pw, ...safe } = u as any;
         return safe;
       }),
       meta: { total, page, limit },

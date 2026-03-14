@@ -15,7 +15,7 @@ describe('AppController', () => {
   describe('getRoot', () => {
     it('should return API info', () => {
       const result = appController.getRoot();
-      expect(result.name).toBe('VitalWatch AI API');
+      expect(result.name).toBe('VytalWatch AI API');
       expect(result.version).toBe('1.0.0');
       expect(result.status).toBe('running');
     });

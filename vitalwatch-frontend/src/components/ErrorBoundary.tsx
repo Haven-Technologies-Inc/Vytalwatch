@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
-// @ts-ignore - @sentry/nextjs may not be installed
-const Sentry: { captureException?: (error: Error, context?: any) => void } = (() => { try { return require('@sentry/nextjs'); } catch { return {}; } })();
+
+let Sentry: { captureException?: (error: Error, context?: Record<string, unknown>) => void } = {};
+import('@sentry/nextjs')
+  .then((mod) => { Sentry = mod; })
+  .catch(() => { /* @sentry/nextjs may not be installed */ });
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';

@@ -29,7 +29,6 @@ import {
   RegisterTenoviGatewayDto,
   AssignTenoviDeviceDto,
   CreateTenoviFulfillmentDto,
-  WhitelistDeviceDto,
   TenoviPaginatedResponseDto,
   TenoviPatientDto,
   TenoviHardwareChangeDto,
@@ -248,7 +247,7 @@ export class TenoviService {
       });
 
       return saved;
-    } catch (error) {
+    } catch {
       // Create locally if API fails
       const gateway = this.gatewayRepository.create({
         gatewayUuid: dto.gatewayUuid,
@@ -286,7 +285,7 @@ export class TenoviService {
           { params: { page, page_size: limit } },
         );
         return response.data;
-      } catch (e) {
+      } catch {
         this.logger.warn('Tenovi API failed for listHwiDevices, using local DB');
       }
     }
@@ -492,7 +491,7 @@ export class TenoviService {
       try {
         const r = await this.apiClient.get<TenoviDeviceTypeDto[]>(`/hwi-device-types/`);
         return r.data;
-      } catch (e) {
+      } catch {
         this.logger.warn('Tenovi device types API failed, using local catalog');
       }
     }
@@ -506,7 +505,7 @@ export class TenoviService {
           `/hwi-device-types/${deviceTypeId}/`,
         );
         return r.data;
-      } catch (e) {
+      } catch {
         this.logger.warn('Tenovi device type API failed');
       }
     }
@@ -578,7 +577,7 @@ export class TenoviService {
       // Try to sync from API
       try {
         device = await this.syncHwiDeviceFromApi(measurement.hwi_device_id);
-      } catch (error) {
+      } catch {
         this.logger.warn(`Device not found and cannot sync: ${measurement.hwi_device_id}`);
         return;
       }
