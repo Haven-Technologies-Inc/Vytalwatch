@@ -7,8 +7,6 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
-import * as jwksRsa from 'jwks-rsa';
-import * as jsonwebtoken from 'jsonwebtoken';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { InviteCode, InviteCodeStatus } from './entities/invite-code.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
