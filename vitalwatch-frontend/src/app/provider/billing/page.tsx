@@ -156,6 +156,7 @@ export default function ProviderBillingPage() {
       key: 'month',
       header: 'Service Month',
       render: (month: string) => {
+        if (!month || !month.includes('-')) return month || '\u2014';
         const [year, m] = month.split('-');
         return new Date(parseInt(year), parseInt(m) - 1).toLocaleDateString('en-US', {
           month: 'long',
@@ -168,7 +169,7 @@ export default function ProviderBillingPage() {
       header: 'CPT Codes',
       render: (codes: string[]) => (
         <div className="flex gap-1">
-          {codes.map((code) => (
+          {(Array.isArray(codes) ? codes : []).map((code) => (
             <Badge key={code} variant="secondary" className="text-xs">
               {code}
             </Badge>

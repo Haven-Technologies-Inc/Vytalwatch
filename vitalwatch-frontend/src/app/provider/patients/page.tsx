@@ -30,6 +30,8 @@ import { extractData, safeArray } from '@/lib/utils';
 interface Patient {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   age: number;
   conditions: string[];
   riskScore: number;
@@ -85,7 +87,19 @@ export default function ProviderPatientsPage() {
 
   const patients: Patient[] = useMemo(() => {
     const inner = extractData<{ results?: Patient[]; data?: Patient[] }>(patientsResponse);
-    return inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
+    const raw: Patient[] = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
+    return raw.map((p) => ({
+      ...p,
+      name: p.name || [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown',
+      conditions: safeArray<string>(p.conditions),
+      riskScore: p.riskScore ?? 0,
+      riskCategory: p.riskCategory ?? 'low',
+      latestVitals: p.latestVitals ?? { bp: undefined, glucose: undefined, spo2: undefined },
+      deviceStatus: p.deviceStatus ?? 'disconnected',
+      lastReading: p.lastReading ?? '',
+      alertCount: p.alertCount ?? 0,
+      age: p.age ?? 0,
+    }));
   }, [patientsResponse]);
 
   const handleMessagePatient = useCallback((patientId: string, patientName: string) => {
@@ -170,9 +184,9 @@ export default function ProviderPatientsPage() {
       header: 'Latest Vitals',
       render: (vitals: Patient['latestVitals']) => (
         <div className="text-sm">
-          {vitals.bp && <span className="mr-3">BP: {vitals.bp}</span>}
-          {vitals.glucose && <span className="mr-3">Glucose: {vitals.glucose}</span>}
-          {vitals.spo2 && <span>SpO2: {vitals.spo2}</span>}
+          {vitals?.bp && <span className="mr-3">BP: {vitals.bp}</span>}
+          {vitals?.glucose && <span className="mr-3">Glucose: {vitals.glucose}</span>}
+          {vitals?.spo2 && <span>SpO2: {vitals.spo2}</span>}
         </div>
       ),
     },
@@ -341,15 +355,15 @@ export default function ProviderPatientsPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">Blood Pressure</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.bp || '\u2014'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals?.bp || '\u2014'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">Glucose</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.glucose || '\u2014'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals?.glucose || '\u2014'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <p className="text-xs text-gray-500">SpO2</p>
-                  <p className="text-lg font-semibold">{selectedPatient.latestVitals.spo2 || '\u2014'}</p>
+                  <p className="text-lg font-semibold">{selectedPatient.latestVitals?.spo2 || '\u2014'}</p>
                 </div>
               </div>
 

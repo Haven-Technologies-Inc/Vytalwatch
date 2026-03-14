@@ -82,11 +82,16 @@ export default function ProviderAlertsPage() {
   );
 
   const alerts: Alert[] = useMemo(() => {
-    const inner = extractData<{ results: AlertApiItem[]; total: number }>(alertsResponse);
-    const items = inner?.results ?? [];
-    return items.map((a) => ({
+    const inner = extractData<{ results?: AlertApiItem[]; data?: AlertApiItem[]; total?: number }>(alertsResponse);
+    const raw = inner?.results ?? inner?.data ?? (Array.isArray(inner) ? inner : []);
+    return (Array.isArray(raw) ? raw : []).map((a: AlertApiItem) => ({
       ...a,
-      timestamp: new Date(a.timestamp || a.createdAt),
+      patient: a.patient ?? { id: '', name: 'Unknown' },
+      title: a.title ?? 'Alert',
+      message: a.message ?? '',
+      status: a.status ?? 'active',
+      severity: a.severity ?? 'info',
+      timestamp: new Date(a.timestamp || a.createdAt || Date.now()),
     }));
   }, [alertsResponse]);
 

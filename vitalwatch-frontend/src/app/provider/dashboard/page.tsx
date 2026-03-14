@@ -558,15 +558,15 @@ export default function ProviderDashboard() {
                       <div className="space-y-1 text-xs">
                         <p>
                           <span className="text-slate-500">BP:</span>{" "}
-                          {patient.lastVitals.bp}
+                          {patient.lastVitals?.bp ?? 'N/A'}
                         </p>
                         <p>
                           <span className="text-slate-500">Glucose:</span>{" "}
-                          {patient.lastVitals.glucose}
+                          {patient.lastVitals?.glucose ?? 'N/A'}
                         </p>
                         <p>
                           <span className="text-slate-500">Weight:</span>{" "}
-                          {patient.lastVitals.weight}
+                          {patient.lastVitals?.weight ?? 'N/A'}
                         </p>
                       </div>
                     </td>
