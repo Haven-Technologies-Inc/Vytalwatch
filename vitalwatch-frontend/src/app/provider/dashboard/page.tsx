@@ -58,13 +58,15 @@ interface AlertsResponse {
 
 interface DashboardPatient {
   id: string;
-  name: string;
-  age: number;
-  conditions: string[];
-  riskScore: number;
-  lastVitals: { bp: string; glucose: string; weight: string };
-  lastReading: string;
-  status: "critical" | "warning" | "normal";
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: number;
+  conditions?: string[];
+  riskScore?: number;
+  lastVitals?: { bp?: string; glucose?: string; weight?: string };
+  lastReading?: string;
+  status?: "critical" | "warning" | "normal";
 }
 
 interface PatientsResponse {
@@ -184,16 +186,25 @@ export default function ProviderDashboard() {
     const results: DashboardAlert[] = extractArray<DashboardAlert>(alertsData);
     return results.map((a) => ({
       ...a,
-      time: new Date(a.time),
+      patient: { name: a.patient?.name || 'Unknown', avatar: a.patient?.avatar || null },
+      time: a.time ? new Date(a.time) : new Date(),
     }));
   }, [alertsData]);
 
   const patients = useMemo(() => {
     const results: DashboardPatient[] = extractArray<DashboardPatient>(patientsData);
-    return results.map((p) => ({
-      ...p,
-      lastReading: new Date(p.lastReading),
-    }));
+    return results.map((p) => {
+      const name = p.name || [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown';
+      return {
+        ...p,
+        name,
+        conditions: safeArray<string>(p.conditions),
+        riskScore: p.riskScore ?? 0,
+        lastVitals: p.lastVitals ?? { bp: 'N/A', glucose: 'N/A', weight: 'N/A' },
+        lastReading: p.lastReading ? new Date(p.lastReading) : new Date(),
+        status: p.status ?? 'normal',
+      };
+    });
   }, [patientsData]);
 
   const aiInsights = useMemo(() => {
@@ -348,7 +359,7 @@ export default function ProviderDashboard() {
                           }`}
                         />
                         <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-600 dark:text-slate-300">
-                          {alert.patient.name.split(" ").map((n) => n[0]).join("")}
+                          {(alert.patient.name || 'U').split(' ').map((n) => n[0]).join('')}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900 dark:text-white">
@@ -489,7 +500,7 @@ export default function ProviderDashboard() {
                     <td className="table-cell">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-medium">
-                          {patient.name.split(" ").map((n) => n[0]).join("")}
+                          {(patient.name || 'U').split(' ').map((n) => n[0]).join('')}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900 dark:text-white">
