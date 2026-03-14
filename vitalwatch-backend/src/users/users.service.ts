@@ -161,6 +161,10 @@ export class UsersService implements OnModuleInit {
     await this.userRepository.update(id, { passwordHash });
   }
 
+  async setVerificationToken(id: string, token: string): Promise<void> {
+    await this.userRepository.update(id, { verificationToken: token });
+  }
+
   async setResetToken(id: string, token: string): Promise<void> {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { useAuthStore, getRedirectPath } from "@/stores/authStore";
+import { notificationsApi } from "@/services/api";
+import { extractArray } from "@/lib/utils";
 import {
   Bell,
   Search,
@@ -23,41 +25,49 @@ interface TopBarProps {
   showMenuButton?: boolean;
 }
 
-const mockNotifications = [
-  {
-    id: "1",
-    type: "critical",
-    title: "Critical Alert",
-    message: "Maria Garcia BP: 185/110",
-    time: "2 min ago",
-  },
-  {
-    id: "2",
-    type: "warning",
-    title: "Weight Change",
-    message: "John Doe gained 5 lbs in 2 days",
-    time: "1 hour ago",
-  },
-  {
-    id: "3",
-    type: "info",
-    title: "New Message",
-    message: "Dr. Chen sent you a message",
-    time: "3 hours ago",
-  },
-];
+interface NotificationItem {
+  id: string;
+  type?: string;
+  category?: string;
+  title: string;
+  body?: string;
+  message?: string;
+  createdAt?: string;
+  time?: string;
+}
 
 export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await notificationsApi.getAll();
+      const items = extractArray<NotificationItem>(response);
+      setNotifications(items.slice(0, 5));
+      setUnreadCount(items.filter((n: NotificationItem & { status?: string }) => n.status !== 'read').length);
+    } catch {
+      // Notifications are non-critical; silently fail
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchNotifications();
+    // Poll every 60 seconds for new notifications
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const handleLogout = () => {
     logout();
@@ -142,7 +152,9 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
           <DropdownMenu.Trigger asChild>
             <button className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400" aria-label="Notifications">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
             </button>
           </DropdownMenu.Trigger>
 
@@ -158,34 +170,42 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
                 </h3>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {mockNotifications.map((notification) => (
-                  <DropdownMenu.Item
-                    key={notification.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer outline-none"
-                  >
-                    <div
-                      className={cn(
-                        "w-2 h-2 rounded-full mt-2 flex-shrink-0",
-                        notification.type === "critical"
-                          ? "bg-red-500"
-                          : notification.type === "warning"
-                          ? "bg-amber-500"
-                          : "bg-blue-500"
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {notification.time}
-                      </p>
-                    </div>
-                  </DropdownMenu.Item>
-                ))}
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <DropdownMenu.Item
+                      key={notification.id}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer outline-none"
+                    >
+                      <div
+                        className={cn(
+                          "w-2 h-2 rounded-full mt-2 flex-shrink-0",
+                          notification.category === "alert" || notification.type === "critical"
+                            ? "bg-red-500"
+                            : notification.type === "warning"
+                            ? "bg-amber-500"
+                            : "bg-blue-500"
+                        )}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                          {notification.title}
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                          {notification.body || notification.message}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {notification.createdAt
+                            ? formatRelativeTime(notification.createdAt)
+                            : notification.time || ''}
+                        </p>
+                      </div>
+                    </DropdownMenu.Item>
+                  ))
+                )}
               </div>
               <div className="border-t border-slate-200 dark:border-slate-700 mt-2 pt-2">
                 <button className="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
@@ -204,7 +224,7 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
                 {user?.avatar ? (
                   <img
                     src={user.avatar}
-                    alt={user.name}
+                    alt={`${user.firstName} ${user.lastName}`}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -213,7 +233,7 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
               </div>
               <div className="hidden lg:block text-left">
                 <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {user?.name || "User"}
+                  {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "User"}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
                   {user?.role || "Member"}
@@ -231,7 +251,7 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
             >
               <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 mb-2">
                 <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {user?.name}
+                  {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : ''}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {user?.email}

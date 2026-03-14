@@ -626,12 +626,20 @@ export class BillingService {
 
   // Usage
   async getUsage(user: any, options: { startDate?: string; endDate?: string }): Promise<any> {
-    const records = await this.billingRecordRepository.find({
-      where: { organizationId: user.organizationId },
-    });
+    const queryBuilder = this.billingRecordRepository.createQueryBuilder('record')
+      .where('record.organizationId = :organizationId', { organizationId: user.organizationId });
+
+    if (options.startDate) {
+      queryBuilder.andWhere('record.serviceDate >= :startDate', { startDate: new Date(options.startDate) });
+    }
+    if (options.endDate) {
+      queryBuilder.andWhere('record.serviceDate <= :endDate', { endDate: new Date(options.endDate) });
+    }
+
+    const records = await queryBuilder.getMany();
 
     const totalBillable = records.reduce((sum, r) => sum + Number(r.amount), 0);
-    
+
     return {
       totalBillable,
       recordCount: records.length,

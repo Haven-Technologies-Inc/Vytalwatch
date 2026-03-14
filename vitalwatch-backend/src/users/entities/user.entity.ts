@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 export enum UserRole {
@@ -105,14 +106,28 @@ export class User {
   @Column({ type: 'jsonb', nullable: true })
   notificationPreferences: Record<string, unknown>;
 
+  // Magic link token for passwordless auth
+  @Column({ nullable: true })
+  magicLinkToken: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  magicLinkTokenExpiresAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Virtual field
+  @DeleteDateColumn()
+  deletedAt: Date | null;
+
+  // Virtual fields
   get fullName(): string {
+    return `${this.firstName} ${this.lastName}`;
+  }
+
+  get name(): string {
     return `${this.firstName} ${this.lastName}`;
   }
 }

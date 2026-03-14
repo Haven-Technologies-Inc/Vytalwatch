@@ -35,14 +35,6 @@ interface Organization {
   createdAt: string;
 }
 
-const mockOrganizations: Organization[] = [
-  { id: '1', name: 'City Clinic', type: 'Clinic', plan: 'professional', status: 'active', userCount: 5, patientCount: 120, deviceCount: 85, monthlyRevenue: 15000, createdAt: '2025-06-01' },
-  { id: '2', name: 'General Hospital', type: 'Hospital', plan: 'enterprise', status: 'active', userCount: 25, patientCount: 450, deviceCount: 320, monthlyRevenue: 56250, createdAt: '2025-03-15' },
-  { id: '3', name: 'Heart Care Center', type: 'Specialty', plan: 'professional', status: 'active', userCount: 8, patientCount: 180, deviceCount: 140, monthlyRevenue: 22500, createdAt: '2025-08-01' },
-  { id: '4', name: 'Family Practice', type: 'Practice', plan: 'starter', status: 'trial', userCount: 2, patientCount: 35, deviceCount: 25, monthlyRevenue: 0, createdAt: '2026-01-01' },
-  { id: '5', name: 'Senior Care Network', type: 'Agency', plan: 'enterprise', status: 'active', userCount: 15, patientCount: 280, deviceCount: 200, monthlyRevenue: 35000, createdAt: '2025-05-01' },
-];
-
 const planFilters = [
   { value: 'all', label: 'All Plans' },
   { value: 'starter', label: 'Starter' },
@@ -125,8 +117,7 @@ export default function AdminOrganizationsPage() {
       setShowCreateModal(false);
       setCreateForm({ name: '', type: 'clinic', plan: 'starter', adminEmail: '' });
       toast({ title: 'Organization created', description: `${newOrg.name} has been created`, type: 'success' });
-    } catch (error) {
-      console.error('Failed to create organization:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to create organization. Please try again.', type: 'error' });
     } finally {
       setSaving(false);
@@ -161,8 +152,7 @@ export default function AdminOrganizationsPage() {
       setShowEditModal(false);
       setShowDetailsModal(false);
       toast({ title: 'Organization updated', description: `${editForm.name} has been updated`, type: 'success' });
-    } catch (error) {
-      console.error('Failed to update organization:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to update organization. Please try again.', type: 'error' });
     } finally {
       setSaving(false);

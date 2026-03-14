@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
+import { PatientProfile } from './entities/patient-profile.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { VitalsService } from '../vitals/vitals.service';
 import { AlertsService } from '../alerts/alerts.service';
@@ -15,6 +16,7 @@ import { TenoviService } from '../devices/tenovi.service';
 import { AIService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
+import { MedicationsService } from '../medications/medications.service';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
@@ -24,6 +26,8 @@ export class PatientsService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PatientProfile)
+    private readonly profileRepository: Repository<PatientProfile>,
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
     private readonly vitalsService: VitalsService,
@@ -33,6 +37,7 @@ export class PatientsService {
     private readonly aiService: AIService,
     private readonly auditService: AuditService,
     private readonly emailService: EmailService,
+    private readonly medicationsService: MedicationsService,
   ) {}
 
   async findAll(options: {
@@ -100,6 +105,14 @@ export class PatientsService {
     }
 
     this.checkAccess(patient, user);
+
+    // HIPAA: Log PHI access for audit trail
+    this.auditService.log({
+      action: 'PHI_ACCESS',
+      userId: user.sub,
+      details: { patientId: id, accessType: 'view' },
+    }).catch(() => { /* non-blocking */ });
+
     return this.sanitizePatient(patient);
   }
 
@@ -237,17 +250,8 @@ export class PatientsService {
   }
 
   async getMedications(patientId: string, user: CurrentUserPayload) {
-    const patient = await this.userRepository.findOne({
-      where: { id: patientId },
-      relations: ['medications'],
-    });
-
-    if (!patient) {
-      throw new NotFoundException('Patient not found');
-    }
-
-    this.checkAccess(patient, user);
-    return (patient as User & { medications?: unknown[] }).medications || [];
+    await this.findOne(patientId, user);
+    return this.medicationsService.findByPatient(patientId);
   }
 
   async addMedication(
@@ -256,15 +260,10 @@ export class PatientsService {
     user: CurrentUserPayload,
   ) {
     await this.findOne(patientId, user);
-
-    // Add medication logic - in production, use a Medication entity
-    await this.auditService.log({
-      action: 'MEDICATION_ADDED',
-      userId: user.sub,
-      details: { patientId, medication: dto.name },
-    });
-
-    return { ...dto, id: `med_${Date.now()}`, patientId };
+    return this.medicationsService.create(
+      { ...dto, patientId, prescribedBy: user.sub } as any,
+      user.sub,
+    );
   }
 
   async updateMedication(
@@ -274,14 +273,7 @@ export class PatientsService {
     user: CurrentUserPayload,
   ) {
     await this.findOne(patientId, user);
-
-    await this.auditService.log({
-      action: 'MEDICATION_UPDATED',
-      userId: user.sub,
-      details: { patientId, medicationId },
-    });
-
-    return { id: medicationId, patientId, ...dto };
+    return this.medicationsService.update(medicationId, dto as any, user.sub);
   }
 
   async removeMedication(
@@ -290,26 +282,28 @@ export class PatientsService {
     user: CurrentUserPayload,
   ) {
     await this.findOne(patientId, user);
-
-    await this.auditService.log({
-      action: 'MEDICATION_REMOVED',
-      userId: user.sub,
-      details: { patientId, medicationId },
-    });
+    await this.medicationsService.remove(medicationId, user.sub);
   }
 
   async getCarePlan(patientId: string, user: CurrentUserPayload) {
-    const patient = await this.findOne(patientId, user);
-    type PatientWithCarePlan = Partial<User> & {
-      carePlan?: { goals: string[]; interventions: string[]; notes: string };
-    };
-    return (
-      (patient as PatientWithCarePlan).carePlan || {
-        goals: [],
-        interventions: [],
-        notes: '',
-      }
-    );
+    await this.findOne(patientId, user);
+    const profile = await this.profileRepository.findOne({
+      where: { patientId },
+    });
+    if (!profile || !profile.notes) {
+      return { goals: [], interventions: [], notes: '' };
+    }
+    // Care plan is stored as JSON in the patient profile notes field
+    try {
+      const carePlan = JSON.parse(profile.notes);
+      return {
+        goals: carePlan.goals || [],
+        interventions: carePlan.interventions || [],
+        notes: carePlan.notes || '',
+      };
+    } catch {
+      return { goals: [], interventions: [], notes: profile.notes || '' };
+    }
   }
 
   async updateCarePlan(
@@ -319,9 +313,14 @@ export class PatientsService {
   ) {
     await this.findOne(patientId, user);
 
-    await this.userRepository.update(patientId, {
-      carePlan: dto,
-    } as Partial<User>);
+    let profile = await this.profileRepository.findOne({
+      where: { patientId },
+    });
+    if (!profile) {
+      profile = this.profileRepository.create({ patientId });
+    }
+    profile.notes = JSON.stringify(dto);
+    await this.profileRepository.save(profile);
 
     await this.auditService.log({
       action: 'CARE_PLAN_UPDATED',

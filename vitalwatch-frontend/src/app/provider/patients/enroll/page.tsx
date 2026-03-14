@@ -197,8 +197,7 @@ export default function EnrollPatientPage() {
                 zipCode: formData.zipCode,
               },
             });
-          } catch (deviceError) {
-            console.error('Device order error:', deviceError);
+          } catch {
             toast({ title: 'Warning', description: 'Patient created but device order failed', type: 'warning' });
           }
         }
@@ -206,8 +205,7 @@ export default function EnrollPatientPage() {
         toast({ title: 'Success', description: 'Patient enrolled successfully', type: 'success' });
         router.push(`/provider/patients/${created.id}`);
       }
-    } catch (error) {
-      console.error('Enrollment error:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to enroll patient', type: 'error' });
     } finally {
       setIsSubmitting(false);

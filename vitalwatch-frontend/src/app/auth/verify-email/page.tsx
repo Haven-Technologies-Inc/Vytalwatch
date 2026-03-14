@@ -16,6 +16,8 @@ function VerifyEmailContent() {
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'no-token'>('loading');
   const [error, setError] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -40,6 +42,25 @@ function VerifyEmailContent() {
 
     verifyEmail();
   }, [token, router]);
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    setResendSuccess(false);
+    try {
+      // Prompt user for email since we don't have it in context
+      const email = window.prompt('Please enter your email address to resend verification:');
+      if (!email) {
+        setResending(false);
+        return;
+      }
+      await authApi.resendVerification(email);
+      setResendSuccess(true);
+    } catch {
+      setError('Failed to resend verification email. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   if (status === 'loading') {
     return (
@@ -135,7 +156,19 @@ function VerifyEmailContent() {
           </p>
         </div>
         <div className="space-y-3">
-          <Button className="w-full">Resend Verification Email</Button>
+          {resendSuccess && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center">
+              Verification email sent! Please check your inbox.
+            </p>
+          )}
+          <Button
+            className="w-full"
+            onClick={handleResendVerification}
+            isLoading={resending}
+            disabled={resending}
+          >
+            Resend Verification Email
+          </Button>
           <Link href="/auth/login">
             <Button variant="outline" className="w-full">Back to Login</Button>
           </Link>

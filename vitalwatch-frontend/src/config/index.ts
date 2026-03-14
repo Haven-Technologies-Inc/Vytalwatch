@@ -70,8 +70,8 @@ export const config = {
     },
     heartRate: {
       normal: [60, 100],
-      warning: [50, 59, 101, 120],
-      critical: [0, 49, 121, 200],
+      low: { warning: [50, 59], critical: [0, 49] },
+      high: { warning: [101, 120], critical: [121, 200] },
     },
   },
 

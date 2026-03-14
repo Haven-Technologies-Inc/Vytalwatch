@@ -75,7 +75,6 @@ export default function ProviderMessagesPage() {
           organizationId = parsed?.state?.user?.organizationId || organizationId;
         }
 
-        console.log('Connecting socket with:', { userId, role });
         await socketClient.connect({
           token,
           userId,
@@ -83,9 +82,8 @@ export default function ProviderMessagesPage() {
           organizationId,
         });
         setSocketConnected(true);
-        console.log('Socket connected successfully');
-      } catch (err) {
-        console.error('Socket connection failed:', err);
+      } catch {
+        // Socket connection failure is non-critical; video/real-time features will be unavailable
       }
     };
 
@@ -336,8 +334,8 @@ export default function ProviderMessagesPage() {
       setSending(true);
       await messagingApi.sendMessage(selectedConversation.id, messageContent);
       await messagingApi.markThreadAsRead(selectedConversation.id);
-    } catch (error) {
-      console.error('Failed to send message:', error);
+    } catch {
+      toast({ title: 'Send failed', description: 'Message could not be sent. Please try again.', type: 'error' });
       // Revert optimistic update on error
       setSelectedConversation((prev) =>
         prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticMessage.id) } : prev

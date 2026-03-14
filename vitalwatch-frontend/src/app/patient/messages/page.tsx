@@ -163,8 +163,8 @@ export default function PatientMessagesPage() {
         }
 
         await socketClient.connect({ token, userId, role, organizationId });
-      } catch (err) {
-        console.error('Socket connection failed:', err);
+      } catch {
+        // Socket connection failure is non-critical; video/real-time features will be unavailable
       }
     };
 

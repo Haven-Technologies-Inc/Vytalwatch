@@ -45,7 +45,6 @@ export default function AdminGatewaysPage() {
       }
     } catch (err) {
       setError('Failed to load gateways. Please try again.');
-      console.error('Error fetching gateways:', err);
     } finally {
       setLoading(false);
     }
@@ -61,8 +60,7 @@ export default function AdminGatewaysPage() {
       await tenoviApi.syncGateway(uuid);
       await fetchGateways();
       toast({ title: 'Gateway synced', description: `Gateway ${uuid.slice(0, 8)}... synced successfully`, type: 'success' });
-    } catch (err) {
-      console.error('Sync error:', err);
+    } catch {
       toast({ title: 'Sync failed', description: 'Failed to sync gateway', type: 'error' });
     } finally {
       setSyncing(false);
@@ -74,8 +72,7 @@ export default function AdminGatewaysPage() {
       await tenoviApi.unlinkGateway(gatewayId);
       await fetchGateways();
       toast({ title: 'Gateway unlinked', description: 'Gateway has been unlinked', type: 'success' });
-    } catch (err) {
-      console.error('Unlink error:', err);
+    } catch {
       toast({ title: 'Unlink failed', description: 'Failed to unlink gateway', type: 'error' });
     }
   }, [fetchGateways, toast]);

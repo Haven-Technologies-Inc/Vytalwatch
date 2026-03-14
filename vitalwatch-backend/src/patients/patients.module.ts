@@ -11,6 +11,7 @@ import { DevicesModule } from '../devices/devices.module';
 import { AIModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
+import { MedicationsModule } from '../medications/medications.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { EmailModule } from '../email/email.module';
     AIModule,
     AuditModule,
     EmailModule,
+    MedicationsModule,
   ],
   controllers: [PatientsController],
   providers: [PatientsService],

@@ -108,7 +108,6 @@ export default function AdminDevicesPage() {
       if (Array.isArray(orgList)) setOrganizations(orgList);
     } catch (err) {
       setError('Failed to load devices. Please try again.');
-      console.error('Error fetching devices:', err);
     } finally {
       setLoading(false);
     }
@@ -125,8 +124,7 @@ export default function AdminDevicesPage() {
       setSelectedOrgId('');
       toast({ title: 'Device assigned', description: `Device ${selectedDevice.hwiDeviceId} has been assigned`, type: 'success' });
       await fetchDevices();
-    } catch (err) {
-      console.error('Failed to assign device:', err);
+    } catch {
       toast({ title: 'Error', description: 'Failed to assign device. Please try again.', type: 'error' });
     } finally {
       setAssigning(false);
@@ -138,8 +136,7 @@ export default function AdminDevicesPage() {
       await tenoviApi.unassignDevice(device.hwiDeviceId);
       toast({ title: 'Device unassigned', description: `Device ${device.hwiDeviceId} has been unassigned`, type: 'success' });
       await fetchDevices();
-    } catch (err) {
-      console.error('Failed to unassign device:', err);
+    } catch {
       toast({ title: 'Error', description: 'Failed to unassign device. Please try again.', type: 'error' });
     }
   }, [fetchDevices, toast]);
@@ -157,7 +154,6 @@ export default function AdminDevicesPage() {
       await fetchDevices();
     } catch (err) {
       setError('Failed to sync devices');
-      console.error('Sync error:', err);
     } finally {
       setSyncing(false);
     }

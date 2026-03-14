@@ -60,9 +60,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for auth token in cookies (set by client after login)
-  const authToken =
-    request.cookies.get('vw_access_token')?.value ||
-    request.cookies.get('vw_auth')?.value;
+  const authToken = request.cookies.get('vw_access_token')?.value;
 
   // Also check Authorization header for API-style requests
   const authHeader = request.headers.get('authorization');
@@ -81,9 +79,12 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  // Allow camera and microphone for WebRTC video calls (self-origin only)
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()',
+    'camera=(self), microphone=(self), geolocation=()',
   );
 
   return response;

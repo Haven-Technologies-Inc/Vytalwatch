@@ -113,6 +113,14 @@ export class AuthController {
   }
 
   @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body() dto: RequestPasswordResetDto) {
+    await this.authService.resendVerificationEmail(dto.email);
+    return { message: 'If an account exists with this email, a verification link has been sent.' };
+  }
+
+  @Public()
   @Post('send-sms-code')
   @HttpCode(HttpStatus.OK)
   async sendSmsCode(@Body() dto: SendSmsCodeDto) {

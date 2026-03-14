@@ -228,9 +228,8 @@ export class AuthService {
   }
 
   private generateVerificationToken(): string {
-    return Array.from({ length: 32 }, () =>
-      Math.random().toString(36).charAt(2)
-    ).join('');
+    const crypto = require('crypto');
+    return crypto.randomBytes(32).toString('hex');
   }
 
   async validateOAuthLogin(profile: {
@@ -252,13 +251,14 @@ export class AuthService {
         // Link OAuth account to existing user
         await this.usersService.linkOAuthAccount(user.id, profile.provider, profile.providerId);
       } else {
-        // Create new user
+        // Create new user — default to PATIENT for OAuth signup (safest default;
+        // providers/admins should be created via invite codes)
         user = await this.usersService.create({
           email: profile.email,
           firstName: profile.firstName,
           lastName: profile.lastName,
           avatar: profile.avatar,
-          role: UserRole.PROVIDER, // Default to provider for OAuth
+          role: UserRole.PATIENT,
           status: UserStatus.ACTIVE, // OAuth users are auto-verified
           emailVerified: true,
           [`${profile.provider}Id`]: profile.providerId,
@@ -394,6 +394,24 @@ export class AuthService {
     await this.auditService.log({
       action: 'PASSWORD_RESET_COMPLETED',
       userId: user.id,
+    });
+  }
+
+  async resendVerificationEmail(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user || user.emailVerified) {
+      // Don't reveal if user exists or is already verified
+      return;
+    }
+
+    // Generate a new verification token
+    const newToken = this.generateVerificationToken();
+    await this.usersService.setVerificationToken(user.id, newToken);
+
+    // Send verification email (non-blocking)
+    const updatedUser = { ...user, verificationToken: newToken };
+    this.notificationsService.sendEmailVerification(updatedUser as any).catch(err => {
+      this.logger.warn(`Failed to resend verification email: ${err.message}`);
     });
   }
 
@@ -771,10 +789,12 @@ export class AuthService {
   }
 
   private generateInviteCode(): string {
+    const crypto = require('crypto');
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.randomBytes(8);
     let code = '';
     for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars.charAt(bytes[i] % chars.length);
     }
     return code;
   }

@@ -67,8 +67,14 @@ export const useAuthStore = create<AuthState>()(
 
           const newAccessToken = data.data?.accessToken || data.accessToken;
           setAuthCookie(newAccessToken);
+          const rawUser = data.data?.user || data.user;
+          // Ensure name field is populated from firstName/lastName
+          const user = rawUser ? {
+            ...rawUser,
+            name: rawUser.name || `${rawUser.firstName || ''} ${rawUser.lastName || ''}`.trim() || rawUser.email,
+          } : null;
           set({
-            user: data.data?.user || data.user,
+            user,
             isAuthenticated: true,
             isLoading: false,
             accessToken: newAccessToken,
@@ -82,17 +88,18 @@ export const useAuthStore = create<AuthState>()(
 
       loginWithGoogle: async () => {
         set({ isLoading: true });
-        window.location.href = `${config.api.baseUrl}/auth/google`;
+        // Backend expects OAuth redirect flow via /auth/social/google
+        window.location.href = `${config.api.baseUrl}/auth/social/google`;
       },
 
       loginWithMicrosoft: async () => {
         set({ isLoading: true });
-        window.location.href = `${config.api.baseUrl}/auth/microsoft`;
+        window.location.href = `${config.api.baseUrl}/auth/social/microsoft`;
       },
 
       loginWithApple: async () => {
         set({ isLoading: true });
-        window.location.href = `${config.api.baseUrl}/auth/apple`;
+        window.location.href = `${config.api.baseUrl}/auth/social/apple`;
       },
 
       logout: async () => {

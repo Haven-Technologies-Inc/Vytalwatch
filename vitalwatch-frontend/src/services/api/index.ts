@@ -119,6 +119,14 @@ export const authApi = {
   verifyEmail: (token: string) =>
     apiClient.post<ApiResponse<void>>('/auth/verify-email', { token }),
 
+  resendVerification: (email: string) =>
+    apiClient.post<ApiResponse<void>>('/auth/resend-verification', { email }),
+
+  getInviteInfo: (code: string) =>
+    apiClient.get<ApiResponse<{ valid: boolean; role?: string; organizationId?: string; error?: string }>>(
+      `/auth/invite-info?code=${encodeURIComponent(code)}`
+    ),
+
   getCurrentUser: () =>
     apiClient.get<ApiResponse<User>>('/auth/me'),
 

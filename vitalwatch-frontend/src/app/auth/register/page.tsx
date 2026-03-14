@@ -116,6 +116,9 @@ function RegisterContent() {
           phone: formData.phone || undefined,
           role: roleMap[formData.accountType],
           inviteCode: formData.inviteCode || undefined,
+          ...(formData.accountType === 'provider' && formData.npi ? { npi: formData.npi } : {}),
+          ...(formData.accountType === 'provider' && formData.specialty ? { specialty: formData.specialty } : {}),
+          ...(formData.accountType === 'organization' && formData.organizationName ? { organizationName: formData.organizationName } : {}),
         }),
       });
 

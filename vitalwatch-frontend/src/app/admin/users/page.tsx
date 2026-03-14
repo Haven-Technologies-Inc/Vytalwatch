@@ -35,15 +35,6 @@ interface User {
   createdAt: string;
 }
 
-const mockUsers: User[] = [
-  { id: '1', name: 'Dr. Sarah Smith', email: 'sarah.smith@clinic.com', role: 'provider', status: 'active', organization: 'City Clinic', lastLogin: '2026-01-15', createdAt: '2025-06-01' },
-  { id: '2', name: 'John Doe', email: 'john.doe@email.com', role: 'patient', status: 'active', lastLogin: '2026-01-14', createdAt: '2025-10-15' },
-  { id: '3', name: 'Maria Garcia', email: 'maria.g@email.com', role: 'patient', status: 'active', lastLogin: '2026-01-15', createdAt: '2025-11-01' },
-  { id: '4', name: 'Admin User', email: 'admin@vitalwatch.ai', role: 'admin', status: 'active', organization: 'VytalWatch', lastLogin: '2026-01-15', createdAt: '2025-01-01' },
-  { id: '5', name: 'Dr. Michael Johnson', email: 'mjohnson@hospital.com', role: 'provider', status: 'inactive', organization: 'General Hospital', lastLogin: '2026-01-01', createdAt: '2025-08-15' },
-  { id: '6', name: 'Test User', email: 'test@example.com', role: 'patient', status: 'pending', lastLogin: '', createdAt: '2026-01-10' },
-];
-
 const roleFilters = [
   { value: 'all', label: 'All Roles' },
   { value: 'patient', label: 'Patients' },
@@ -139,8 +130,7 @@ export default function AdminUsersPage() {
       );
       setShowEditModal(false);
       toast({ title: 'User updated', description: `${editForm.name} has been updated`, type: 'success' });
-    } catch (error) {
-      console.error('Failed to update user:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to update user. Please try again.', type: 'error' });
     } finally {
       setSaving(false);
@@ -173,8 +163,7 @@ export default function AdminUsersPage() {
       setShowInviteModal(false);
       setInviteForm({ email: '', role: 'patient', organization: '' });
       toast({ title: 'Invitation sent', description: `Invite sent to ${inviteForm.email}`, type: 'success' });
-    } catch (error) {
-      console.error('Failed to send invite:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to send invitation. Please try again.', type: 'error' });
     } finally {
       setSaving(false);
@@ -192,8 +181,7 @@ export default function AdminUsersPage() {
       setShowDeleteDialog(false);
       toast({ title: 'User deleted', description: `${selectedUser.name} has been deleted`, type: 'success' });
       setSelectedUser(null);
-    } catch (error) {
-      console.error('Failed to delete user:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to delete user. Please try again.', type: 'error' });
     }
   };
