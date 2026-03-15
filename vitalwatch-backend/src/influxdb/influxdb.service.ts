@@ -201,7 +201,7 @@ export class InfluxDBService implements OnModuleInit, OnModuleDestroy {
     patientId: string,
     type: string,
     days: number = 30,
-    aggregateWindow: string = '1h'
+    aggregateWindow: string = '1h',
   ): Promise<any[]> {
     const startTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 

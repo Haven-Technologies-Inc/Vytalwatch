@@ -1,4 +1,12 @@
-﻿import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+﻿import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
 import { PermissionType } from '../constants/permissions.constant';
 
 export enum StaffRoleStatus {
@@ -40,10 +48,10 @@ export class StaffRole {
   }
 
   hasAnyPermission(permissions: PermissionType[]): boolean {
-    return permissions.some(p => this.permissions.includes(p));
+    return permissions.some((p) => this.permissions.includes(p));
   }
 
   hasAllPermissions(permissions: PermissionType[]): boolean {
-    return permissions.every(p => this.permissions.includes(p));
+    return permissions.every((p) => this.permissions.includes(p));
   }
 }

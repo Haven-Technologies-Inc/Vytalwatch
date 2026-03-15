@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, FindOptionsWhere } from 'typeorm';
@@ -101,7 +107,10 @@ export class UsersService implements OnModuleInit {
     });
   }
 
-  async findByOAuthId(provider: 'google' | 'microsoft' | 'apple', providerId: string): Promise<User | null> {
+  async findByOAuthId(
+    provider: 'google' | 'microsoft' | 'apple',
+    providerId: string,
+  ): Promise<User | null> {
     const where: FindOptionsWhere<User> = {};
 
     switch (provider) {
@@ -119,7 +128,11 @@ export class UsersService implements OnModuleInit {
     return this.userRepository.findOne({ where });
   }
 
-  async linkOAuthAccount(userId: string, provider: 'google' | 'microsoft' | 'apple', providerId: string): Promise<User> {
+  async linkOAuthAccount(
+    userId: string,
+    provider: 'google' | 'microsoft' | 'apple',
+    providerId: string,
+  ): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -209,7 +222,11 @@ export class UsersService implements OnModuleInit {
       where: { magicLinkToken: token } as any,
     });
 
-    if (!user || !(user as any).magicLinkTokenExpiresAt || (user as any).magicLinkTokenExpiresAt < new Date()) {
+    if (
+      !user ||
+      !(user as any).magicLinkTokenExpiresAt ||
+      (user as any).magicLinkTokenExpiresAt < new Date()
+    ) {
       return null;
     }
 
@@ -238,11 +255,11 @@ export class UsersService implements OnModuleInit {
   async verifySmsCode(phone: string, code: string): Promise<boolean> {
     const user = await this.userRepository.findOne({ where: { phone } });
     if (!user) return false;
-    
+
     const userData = user as any;
     if (!userData.smsVerificationCode || !userData.smsVerificationExpiresAt) return false;
     if (userData.smsVerificationExpiresAt < new Date()) return false;
-    
+
     return userData.smsVerificationCode === code;
   }
 
@@ -314,7 +331,7 @@ export class UsersService implements OnModuleInit {
 
     if (profiles.length === 0) return [];
 
-    const patientIds = profiles.map(p => p.patientId);
+    const patientIds = profiles.map((p) => p.patientId);
     return this.userRepository
       .createQueryBuilder('user')
       .where('user.id IN (:...ids)', { ids: patientIds })
@@ -348,7 +365,11 @@ export class UsersService implements OnModuleInit {
 
   // ==================== PASSWORD ====================
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -392,26 +413,40 @@ export class UsersService implements OnModuleInit {
   async getUserSettings(userId: string): Promise<Record<string, any>> {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
-    return (user as any).settings || {
-      notifications: { email: true, sms: false, push: true },
-      alertSettings: {
-        criticalAlerts: true, warningAlerts: true, infoAlerts: false,
-        afterHoursAlerts: true, escalationDelay: '15',
-        criticalThresholds: { systolicHigh: '180', systolicLow: '90', glucoseHigh: '300', glucoseLow: '50', spo2Low: '88' },
-      },
-      availability: {
-        monday: { enabled: true, start: '09:00', end: '17:00' },
-        tuesday: { enabled: true, start: '09:00', end: '17:00' },
-        wednesday: { enabled: true, start: '09:00', end: '17:00' },
-        thursday: { enabled: true, start: '09:00', end: '17:00' },
-        friday: { enabled: true, start: '09:00', end: '17:00' },
-        saturday: { enabled: false, start: '09:00', end: '12:00' },
-        sunday: { enabled: false, start: '', end: '' },
-      },
-    };
+    return (
+      (user as any).settings || {
+        notifications: { email: true, sms: false, push: true },
+        alertSettings: {
+          criticalAlerts: true,
+          warningAlerts: true,
+          infoAlerts: false,
+          afterHoursAlerts: true,
+          escalationDelay: '15',
+          criticalThresholds: {
+            systolicHigh: '180',
+            systolicLow: '90',
+            glucoseHigh: '300',
+            glucoseLow: '50',
+            spo2Low: '88',
+          },
+        },
+        availability: {
+          monday: { enabled: true, start: '09:00', end: '17:00' },
+          tuesday: { enabled: true, start: '09:00', end: '17:00' },
+          wednesday: { enabled: true, start: '09:00', end: '17:00' },
+          thursday: { enabled: true, start: '09:00', end: '17:00' },
+          friday: { enabled: true, start: '09:00', end: '17:00' },
+          saturday: { enabled: false, start: '09:00', end: '12:00' },
+          sunday: { enabled: false, start: '', end: '' },
+        },
+      }
+    );
   }
 
-  async updateUserSettings(userId: string, settings: Record<string, any>): Promise<Record<string, any>> {
+  async updateUserSettings(
+    userId: string,
+    settings: Record<string, any>,
+  ): Promise<Record<string, any>> {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found');
     await this.userRepository.update(userId, { settings } as any);
@@ -419,8 +454,6 @@ export class UsersService implements OnModuleInit {
   }
 
   private generateToken(): string {
-    return Array.from({ length: 32 }, () =>
-      Math.random().toString(36).charAt(2)
-    ).join('');
+    return Array.from({ length: 32 }, () => Math.random().toString(36).charAt(2)).join('');
   }
 }

@@ -8,12 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Alert]),
-    NotificationsModule,
-    UsersModule,
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Alert]), NotificationsModule, UsersModule, AuditModule],
   controllers: [AlertsController],
   providers: [AlertsService],
   exports: [AlertsService],

@@ -25,12 +25,17 @@ export class RPMBatchService {
       const periodEnd = new Date(e.currentBillingPeriodEnd);
       const daysLeft = Math.ceil((periodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (daysLeft <= 5 && daysLeft > 0) {
-        await this.taskRepo.save(this.taskRepo.create({
-          type: TaskType.BILLING_REVIEW, priority: TaskPriority.HIGH, status: TaskStatus.PENDING,
-          patientId: e.patientId, clinicId: e.clinicId,
-          title: 'Period ending in ' + daysLeft + ' days - Review billing readiness',
-          dueAt: periodEnd,
-        }));
+        await this.taskRepo.save(
+          this.taskRepo.create({
+            type: TaskType.BILLING_REVIEW,
+            priority: TaskPriority.HIGH,
+            status: TaskStatus.PENDING,
+            patientId: e.patientId,
+            clinicId: e.clinicId,
+            title: 'Period ending in ' + daysLeft + ' days - Review billing readiness',
+            dueAt: periodEnd,
+          }),
+        );
         created++;
       }
     }
@@ -41,11 +46,17 @@ export class RPMBatchService {
   async advanceBillingPeriods() {
     this.logger.log('Advancing billing periods...');
     const now = new Date();
-    const expired = await this.enrollRepo.find({ where: { status: EnrollmentStatus.ACTIVE, currentBillingPeriodEnd: LessThan(now) } });
+    const expired = await this.enrollRepo.find({
+      where: { status: EnrollmentStatus.ACTIVE, currentBillingPeriodEnd: LessThan(now) },
+    });
     for (const e of expired) {
       const newStart = new Date(e.currentBillingPeriodEnd);
-      const newEnd = new Date(newStart); newEnd.setDate(newEnd.getDate() + 30);
-      await this.enrollRepo.update(e.id, { currentBillingPeriodStart: newStart, currentBillingPeriodEnd: newEnd });
+      const newEnd = new Date(newStart);
+      newEnd.setDate(newEnd.getDate() + 30);
+      await this.enrollRepo.update(e.id, {
+        currentBillingPeriodStart: newStart,
+        currentBillingPeriodEnd: newEnd,
+      });
     }
     this.logger.log('Advanced ' + expired.length + ' enrollment periods');
   }
@@ -53,18 +64,30 @@ export class RPMBatchService {
   @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async buildPendingClaims() {
     this.logger.log('Building pending claims...');
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
     const enrollments = await this.enrollRepo.find({
-      where: { status: EnrollmentStatus.ACTIVE, currentBillingPeriodEnd: Between(yesterday, new Date()) },
+      where: {
+        status: EnrollmentStatus.ACTIVE,
+        currentBillingPeriodEnd: Between(yesterday, new Date()),
+      },
     });
     for (const e of enrollments) {
-      const existing = await this.claimRepo.findOne({ where: { enrollmentId: e.id, periodEnd: e.currentBillingPeriodEnd } });
+      const existing = await this.claimRepo.findOne({
+        where: { enrollmentId: e.id, periodEnd: e.currentBillingPeriodEnd },
+      });
       if (!existing) {
-        await this.claimRepo.save(this.claimRepo.create({
-          patientId: e.patientId, enrollmentId: e.id, clinicId: e.clinicId,
-          periodStart: e.currentBillingPeriodStart, periodEnd: e.currentBillingPeriodEnd,
-          programType: e.programType, status: ClaimStatus.DRAFT,
-        }));
+        await this.claimRepo.save(
+          this.claimRepo.create({
+            patientId: e.patientId,
+            enrollmentId: e.id,
+            clinicId: e.clinicId,
+            periodStart: e.currentBillingPeriodStart,
+            periodEnd: e.currentBillingPeriodEnd,
+            programType: e.programType,
+            status: ClaimStatus.DRAFT,
+          }),
+        );
       }
     }
     this.logger.log('Processed ' + enrollments.length + ' enrollments for claims');
@@ -77,15 +100,28 @@ export class RPMBatchService {
     let alerts = 0;
     for (const e of enrollments) {
       const periodStart = new Date(e.currentBillingPeriodStart);
-      const daysSinceStart = Math.ceil((Date.now() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+      const daysSinceStart = Math.ceil(
+        (Date.now() - periodStart.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (daysSinceStart >= 20) {
-        const existing = await this.taskRepo.findOne({ where: { patientId: e.patientId, type: TaskType.COMPLIANCE_CHECK, status: TaskStatus.PENDING } });
+        const existing = await this.taskRepo.findOne({
+          where: {
+            patientId: e.patientId,
+            type: TaskType.COMPLIANCE_CHECK,
+            status: TaskStatus.PENDING,
+          },
+        });
         if (!existing) {
-          await this.taskRepo.save(this.taskRepo.create({
-            type: TaskType.COMPLIANCE_CHECK, priority: TaskPriority.MEDIUM, status: TaskStatus.PENDING,
-            patientId: e.patientId, clinicId: e.clinicId,
-            title: 'Compliance check - Verify reading days and time',
-          }));
+          await this.taskRepo.save(
+            this.taskRepo.create({
+              type: TaskType.COMPLIANCE_CHECK,
+              priority: TaskPriority.MEDIUM,
+              status: TaskStatus.PENDING,
+              patientId: e.patientId,
+              clinicId: e.clinicId,
+              title: 'Compliance check - Verify reading days and time',
+            }),
+          );
           alerts++;
         }
       }

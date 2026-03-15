@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  ParseUUIDPipe,
-  Param,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, ParseUUIDPipe, Param } from '@nestjs/common';
 import { AuditService, AuditQueryOptions } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -89,9 +82,6 @@ export class AuditController {
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
   ) {
-    return this.auditService.getSecurityEvents(
-      new Date(startDate),
-      new Date(endDate),
-    );
+    return this.auditService.getSecurityEvents(new Date(startDate), new Date(endDate));
   }
 }

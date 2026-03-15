@@ -20,7 +20,13 @@ import { ReportsService } from './reports.service';
 import { UserRole } from '../users/entities/user.entity';
 
 class GenerateReportDto {
-  type: 'patient_summary' | 'vitals_history' | 'billing' | 'compliance' | 'population_health' | 'custom';
+  type:
+    | 'patient_summary'
+    | 'vitals_history'
+    | 'billing'
+    | 'compliance'
+    | 'population_health'
+    | 'custom';
   title?: string;
   patientId?: string;
   organizationId?: string;
@@ -87,7 +93,7 @@ export class ReportsController {
     @CurrentUser() user: CurrentUserPayload,
   ) {
     const report = await this.reportsService.getReportFile(id, user);
-    
+
     res.setHeader('Content-Type', report.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
     res.send(report.data);

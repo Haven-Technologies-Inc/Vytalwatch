@@ -27,10 +27,7 @@ export class DevicesController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.PROVIDER)
-  async findAll(
-    @Query('status') status?: DeviceStatus,
-    @Query('type') type?: string,
-  ) {
+  async findAll(@Query('status') status?: DeviceStatus, @Query('type') type?: string) {
     return this.devicesService.findAllDevices({ status, type });
   }
 
@@ -65,10 +62,7 @@ export class DevicesController {
 
   @Put(':id/status')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('status') status: DeviceStatus,
-  ) {
+  async updateStatus(@Param('id', ParseUUIDPipe) id: string, @Body('status') status: DeviceStatus) {
     return this.devicesService.updateStatus(id, status);
   }
 
@@ -84,10 +78,7 @@ export class DevicesController {
 
   @Post(':id/unassign')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async unassign(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async unassign(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.devicesService.unassignFromPatient(id, user.sub);
   }
 

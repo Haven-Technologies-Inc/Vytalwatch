@@ -1,6 +1,12 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto, UpdateAppointmentDto, RescheduleAppointmentDto, CancelAppointmentDto, AppointmentQueryDto } from './dto/appointment.dto';
+import {
+  CreateAppointmentDto,
+  UpdateAppointmentDto,
+  RescheduleAppointmentDto,
+  CancelAppointmentDto,
+  AppointmentQueryDto,
+} from './dto/appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -53,19 +59,31 @@ export class AppointmentsController {
 
   @Put(':id')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto, @CurrentUser() user: CurrentUserPayload) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateAppointmentDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const appointment = await this.appointmentsService.update(id, dto, user.id);
     return { success: true, data: appointment };
   }
 
   @Post(':id/reschedule')
-  async reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto, @CurrentUser() user: CurrentUserPayload) {
+  async reschedule(
+    @Param('id') id: string,
+    @Body() dto: RescheduleAppointmentDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const appointment = await this.appointmentsService.reschedule(id, dto, user.id);
     return { success: true, data: appointment };
   }
 
   @Post(':id/cancel')
-  async cancel(@Param('id') id: string, @Body() dto: CancelAppointmentDto, @CurrentUser() user: CurrentUserPayload) {
+  async cancel(
+    @Param('id') id: string,
+    @Body() dto: CancelAppointmentDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const appointment = await this.appointmentsService.cancel(id, dto, user.id);
     return { success: true, data: appointment };
   }
@@ -78,7 +96,11 @@ export class AppointmentsController {
 
   @Post(':id/complete')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async complete(@Param('id') id: string, @Body('notes') notes: string, @CurrentUser() user: CurrentUserPayload) {
+  async complete(
+    @Param('id') id: string,
+    @Body('notes') notes: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const appointment = await this.appointmentsService.complete(id, notes, user.id);
     return { success: true, data: appointment };
   }

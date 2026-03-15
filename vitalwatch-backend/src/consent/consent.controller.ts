@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  Req,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { ConsentService } from './consent.service';
 import {
@@ -102,10 +92,7 @@ export class ConsentController {
 
   @Get('patient/:patientId/status/:type')
   @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
-  async getConsentStatus(
-    @Param('patientId') patientId: string,
-    @Param('type') type: ConsentType,
-  ) {
+  async getConsentStatus(@Param('patientId') patientId: string, @Param('type') type: ConsentType) {
     return this.consentService.getConsentStatus(patientId, type);
   }
 
@@ -160,10 +147,7 @@ export class ConsentController {
 
   @Post(':id/remind')
   @Roles(UserRole.ADMIN, UserRole.PROVIDER)
-  async sendReminder(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async sendReminder(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.consentService.sendReminder(id, user);
   }
 

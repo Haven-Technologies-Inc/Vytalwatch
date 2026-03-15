@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { InfluxDBService } from './influxdb.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -94,15 +87,10 @@ export class InfluxDBController {
     @Query('period') period?: 'daily' | 'weekly' | 'monthly',
     @Query('type') type?: string,
   ) {
-    const validPeriod = period && ['daily', 'weekly', 'monthly'].includes(period)
-      ? period
-      : 'daily';
+    const validPeriod =
+      period && ['daily', 'weekly', 'monthly'].includes(period) ? period : 'daily';
 
-    const summary = await this.influxDBService.getVitalSummary(
-      patientId,
-      validPeriod,
-      type,
-    );
+    const summary = await this.influxDBService.getVitalSummary(patientId, validPeriod, type);
 
     return {
       success: true,

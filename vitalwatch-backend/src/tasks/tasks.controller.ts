@@ -15,7 +15,11 @@ export class TasksController {
   }
 
   @Get()
-  findAll(@Query('status') status?: TaskStatus, @Query('assignedTo') assignedToUserId?: string, @Query('patientId') patientId?: string): Promise<Task[]> {
+  findAll(
+    @Query('status') status?: TaskStatus,
+    @Query('assignedTo') assignedToUserId?: string,
+    @Query('patientId') patientId?: string,
+  ): Promise<Task[]> {
     return this.tasksService.findAll({ status, assignedToUserId, patientId });
   }
 
@@ -30,7 +34,10 @@ export class TasksController {
   }
 
   @Post(':id/complete')
-  complete(@Param('id') id: string, @Body() body: { userId: string; resolution?: string }): Promise<Task> {
+  complete(
+    @Param('id') id: string,
+    @Body() body: { userId: string; resolution?: string },
+  ): Promise<Task> {
     return this.tasksService.complete(id, body.userId, body.resolution);
   }
 }

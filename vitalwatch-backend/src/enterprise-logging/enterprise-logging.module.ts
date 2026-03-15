@@ -7,10 +7,7 @@ import { EnterpriseLoggingController } from './enterprise-logging.controller';
 
 @Global()
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([EnterpriseApiLog]),
-    ConfigModule,
-  ],
+  imports: [TypeOrmModule.forFeature([EnterpriseApiLog]), ConfigModule],
   controllers: [EnterpriseLoggingController],
   providers: [EnterpriseLoggingService],
   exports: [EnterpriseLoggingService],

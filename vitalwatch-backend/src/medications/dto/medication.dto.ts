@@ -1,4 +1,13 @@
-import { IsString, IsEnum, IsOptional, IsDateString, IsInt, Min, IsArray, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsInt,
+  Min,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 import { MedicationFrequency, MedicationStatus } from '../entities/medication.entity';
 
 export class CreateMedicationDto {

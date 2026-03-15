@@ -5,15 +5,24 @@ import { ThresholdPolicy } from './entities/threshold-policy.entity';
 
 @Injectable()
 export class ThresholdPoliciesService {
-  constructor(@InjectRepository(ThresholdPolicy) private readonly repo: Repository<ThresholdPolicy>) {}
+  constructor(
+    @InjectRepository(ThresholdPolicy) private readonly repo: Repository<ThresholdPolicy>,
+  ) {}
 
   async create(data: Partial<ThresholdPolicy>): Promise<ThresholdPolicy> {
-    const existing = await this.repo.findOne({ where: { clinicId: data.clinicId, programType: data.programType, isActive: true } });
+    const existing = await this.repo.findOne({
+      where: { clinicId: data.clinicId, programType: data.programType, isActive: true },
+    });
     if (existing) {
       await this.repo.update(existing.id, { isActive: false, effectiveTo: new Date() });
     }
     const maxVersion = existing ? existing.version + 1 : 1;
-    const policy = this.repo.create({ ...data, version: maxVersion, effectiveFrom: new Date(), isActive: true });
+    const policy = this.repo.create({
+      ...data,
+      version: maxVersion,
+      effectiveFrom: new Date(),
+      isActive: true,
+    });
     return this.repo.save(policy);
   }
 
@@ -28,7 +37,8 @@ export class ThresholdPoliciesService {
   }
 
   async findByDate(clinicId: string, programType: string, date: Date): Promise<ThresholdPolicy> {
-    const policy = await this.repo.createQueryBuilder('p')
+    const policy = await this.repo
+      .createQueryBuilder('p')
       .where('p.clinicId = :clinicId', { clinicId })
       .andWhere('p.programType = :programType', { programType })
       .andWhere('p.effectiveFrom <= :date', { date })

@@ -2,7 +2,12 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Medication, MedicationLog, MedicationStatus } from './entities/medication.entity';
-import { CreateMedicationDto, UpdateMedicationDto, MarkTakenDto, MedicationQueryDto } from './dto/medication.dto';
+import {
+  CreateMedicationDto,
+  UpdateMedicationDto,
+  MarkTakenDto,
+  MedicationQueryDto,
+} from './dto/medication.dto';
 import { AuditService } from '../audit/audit.service';
 
 @Injectable()
@@ -39,7 +44,8 @@ export class MedicationsService {
   async findAll(query: MedicationQueryDto): Promise<{ medications: Medication[]; total: number }> {
     const { patientId, status, page = 1, limit = 20 } = query;
 
-    const qb = this.medicationRepository.createQueryBuilder('med')
+    const qb = this.medicationRepository
+      .createQueryBuilder('med')
       .leftJoinAndSelect('med.prescriber', 'prescriber');
 
     if (patientId) qb.andWhere('med.patientId = :patientId', { patientId });
@@ -185,7 +191,10 @@ export class MedicationsService {
     return saved;
   }
 
-  async getAdherence(patientId: string, days: number = 30): Promise<{ rate: number; taken: number; total: number }> {
+  async getAdherence(
+    patientId: string,
+    days: number = 30,
+  ): Promise<{ rate: number; taken: number; total: number }> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -193,7 +202,7 @@ export class MedicationsService {
       where: { patientId },
     });
 
-    const taken = logs.filter(l => l.taken).length;
+    const taken = logs.filter((l) => l.taken).length;
     const total = logs.length || 1;
 
     return {
@@ -203,7 +212,9 @@ export class MedicationsService {
     };
   }
 
-  async getTodaySchedule(patientId: string): Promise<{ medication: Medication; scheduledTime: string; taken: boolean }[]> {
+  async getTodaySchedule(
+    patientId: string,
+  ): Promise<{ medication: Medication; scheduledTime: string; taken: boolean }[]> {
     const medications = await this.findActive(patientId);
     const schedule: { medication: Medication; scheduledTime: string; taken: boolean }[] = [];
 

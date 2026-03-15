@@ -6,10 +6,7 @@ import { Medication, MedicationLog } from './entities/medication.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Medication, MedicationLog]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Medication, MedicationLog]), AuditModule],
   controllers: [MedicationsController],
   providers: [MedicationsService],
   exports: [MedicationsService],

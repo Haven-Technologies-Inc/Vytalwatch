@@ -30,13 +30,17 @@ class CreatePatientDto {
   @IsString()
   lastName: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
-  @IsOptional() @Type(() => Date) @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
   dateOfBirth?: Date;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   gender?: string;
 
   @IsOptional()
@@ -45,42 +49,54 @@ class CreatePatientDto {
   @IsOptional()
   emergencyContact?: any;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   emergencyPhone?: string;
 
   @IsOptional()
   insuranceInfo?: any;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   insuranceProvider?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   insuranceId?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   providerId?: string;
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   conditions?: string[];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 
 class UpdatePatientDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   firstName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   lastName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
-  @IsOptional() @Type(() => Date) @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
   dateOfBirth?: Date;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   gender?: string;
 
   @IsOptional()
@@ -89,25 +105,31 @@ class UpdatePatientDto {
   @IsOptional()
   emergencyContact?: any;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   emergencyPhone?: string;
 
   @IsOptional()
   insuranceInfo?: any;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   insuranceProvider?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   insuranceId?: string;
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   conditions?: string[];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notes?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
@@ -121,27 +143,35 @@ class AddMedicationDto {
   @IsString()
   frequency: string;
 
-  @Type(() => Date) @IsDate()
+  @Type(() => Date)
+  @IsDate()
   startDate: Date;
 
-  @IsOptional() @Type(() => Date) @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
   endDate?: Date;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   instructions?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   prescribedBy?: string;
 }
 
 class UpdateCarePlanDto {
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   goals?: string[];
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   interventions?: string[];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 

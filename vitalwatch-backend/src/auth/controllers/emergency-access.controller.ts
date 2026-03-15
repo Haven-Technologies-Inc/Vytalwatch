@@ -56,10 +56,7 @@ export class EmergencyAccessController {
   @Post('revoke')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
-  async revokeAccess(
-    @Body('accessId') accessId: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async revokeAccess(@Body('accessId') accessId: string, @CurrentUser() user: CurrentUserPayload) {
     await this.emergencyAccessService.revoke(accessId, user.id);
     return { success: true, message: 'Emergency access revoked' };
   }

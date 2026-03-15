@@ -178,19 +178,13 @@ export class BillingController {
   @Delete('payment-methods/:id')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deletePaymentMethod(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async deletePaymentMethod(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     await this.billingService.deletePaymentMethod(id, user);
   }
 
   @Put('payment-methods/:id/default')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async setDefaultPaymentMethod(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async setDefaultPaymentMethod(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.billingService.setDefaultPaymentMethod(id, user);
   }
 

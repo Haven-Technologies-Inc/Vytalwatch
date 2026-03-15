@@ -21,18 +21,10 @@ export class EncryptionService implements OnModuleInit {
   onModuleInit() {
     const key = this.configService.get<string>('ENCRYPTION_KEY');
     if (!key || key.length < 32) {
-      throw new Error(
-        'ENCRYPTION_KEY must be set and at least 32 characters for HIPAA compliance',
-      );
+      throw new Error('ENCRYPTION_KEY must be set and at least 32 characters for HIPAA compliance');
     }
     // Derive a 256-bit key using PBKDF2
-    this.encryptionKey = crypto.pbkdf2Sync(
-      key,
-      'vitalwatch-phi-salt',
-      100000,
-      32,
-      'sha256',
-    );
+    this.encryptionKey = crypto.pbkdf2Sync(key, 'vitalwatch-phi-salt', 100000, 32, 'sha256');
     // Initialize the column transformer encryption key
     initializeEncryptionKey(key);
   }
@@ -74,12 +66,9 @@ export class EncryptionService implements OnModuleInit {
       const authTag = Buffer.from(parts[1], 'base64');
       const encrypted = parts[2];
 
-      const decipher = crypto.createDecipheriv(
-        this.algorithm,
-        this.encryptionKey,
-        iv,
-        { authTagLength: this.authTagLength },
-      );
+      const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, iv, {
+        authTagLength: this.authTagLength,
+      });
       decipher.setAuthTag(authTag);
 
       let decrypted = decipher.update(encrypted, 'base64', 'utf8');
@@ -98,19 +87,13 @@ export class EncryptionService implements OnModuleInit {
    */
   hash(data: string): string {
     if (!data) return data;
-    return crypto
-      .createHmac('sha256', this.encryptionKey)
-      .update(data)
-      .digest('hex');
+    return crypto.createHmac('sha256', this.encryptionKey).update(data).digest('hex');
   }
 
   /**
    * Encrypt an object's PHI fields
    */
-  encryptPHI<T extends Record<string, any>>(
-    data: T,
-    phiFields: (keyof T)[],
-  ): T {
+  encryptPHI<T extends Record<string, any>>(data: T, phiFields: (keyof T)[]): T {
     const encrypted = { ...data };
     for (const field of phiFields) {
       if (encrypted[field] && typeof encrypted[field] === 'string') {
@@ -123,10 +106,7 @@ export class EncryptionService implements OnModuleInit {
   /**
    * Decrypt an object's PHI fields
    */
-  decryptPHI<T extends Record<string, any>>(
-    data: T,
-    phiFields: (keyof T)[],
-  ): T {
+  decryptPHI<T extends Record<string, any>>(data: T, phiFields: (keyof T)[]): T {
     const decrypted = { ...data };
     for (const field of phiFields) {
       if (decrypted[field] && typeof decrypted[field] === 'string') {

@@ -13,7 +13,11 @@ const ENV_RULES: EnvRule[] = [
   { key: 'DB_DATABASE', required: 'production', description: 'PostgreSQL database name' },
 
   // Auth
-  { key: 'JWT_SECRET', required: 'always', description: 'JWT signing secret (openssl rand -base64 64)' },
+  {
+    key: 'JWT_SECRET',
+    required: 'always',
+    description: 'JWT signing secret (openssl rand -base64 64)',
+  },
 
   // Redis
   { key: 'REDIS_HOST', required: 'production', description: 'Redis host' },
@@ -44,7 +48,9 @@ export function validateEnvironment(): void {
     const message = `Missing required environment variables:\n${missing.join('\n')}`;
     if (env === 'production') {
       logger.error(message);
-      throw new Error('Cannot start in production with missing required environment variables. See logs above.');
+      throw new Error(
+        'Cannot start in production with missing required environment variables. See logs above.',
+      );
     } else {
       logger.warn(message);
     }

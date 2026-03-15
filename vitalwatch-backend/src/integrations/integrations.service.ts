@@ -49,20 +49,27 @@ export class IntegrationsService {
     }
     if (!val || !val.trim()) return false;
     const placeholders = ['...', 'your-', 'change-in-', 'placeholder', 'xxx', 'TODO'];
-    return !placeholders.some((p) => val!.trim().endsWith(p) || val!.trim().startsWith(p));
+    return !placeholders.some((p) => val.trim().endsWith(p) || val.trim().startsWith(p));
   }
 
   private configKeyToEnv(key: string): string | undefined {
     const map: Record<string, string> = {
       'stripe.secretKey': 'STRIPE_SECRET_KEY',
-      'email.host': 'SMTP_HOST', 'email.user': 'SMTP_USER', 'email.pass': 'SMTP_PASS', 'email.from': 'SMTP_FROM',
-      'twilio.accountSid': 'TWILIO_ACCOUNT_SID', 'twilio.authToken': 'TWILIO_AUTH_TOKEN',
+      'email.host': 'SMTP_HOST',
+      'email.user': 'SMTP_USER',
+      'email.pass': 'SMTP_PASS',
+      'email.from': 'SMTP_FROM',
+      'twilio.accountSid': 'TWILIO_ACCOUNT_SID',
+      'twilio.authToken': 'TWILIO_AUTH_TOKEN',
       'openai.apiKey': 'OPENAI_API_KEY',
       'grok.apiKey': 'GROK_API_KEY',
       'tenovi.apiKey': 'TENOVI_API_KEY',
-      'oauth.google.clientId': 'GOOGLE_CLIENT_ID', 'oauth.google.clientSecret': 'GOOGLE_CLIENT_SECRET',
-      'oauth.microsoft.clientId': 'MICROSOFT_CLIENT_ID', 'oauth.microsoft.clientSecret': 'MICROSOFT_CLIENT_SECRET',
-      'oauth.apple.clientId': 'APPLE_CLIENT_ID', 'oauth.apple.teamId': 'APPLE_TEAM_ID',
+      'oauth.google.clientId': 'GOOGLE_CLIENT_ID',
+      'oauth.google.clientSecret': 'GOOGLE_CLIENT_SECRET',
+      'oauth.microsoft.clientId': 'MICROSOFT_CLIENT_ID',
+      'oauth.microsoft.clientSecret': 'MICROSOFT_CLIENT_SECRET',
+      'oauth.apple.clientId': 'APPLE_CLIENT_ID',
+      'oauth.apple.teamId': 'APPLE_TEAM_ID',
     };
     return map[key];
   }
@@ -201,11 +208,24 @@ export class IntegrationsService {
 
   private readonly ENV_MAP: Record<string, Record<string, string>> = {
     stripe: { apiKey: 'STRIPE_SECRET_KEY', webhookSecret: 'STRIPE_WEBHOOK_SECRET' },
-    zoho: { smtpHost: 'SMTP_HOST', smtpUser: 'SMTP_USER', smtpPass: 'SMTP_PASS', fromEmail: 'SMTP_FROM' },
-    twilio: { accountSid: 'TWILIO_ACCOUNT_SID', authToken: 'TWILIO_AUTH_TOKEN', phoneNumber: 'TWILIO_PHONE_NUMBER' },
+    zoho: {
+      smtpHost: 'SMTP_HOST',
+      smtpUser: 'SMTP_USER',
+      smtpPass: 'SMTP_PASS',
+      fromEmail: 'SMTP_FROM',
+    },
+    twilio: {
+      accountSid: 'TWILIO_ACCOUNT_SID',
+      authToken: 'TWILIO_AUTH_TOKEN',
+      phoneNumber: 'TWILIO_PHONE_NUMBER',
+    },
     openai: { apiKey: 'OPENAI_API_KEY' },
     grok: { apiKey: 'GROK_API_KEY' },
-    tenovi: { apiKey: 'TENOVI_API_KEY', apiUrl: 'TENOVI_API_URL', clientDomain: 'TENOVI_CLIENT_DOMAIN' },
+    tenovi: {
+      apiKey: 'TENOVI_API_KEY',
+      apiUrl: 'TENOVI_API_URL',
+      clientDomain: 'TENOVI_CLIENT_DOMAIN',
+    },
     google: { clientId: 'GOOGLE_CLIENT_ID', clientSecret: 'GOOGLE_CLIENT_SECRET' },
     microsoft: { clientId: 'MICROSOFT_CLIENT_ID', clientSecret: 'MICROSOFT_CLIENT_SECRET' },
     apple: { clientId: 'APPLE_CLIENT_ID', teamId: 'APPLE_TEAM_ID' },
@@ -356,13 +376,9 @@ export class IntegrationsService {
       details: { promptLength: dto.prompt.length },
     });
 
-    const fullPrompt = dto.context
-      ? `Context: ${dto.context}\n\nQuery: ${dto.prompt}`
-      : dto.prompt;
+    const fullPrompt = dto.context ? `Context: ${dto.context}\n\nQuery: ${dto.prompt}` : dto.prompt;
 
-    const response = await this.aiService.chatWithAI(
-      [{ role: 'user', content: fullPrompt }],
-    );
+    const response = await this.aiService.chatWithAI([{ role: 'user', content: fullPrompt }]);
 
     return {
       analysis: response,
@@ -418,9 +434,7 @@ export class IntegrationsService {
 
     const prompt = `Perform a ${dto.analysisType} analysis on the following healthcare data:\n\n${JSON.stringify(dto.data, null, 2)}\n\nProvide actionable insights for remote patient monitoring.`;
 
-    const response = await this.aiService.chatWithAI(
-      [{ role: 'user', content: prompt }],
-    );
+    const response = await this.aiService.chatWithAI([{ role: 'user', content: prompt }]);
 
     return {
       result: response,

@@ -1,4 +1,12 @@
-﻿import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+﻿import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { StaffRole } from './staff-role.entity';
 
 export enum StaffStatus {
@@ -64,7 +72,7 @@ export class StaffMember {
     const additional = this.additionalPermissions || [];
     const restricted = this.restrictedPermissions || [];
     const combined = [...new Set([...rolePerms, ...additional])];
-    return combined.filter(p => !restricted.includes(p));
+    return combined.filter((p) => !restricted.includes(p));
   }
 
   hasPermission(permission: string): boolean {

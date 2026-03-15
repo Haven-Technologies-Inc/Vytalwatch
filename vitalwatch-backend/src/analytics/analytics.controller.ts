@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -100,15 +95,29 @@ export class AnalyticsController {
     @Query('range') range?: string,
   ) {
     const dates = this.resolveRange(range, startDate, endDate);
-    return this.analyticsService.getRevenueAnalytics({ startDate: dates.startDate, endDate: dates.endDate });
+    return this.analyticsService.getRevenueAnalytics({
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+    });
   }
 
   @Get('provider-stats')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async getProviderStats(@CurrentUser() user?: CurrentUserPayload) {
-    const d = await this.analyticsService.getDashboardAnalytics({ organizationId: user?.organizationId, role: user?.role as any });
+    const d = await this.analyticsService.getDashboardAnalytics({
+      organizationId: user?.organizationId,
+      role: user?.role as any,
+    });
     const rev = await this.analyticsService.getRevenueAnalytics({});
-    return { totalPatients: d.totalPatients, activeAlerts: d.activeAlerts, criticalAlerts: 0, adherenceRate: 85, adherenceChange: 2, monthlyRevenue: (rev as any)?.mrr ?? 0, patientChange: 0 };
+    return {
+      totalPatients: d.totalPatients,
+      activeAlerts: d.activeAlerts,
+      criticalAlerts: 0,
+      adherenceRate: 85,
+      adherenceChange: 2,
+      monthlyRevenue: (rev as any)?.mrr ?? 0,
+      patientChange: 0,
+    };
   }
 
   @Get('system')
@@ -135,7 +144,11 @@ export class AnalyticsController {
     });
   }
 
-  private resolveRange(range?: string, startDate?: string, endDate?: string): { startDate?: string; endDate?: string } {
+  private resolveRange(
+    range?: string,
+    startDate?: string,
+    endDate?: string,
+  ): { startDate?: string; endDate?: string } {
     if (startDate || endDate) return { startDate, endDate };
     if (!range) return {};
     const match = range.match(/^(\d+)([dhm])$/);

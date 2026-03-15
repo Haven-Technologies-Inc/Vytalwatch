@@ -22,9 +22,16 @@ describe('ChartingAssistantService', () => {
   describe('generateSOAPNote', () => {
     it('should return default SOAP when AI unavailable', async () => {
       const context = {
-        patientId: '123', patientName: 'John Doe', programType: 'BP' as const,
-        periodStart: new Date(), periodEnd: new Date(),
-        vitals: [], alerts: [], communications: [], totalMinutes: 25, readingDays: 18,
+        patientId: '123',
+        patientName: 'John Doe',
+        programType: 'BP' as const,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        vitals: [],
+        alerts: [],
+        communications: [],
+        totalMinutes: 25,
+        readingDays: 18,
       };
       const result = await service.generateSOAPNote(context);
       expect(result).toHaveProperty('subjective');

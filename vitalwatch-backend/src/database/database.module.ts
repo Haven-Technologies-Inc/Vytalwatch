@@ -16,12 +16,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         database: cfg.get('database.database'),
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize:
-          process.env.TYPEORM_SYNC === 'true' ||
-          cfg.get('app.env') !== 'production',
-        migrationsRun:
-          process.env.TYPEORM_SYNC !== 'true' &&
-          cfg.get('app.env') === 'production',
+        synchronize: process.env.TYPEORM_SYNC === 'true' || cfg.get('app.env') !== 'production',
+        migrationsRun: process.env.TYPEORM_SYNC !== 'true' && cfg.get('app.env') === 'production',
         logging: cfg.get('database.logging'),
       }),
     }),

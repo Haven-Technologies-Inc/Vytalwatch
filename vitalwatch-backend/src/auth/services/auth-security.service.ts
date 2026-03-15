@@ -53,7 +53,8 @@ export class AuthSecurityService {
   ) {
     this.MAX_FAILED_ATTEMPTS = this.configService.get('security.maxFailedAttempts') || 5;
     this.LOCKOUT_DURATION_MINUTES = this.configService.get('security.lockoutDurationMinutes') || 15;
-    this.RATE_LIMIT_WINDOW_MINUTES = this.configService.get('security.rateLimitWindowMinutes') || 15;
+    this.RATE_LIMIT_WINDOW_MINUTES =
+      this.configService.get('security.rateLimitWindowMinutes') || 15;
     this.PASSWORD_HISTORY_COUNT = this.configService.get('security.passwordHistoryCount') || 5;
   }
 
@@ -141,7 +142,9 @@ export class AuthSecurityService {
       await this.redis.expire(key, windowTtl);
 
       const failedCount = await this.redis.zcard(key);
-      this.logger.warn(`Failed login attempt ${failedCount}/${this.MAX_FAILED_ATTEMPTS} for ${email} from ${ip}`);
+      this.logger.warn(
+        `Failed login attempt ${failedCount}/${this.MAX_FAILED_ATTEMPTS} for ${email} from ${ip}`,
+      );
 
       await this.auditService.log({
         action: 'LOGIN_FAILED_ATTEMPT',
@@ -267,7 +270,10 @@ export class AuthSecurityService {
     return false;
   }
 
-  async validatePasswordNotReused(userId: string, newPassword: string): Promise<{ valid: boolean; message?: string }> {
+  async validatePasswordNotReused(
+    userId: string,
+    newPassword: string,
+  ): Promise<{ valid: boolean; message?: string }> {
     const isReused = await this.isPasswordInHistory(userId, newPassword);
 
     if (isReused) {
@@ -333,7 +339,13 @@ export class AuthSecurityService {
     let lockedCount = 0;
     let cursor = '0';
     do {
-      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', KEYS.ACCOUNT_LOCKOUT + '*', 'COUNT', 100);
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        KEYS.ACCOUNT_LOCKOUT + '*',
+        'COUNT',
+        100,
+      );
       cursor = nextCursor;
       lockedCount += keys.length;
     } while (cursor !== '0');
@@ -342,7 +354,13 @@ export class AuthSecurityService {
     let blacklistCount = 0;
     cursor = '0';
     do {
-      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', KEYS.TOKEN_BLACKLIST + '*', 'COUNT', 100);
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        KEYS.TOKEN_BLACKLIST + '*',
+        'COUNT',
+        100,
+      );
       cursor = nextCursor;
       blacklistCount += keys.length;
     } while (cursor !== '0');

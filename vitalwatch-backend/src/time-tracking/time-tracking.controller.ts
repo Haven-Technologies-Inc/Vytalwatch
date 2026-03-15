@@ -9,7 +9,15 @@ export class TimeTrackingController {
   constructor(private readonly service: TimeTrackingService) {}
 
   @Post('start')
-  startTimer(@Body() data: { patientId: string; userId: string; category: TimeEntryCategory; enrollmentId?: string }) {
+  startTimer(
+    @Body()
+    data: {
+      patientId: string;
+      userId: string;
+      category: TimeEntryCategory;
+      enrollmentId?: string;
+    },
+  ) {
     return this.service.startTimer(data);
   }
 
@@ -19,17 +27,39 @@ export class TimeTrackingController {
   }
 
   @Get('patient/:patientId')
-  findByPatient(@Param('patientId') patientId: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
-    return this.service.findByPatient(patientId, startDate ? new Date(startDate) : undefined, endDate ? new Date(endDate) : undefined);
+  findByPatient(
+    @Param('patientId') patientId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.findByPatient(
+      patientId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
   }
 
   @Get('patient/:patientId/total')
-  getTotalMinutes(@Param('patientId') patientId: string, @Query('startDate') startDate: string, @Query('endDate') endDate: string) {
+  getTotalMinutes(
+    @Param('patientId') patientId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
     return this.service.getTotalMinutes(patientId, new Date(startDate), new Date(endDate));
   }
 
   @Post('manual')
-  addManualEntry(@Body() data: { patientId: string; userId: string; category: TimeEntryCategory; minutes: number; notes?: string; enrollmentId?: string }) {
+  addManualEntry(
+    @Body()
+    data: {
+      patientId: string;
+      userId: string;
+      category: TimeEntryCategory;
+      minutes: number;
+      notes?: string;
+      enrollmentId?: string;
+    },
+  ) {
     return this.service.addManualEntry(data);
   }
 

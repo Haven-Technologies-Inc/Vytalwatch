@@ -832,11 +832,19 @@ export class InitialSchema1709420000000 implements MigrationInterface {
     // -------------------------------------------------------
 
     // vital_readings indexes
-    await queryRunner.query(`CREATE INDEX "IDX_vital_readings_patientId" ON "vital_readings" ("patientId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_vital_readings_patientId" ON "vital_readings" ("patientId")`,
+    );
     await queryRunner.query(`CREATE INDEX "IDX_vital_readings_type" ON "vital_readings" ("type")`);
-    await queryRunner.query(`CREATE INDEX "IDX_vital_readings_recordedAt" ON "vital_readings" ("recordedAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_vital_readings_patientId_type_recordedAt" ON "vital_readings" ("patientId", "type", "recordedAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_vital_readings_patientId_recordedAt" ON "vital_readings" ("patientId", "recordedAt")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_vital_readings_recordedAt" ON "vital_readings" ("recordedAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_vital_readings_patientId_type_recordedAt" ON "vital_readings" ("patientId", "type", "recordedAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_vital_readings_patientId_recordedAt" ON "vital_readings" ("patientId", "recordedAt")`,
+    );
 
     // alerts indexes
     await queryRunner.query(`CREATE INDEX "IDX_alerts_patientId" ON "alerts" ("patientId")`);
@@ -844,80 +852,156 @@ export class InitialSchema1709420000000 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX "IDX_alerts_severity" ON "alerts" ("severity")`);
     await queryRunner.query(`CREATE INDEX "IDX_alerts_status" ON "alerts" ("status")`);
     await queryRunner.query(`CREATE INDEX "IDX_alerts_createdAt" ON "alerts" ("createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_alerts_patientId_status" ON "alerts" ("patientId", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_alerts_providerId_status" ON "alerts" ("providerId", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_alerts_severity_status" ON "alerts" ("severity", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_alerts_patientId_status" ON "alerts" ("patientId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_alerts_providerId_status" ON "alerts" ("providerId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_alerts_severity_status" ON "alerts" ("severity", "status")`,
+    );
 
     // devices indexes
     await queryRunner.query(`CREATE INDEX "IDX_devices_patientId" ON "devices" ("patientId")`);
     await queryRunner.query(`CREATE INDEX "IDX_devices_status" ON "devices" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_devices_patientId_status" ON "devices" ("patientId", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_devices_tenoviDeviceId" ON "devices" ("tenoviDeviceId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_devices_patientId_status" ON "devices" ("patientId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_devices_tenoviDeviceId" ON "devices" ("tenoviDeviceId")`,
+    );
 
     // medications indexes
-    await queryRunner.query(`CREATE INDEX "IDX_medications_patientId" ON "medications" ("patientId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_medications_patientId" ON "medications" ("patientId")`,
+    );
     await queryRunner.query(`CREATE INDEX "IDX_medications_status" ON "medications" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_medications_patientId_status" ON "medications" ("patientId", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_medications_patientId_status" ON "medications" ("patientId", "status")`,
+    );
 
     // billing_records indexes
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_patientId" ON "billing_records" ("patientId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_cptCode" ON "billing_records" ("cptCode")`);
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_billingPeriodStart" ON "billing_records" ("billingPeriodStart")`);
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_patientId_serviceDate" ON "billing_records" ("patientId", "serviceDate")`);
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_providerId_status" ON "billing_records" ("providerId", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_billing_records_cptCode_serviceDate" ON "billing_records" ("cptCode", "serviceDate")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_patientId" ON "billing_records" ("patientId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_cptCode" ON "billing_records" ("cptCode")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_billingPeriodStart" ON "billing_records" ("billingPeriodStart")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_patientId_serviceDate" ON "billing_records" ("patientId", "serviceDate")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_providerId_status" ON "billing_records" ("providerId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_billing_records_cptCode_serviceDate" ON "billing_records" ("cptCode", "serviceDate")`,
+    );
 
     // subscriptions indexes
-    await queryRunner.query(`CREATE INDEX "IDX_subscriptions_organizationId_status" ON "subscriptions" ("organizationId", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_subscriptions_organizationId_status" ON "subscriptions" ("organizationId", "status")`,
+    );
 
     // invoices indexes
-    await queryRunner.query(`CREATE INDEX "IDX_invoices_organizationId_status" ON "invoices" ("organizationId", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_invoices_organizationId_status" ON "invoices" ("organizationId", "status")`,
+    );
 
     // notifications indexes
-    await queryRunner.query(`CREATE INDEX "IDX_notifications_userId_status_createdAt" ON "notifications" ("userId", "status", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_notifications_type_status" ON "notifications" ("type", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_notifications_userId_status_createdAt" ON "notifications" ("userId", "status", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_notifications_type_status" ON "notifications" ("type", "status")`,
+    );
 
     // audit_logs indexes
     await queryRunner.query(`CREATE INDEX "IDX_audit_logs_action" ON "audit_logs" ("action")`);
     await queryRunner.query(`CREATE INDEX "IDX_audit_logs_userId" ON "audit_logs" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_createdAt" ON "audit_logs" ("createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_userId_createdAt" ON "audit_logs" ("userId", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_action_createdAt" ON "audit_logs" ("action", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_resourceType_resourceId" ON "audit_logs" ("resourceType", "resourceId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_createdAt" ON "audit_logs" ("createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_userId_createdAt" ON "audit_logs" ("userId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_action_createdAt" ON "audit_logs" ("action", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_resourceType_resourceId" ON "audit_logs" ("resourceType", "resourceId")`,
+    );
 
     // clinical_notes indexes
     await queryRunner.query(`CREATE INDEX "IDX_clinical_notes_type" ON "clinical_notes" ("type")`);
-    await queryRunner.query(`CREATE INDEX "IDX_clinical_notes_status" ON "clinical_notes" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_clinical_notes_patientId_createdAt" ON "clinical_notes" ("patientId", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_clinical_notes_providerId_createdAt" ON "clinical_notes" ("providerId", "createdAt")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_clinical_notes_status" ON "clinical_notes" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_clinical_notes_patientId_createdAt" ON "clinical_notes" ("patientId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_clinical_notes_providerId_createdAt" ON "clinical_notes" ("providerId", "createdAt")`,
+    );
 
     // communication_logs indexes
-    await queryRunner.query(`CREATE INDEX "IDX_communication_logs_patientId_createdAt" ON "communication_logs" ("patientId", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX "IDX_communication_logs_providerId_createdAt" ON "communication_logs" ("providerId", "createdAt")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_communication_logs_patientId_createdAt" ON "communication_logs" ("patientId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_communication_logs_providerId_createdAt" ON "communication_logs" ("providerId", "createdAt")`,
+    );
 
     // consent_templates indexes
-    await queryRunner.query(`CREATE INDEX "IDX_consent_templates_type" ON "consent_templates" ("type")`);
-    await queryRunner.query(`CREATE INDEX "IDX_consent_templates_organizationId" ON "consent_templates" ("organizationId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_consent_templates_type" ON "consent_templates" ("type")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_consent_templates_organizationId" ON "consent_templates" ("organizationId")`,
+    );
 
     // patient_consents indexes
-    await queryRunner.query(`CREATE INDEX "IDX_patient_consents_patientId_type" ON "patient_consents" ("patientId", "type")`);
-    await queryRunner.query(`CREATE INDEX "IDX_patient_consents_patientId_status" ON "patient_consents" ("patientId", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_patient_consents_organizationId" ON "patient_consents" ("organizationId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_patient_consents_patientId_type" ON "patient_consents" ("patientId", "type")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_patient_consents_patientId_status" ON "patient_consents" ("patientId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_patient_consents_organizationId" ON "patient_consents" ("organizationId")`,
+    );
 
     // tenovi_hwi_devices indexes
-    await queryRunner.query(`CREATE INDEX "IDX_tenovi_hwi_devices_patientId" ON "tenovi_hwi_devices" ("patientId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_tenovi_hwi_devices_organizationId" ON "tenovi_hwi_devices" ("organizationId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_tenovi_hwi_devices_hardware_uuid" ON "tenovi_hwi_devices" ("hardware_uuid")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenovi_hwi_devices_patientId" ON "tenovi_hwi_devices" ("patientId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenovi_hwi_devices_organizationId" ON "tenovi_hwi_devices" ("organizationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenovi_hwi_devices_hardware_uuid" ON "tenovi_hwi_devices" ("hardware_uuid")`,
+    );
 
     // tenovi_gateways indexes
-    await queryRunner.query(`CREATE INDEX "IDX_tenovi_gateways_organizationId" ON "tenovi_gateways" ("organizationId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenovi_gateways_organizationId" ON "tenovi_gateways" ("organizationId")`,
+    );
 
     // tenovi_whitelisted_devices indexes
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_tenovi_whitelisted_devices_gatewayId_macAddress" ON "tenovi_whitelisted_devices" ("gatewayId", "mac_address")`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_tenovi_whitelisted_devices_gatewayId_macAddress" ON "tenovi_whitelisted_devices" ("gatewayId", "mac_address")`,
+    );
 
     // message_thread_participants indexes
-    await queryRunner.query(`CREATE INDEX "IDX_message_thread_participants_threadId" ON "message_thread_participants" ("threadId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_message_thread_participants_userId" ON "message_thread_participants" ("userId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_message_thread_participants_threadId" ON "message_thread_participants" ("threadId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_message_thread_participants_userId" ON "message_thread_participants" ("userId")`,
+    );
 
     // -------------------------------------------------------
     // Create foreign keys
@@ -1159,39 +1243,105 @@ export class InitialSchema1709420000000 implements MigrationInterface {
     // -------------------------------------------------------
     // Drop foreign keys first
     // -------------------------------------------------------
-    await queryRunner.query(`ALTER TABLE "medication_logs" DROP CONSTRAINT IF EXISTS "FK_medication_logs_medicationId"`);
-    await queryRunner.query(`ALTER TABLE "reports" DROP CONSTRAINT IF EXISTS "FK_reports_createdById"`);
-    await queryRunner.query(`ALTER TABLE "api_keys" DROP CONSTRAINT IF EXISTS "FK_api_keys_createdById"`);
-    await queryRunner.query(`ALTER TABLE "tenovi_gateways" DROP CONSTRAINT IF EXISTS "FK_tenovi_gateways_organizationId"`);
-    await queryRunner.query(`ALTER TABLE "tenovi_hwi_devices" DROP CONSTRAINT IF EXISTS "FK_tenovi_hwi_devices_organizationId"`);
-    await queryRunner.query(`ALTER TABLE "tenovi_hwi_devices" DROP CONSTRAINT IF EXISTS "FK_tenovi_hwi_devices_patientId"`);
-    await queryRunner.query(`ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_witnessId"`);
-    await queryRunner.query(`ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_templateId"`);
-    await queryRunner.query(`ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_patientId"`);
-    await queryRunner.query(`ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_relatedNoteId"`);
-    await queryRunner.query(`ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_providerId"`);
-    await queryRunner.query(`ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_patientId"`);
-    await queryRunner.query(`ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_signedBy"`);
-    await queryRunner.query(`ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_providerId"`);
-    await queryRunner.query(`ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_patientId"`);
-    await queryRunner.query(`ALTER TABLE "invite_codes" DROP CONSTRAINT IF EXISTS "FK_invite_codes_usedById"`);
-    await queryRunner.query(`ALTER TABLE "invite_codes" DROP CONSTRAINT IF EXISTS "FK_invite_codes_createdById"`);
-    await queryRunner.query(`ALTER TABLE "audit_logs" DROP CONSTRAINT IF EXISTS "FK_audit_logs_userId"`);
-    await queryRunner.query(`ALTER TABLE "notifications" DROP CONSTRAINT IF EXISTS "FK_notifications_userId"`);
-    await queryRunner.query(`ALTER TABLE "message_thread_participants" DROP CONSTRAINT IF EXISTS "FK_message_thread_participants_userId"`);
-    await queryRunner.query(`ALTER TABLE "message_thread_participants" DROP CONSTRAINT IF EXISTS "FK_message_thread_participants_threadId"`);
-    await queryRunner.query(`ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "FK_messages_senderId"`);
-    await queryRunner.query(`ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "FK_messages_threadId"`);
-    await queryRunner.query(`ALTER TABLE "message_threads" DROP CONSTRAINT IF EXISTS "FK_message_threads_createdById"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP CONSTRAINT IF EXISTS "FK_invoices_userId"`);
-    await queryRunner.query(`ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "FK_subscriptions_userId"`);
-    await queryRunner.query(`ALTER TABLE "billing_records" DROP CONSTRAINT IF EXISTS "FK_billing_records_providerId"`);
-    await queryRunner.query(`ALTER TABLE "billing_records" DROP CONSTRAINT IF EXISTS "FK_billing_records_patientId"`);
-    await queryRunner.query(`ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "FK_appointments_providerId"`);
-    await queryRunner.query(`ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "FK_appointments_patientId"`);
-    await queryRunner.query(`ALTER TABLE "medications" DROP CONSTRAINT IF EXISTS "FK_medications_prescribedBy"`);
-    await queryRunner.query(`ALTER TABLE "medications" DROP CONSTRAINT IF EXISTS "FK_medications_patientId"`);
-    await queryRunner.query(`ALTER TABLE "devices" DROP CONSTRAINT IF EXISTS "FK_devices_patientId"`);
+    await queryRunner.query(
+      `ALTER TABLE "medication_logs" DROP CONSTRAINT IF EXISTS "FK_medication_logs_medicationId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "reports" DROP CONSTRAINT IF EXISTS "FK_reports_createdById"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "api_keys" DROP CONSTRAINT IF EXISTS "FK_api_keys_createdById"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tenovi_gateways" DROP CONSTRAINT IF EXISTS "FK_tenovi_gateways_organizationId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tenovi_hwi_devices" DROP CONSTRAINT IF EXISTS "FK_tenovi_hwi_devices_organizationId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tenovi_hwi_devices" DROP CONSTRAINT IF EXISTS "FK_tenovi_hwi_devices_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_witnessId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_templateId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "patient_consents" DROP CONSTRAINT IF EXISTS "FK_patient_consents_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_relatedNoteId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_providerId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "communication_logs" DROP CONSTRAINT IF EXISTS "FK_communication_logs_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_signedBy"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_providerId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "clinical_notes" DROP CONSTRAINT IF EXISTS "FK_clinical_notes_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invite_codes" DROP CONSTRAINT IF EXISTS "FK_invite_codes_usedById"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invite_codes" DROP CONSTRAINT IF EXISTS "FK_invite_codes_createdById"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "audit_logs" DROP CONSTRAINT IF EXISTS "FK_audit_logs_userId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "notifications" DROP CONSTRAINT IF EXISTS "FK_notifications_userId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "message_thread_participants" DROP CONSTRAINT IF EXISTS "FK_message_thread_participants_userId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "message_thread_participants" DROP CONSTRAINT IF EXISTS "FK_message_thread_participants_threadId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "FK_messages_senderId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "FK_messages_threadId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "message_threads" DROP CONSTRAINT IF EXISTS "FK_message_threads_createdById"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP CONSTRAINT IF EXISTS "FK_invoices_userId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "FK_subscriptions_userId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "billing_records" DROP CONSTRAINT IF EXISTS "FK_billing_records_providerId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "billing_records" DROP CONSTRAINT IF EXISTS "FK_billing_records_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "FK_appointments_providerId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "FK_appointments_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "medications" DROP CONSTRAINT IF EXISTS "FK_medications_prescribedBy"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "medications" DROP CONSTRAINT IF EXISTS "FK_medications_patientId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "devices" DROP CONSTRAINT IF EXISTS "FK_devices_patientId"`,
+    );
 
     // -------------------------------------------------------
     // Drop tables in reverse order

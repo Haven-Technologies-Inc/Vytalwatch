@@ -95,10 +95,7 @@ export class AdminController {
   }
 
   @Get('logs/stats')
-  async getLogStats(
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
+  async getLogStats(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     return this.adminService.getLogStats({ startDate, endDate });
   }
 
@@ -131,10 +128,7 @@ export class AdminController {
 
   // Usage Statistics
   @Get('usage')
-  async getUsageStats(
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
+  async getUsageStats(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     return this.adminService.getUsageStats({ startDate, endDate });
   }
 
@@ -170,10 +164,7 @@ export class AdminController {
 
   // User Management (Admin-specific)
   @Get('users/pending')
-  async getPendingUsers(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-  ) {
+  async getPendingUsers(@Query('page') page: number = 1, @Query('limit') limit: number = 20) {
     return this.adminService.getPendingUsers({ page, limit });
   }
 
@@ -233,10 +224,7 @@ export class AdminController {
   // Cache Management
   @Post('cache/clear')
   @HttpCode(HttpStatus.OK)
-  async clearCache(
-    @Body() dto: { pattern?: string },
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async clearCache(@Body() dto: { pattern?: string }, @CurrentUser() user: CurrentUserPayload) {
     return this.adminService.clearCache(dto.pattern, user);
   }
 
@@ -246,10 +234,7 @@ export class AdminController {
   }
 
   @Get('api-logs')
-  async getApiLogs(
-    @Query('limit') limit?: number,
-    @Query('page') page?: number,
-  ) {
+  async getApiLogs(@Query('limit') limit?: number, @Query('page') page?: number) {
     return this.enterpriseLoggingService.query({
       page: page || 1,
       limit: limit || 50,

@@ -26,10 +26,10 @@ describe('EncryptionService', () => {
     it('should encrypt and decrypt a string correctly', () => {
       const plaintext = 'Sensitive PHI data';
       const encrypted = service.encrypt(plaintext);
-      
+
       expect(encrypted).not.toBe(plaintext);
       expect(encrypted).toContain(':');
-      
+
       const decrypted = service.decrypt(encrypted);
       expect(decrypted).toBe(plaintext);
     });
@@ -48,7 +48,7 @@ describe('EncryptionService', () => {
       const plaintext = 'Test data';
       const encrypted1 = service.encrypt(plaintext);
       const encrypted2 = service.encrypt(plaintext);
-      
+
       expect(encrypted1).not.toBe(encrypted2);
     });
   });
@@ -58,14 +58,14 @@ describe('EncryptionService', () => {
       const data = '123-45-6789';
       const hash1 = service.hash(data);
       const hash2 = service.hash(data);
-      
+
       expect(hash1).toBe(hash2);
     });
 
     it('should produce different hash for different input', () => {
       const hash1 = service.hash('123-45-6789');
       const hash2 = service.hash('987-65-4321');
-      
+
       expect(hash1).not.toBe(hash2);
     });
   });
@@ -80,7 +80,7 @@ describe('EncryptionService', () => {
       };
 
       const encrypted = service.encryptPHI(patient, ['ssn', 'dateOfBirth']);
-      
+
       expect(encrypted.id).toBe('123');
       expect(encrypted.name).toBe('John Doe');
       expect(encrypted.ssn).not.toBe('123-45-6789');
@@ -109,7 +109,7 @@ describe('EncryptionService', () => {
     it('should hash and verify password correctly', async () => {
       const password = 'SecureP@ssword123!';
       const hash = await service.hashPassword(password);
-      
+
       expect(hash).toContain(':');
       expect(await service.verifyPassword(password, hash)).toBe(true);
       expect(await service.verifyPassword('WrongPassword', hash)).toBe(false);

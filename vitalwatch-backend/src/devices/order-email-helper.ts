@@ -4,10 +4,13 @@ export function buildOrderEmailHtml(
   contents: Array<{ name: string; quantity: number }>,
 ): string {
   const total = contents.reduce((s, c) => s + c.quantity, 0);
-  const rows = contents.map(c =>
-    `<tr><td style="padding:8px;border-bottom:1px solid #eee">${c.name}</td>` +
-    `<td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${c.quantity}</td></tr>`
-  ).join('');
+  const rows = contents
+    .map(
+      (c) =>
+        `<tr><td style="padding:8px;border-bottom:1px solid #eee">${c.name}</td>` +
+        `<td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${c.quantity}</td></tr>`,
+    )
+    .join('');
 
   return `
 <div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto">

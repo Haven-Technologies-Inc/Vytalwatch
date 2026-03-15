@@ -58,7 +58,10 @@ export class UpdateVitalDto {
   @IsObject()
   metadata?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Timestamp when the vital was recorded (ISO 8601)', example: '2026-03-01T10:00:00Z' })
+  @ApiPropertyOptional({
+    description: 'Timestamp when the vital was recorded (ISO 8601)',
+    example: '2026-03-01T10:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   recordedAt?: Date;

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -49,8 +42,16 @@ export class SmsController {
         { id: 'health_alert', name: 'Health Alert', category: 'alerts' },
         { id: 'critical_alert', name: 'Critical Alert', category: 'alerts' },
         { id: 'appointment_reminder', name: 'Appointment Reminder', category: 'appointments' },
-        { id: 'appointment_confirmation', name: 'Appointment Confirmation', category: 'appointments' },
-        { id: 'appointment_cancellation', name: 'Appointment Cancellation', category: 'appointments' },
+        {
+          id: 'appointment_confirmation',
+          name: 'Appointment Confirmation',
+          category: 'appointments',
+        },
+        {
+          id: 'appointment_cancellation',
+          name: 'Appointment Cancellation',
+          category: 'appointments',
+        },
         { id: 'medication_reminder', name: 'Medication Reminder', category: 'medications' },
         { id: 'medication_refill', name: 'Medication Refill Reminder', category: 'medications' },
         { id: 'reading_reminder', name: 'Vital Reading Reminder', category: 'vitals' },
@@ -82,7 +83,11 @@ export class SmsController {
   @Post('send')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async sendTemplatedSms(@Body() dto: SendSmsDto) {
-    const recipient = { phone: dto.to, firstName: dto.data?.firstName, lastName: dto.data?.lastName };
+    const recipient = {
+      phone: dto.to,
+      firstName: dto.data?.firstName,
+      lastName: dto.data?.lastName,
+    };
 
     switch (dto.template) {
       case 'verification_code':
@@ -146,7 +151,10 @@ export class SmsController {
         });
 
       case 'reading_reminder':
-        return this.smsService.sendReadingReminder(recipient, dto.data?.vitalType || 'blood pressure');
+        return this.smsService.sendReadingReminder(
+          recipient,
+          dto.data?.vitalType || 'blood pressure',
+        );
 
       case 'abnormal_reading':
         return this.smsService.sendAbnormalReadingAlert(recipient, {

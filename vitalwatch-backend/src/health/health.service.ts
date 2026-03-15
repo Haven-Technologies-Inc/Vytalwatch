@@ -39,10 +39,7 @@ export class HealthService {
   }
 
   async checkReadiness(): Promise<HealthStatus> {
-    const [dbHealth, redisHealth] = await Promise.all([
-      this.checkDatabase(),
-      this.checkRedis(),
-    ]);
+    const [dbHealth, redisHealth] = await Promise.all([this.checkDatabase(), this.checkRedis()]);
 
     const overallStatus = this.aggregateStatus([dbHealth, redisHealth]);
 
@@ -96,7 +93,11 @@ export class HealthService {
       if (result === 'PONG') {
         return { status: 'healthy', latency: Date.now() - start };
       }
-      return { status: 'degraded', latency: Date.now() - start, message: `Unexpected response: ${result}` };
+      return {
+        status: 'degraded',
+        latency: Date.now() - start,
+        message: `Unexpected response: ${result}`,
+      };
     } catch (error) {
       return { status: 'unhealthy', message: error.message };
     }
@@ -117,15 +118,19 @@ export class HealthService {
       if (response.ok) {
         return { status: 'healthy', latency: Date.now() - start };
       }
-      return { status: 'degraded', latency: Date.now() - start, message: `HTTP ${response.status}` };
+      return {
+        status: 'degraded',
+        latency: Date.now() - start,
+        message: `HTTP ${response.status}`,
+      };
     } catch (error) {
       return { status: 'unhealthy', message: error.message };
     }
   }
 
   private aggregateStatus(services: ServiceHealth[]): 'healthy' | 'degraded' | 'unhealthy' {
-    if (services.some(s => s.status === 'unhealthy')) return 'unhealthy';
-    if (services.some(s => s.status === 'degraded')) return 'degraded';
+    if (services.some((s) => s.status === 'unhealthy')) return 'unhealthy';
+    if (services.some((s) => s.status === 'degraded')) return 'degraded';
     return 'healthy';
   }
 }

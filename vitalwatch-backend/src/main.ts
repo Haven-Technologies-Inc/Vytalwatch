@@ -44,7 +44,10 @@ async function bootstrap() {
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'", ...(frontendUrl ? frontendUrl.split(',').map((u: string) => u.trim()) : [])],
+          connectSrc: [
+            "'self'",
+            ...(frontendUrl ? frontendUrl.split(',').map((u: string) => u.trim()) : []),
+          ],
         },
       },
     }),
@@ -52,20 +55,21 @@ async function bootstrap() {
   app.use(compression());
 
   app.enableCors({
-    origin: nodeEnv === 'production'
-      ? corsOrigin
-      : (origin, callback) => {
-          // In development, allow requests with no origin (mobile apps, Postman, etc.)
-          if (!origin) return callback(null, true);
-          // Allow any localhost/127.0.0.1 port (for browser preview proxies)
-          if (origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:')) {
-            return callback(null, true);
-          }
-          if (corsOrigin.includes(origin)) {
-            return callback(null, true);
-          }
-          callback(null, false);
-        },
+    origin:
+      nodeEnv === 'production'
+        ? corsOrigin
+        : (origin, callback) => {
+            // In development, allow requests with no origin (mobile apps, Postman, etc.)
+            if (!origin) return callback(null, true);
+            // Allow any localhost/127.0.0.1 port (for browser preview proxies)
+            if (origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:')) {
+              return callback(null, true);
+            }
+            if (corsOrigin.includes(origin)) {
+              return callback(null, true);
+            }
+            callback(null, false);
+          },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -73,7 +77,9 @@ async function bootstrap() {
   });
 
   if (!frontendUrl && nodeEnv === 'production') {
-    logger.warn('FRONTEND_URL is not set — CORS will block all cross-origin requests in production');
+    logger.warn(
+      'FRONTEND_URL is not set — CORS will block all cross-origin requests in production',
+    );
   }
 
   // Global validation pipe

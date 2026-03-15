@@ -9,10 +9,14 @@ export class ThresholdPoliciesController {
   constructor(private readonly service: ThresholdPoliciesService) {}
 
   @Post()
-  create(@Body() data: Partial<ThresholdPolicy>) { return this.service.create(data); }
+  create(@Body() data: Partial<ThresholdPolicy>) {
+    return this.service.create(data);
+  }
 
   @Get()
-  findAll(@Query('clinicId') clinicId: string) { return this.service.findAll(clinicId); }
+  findAll(@Query('clinicId') clinicId: string) {
+    return this.service.findAll(clinicId);
+  }
 
   @Get('active')
   findActive(@Query('clinicId') clinicId: string, @Query('programType') programType: string) {
@@ -20,7 +24,11 @@ export class ThresholdPoliciesController {
   }
 
   @Get('by-date')
-  findByDate(@Query('clinicId') clinicId: string, @Query('programType') programType: string, @Query('date') date: string) {
+  findByDate(
+    @Query('clinicId') clinicId: string,
+    @Query('programType') programType: string,
+    @Query('date') date: string,
+  ) {
     return this.service.findByDate(clinicId, programType, new Date(date));
   }
 }

@@ -6,10 +6,7 @@ import { Appointment } from './entities/appointment.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Appointment]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Appointment]), AuditModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],
   exports: [AppointmentsService],

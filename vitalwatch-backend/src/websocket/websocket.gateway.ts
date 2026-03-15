@@ -71,7 +71,7 @@ export class WebSocketGatewayService
     try {
       // Extract token from handshake
       let token = client.handshake.auth?.token || client.handshake.headers?.authorization;
-      
+
       if (!token) {
         this.logger.warn(`Client ${client.id} connection rejected: No token`);
         client.emit('error', { message: 'Authentication required' });
@@ -91,7 +91,9 @@ export class WebSocketGatewayService
           secret: this.configService.get<string>('jwt.secret'),
         });
       } catch (jwtError) {
-        this.logger.warn(`Client ${client.id} connection rejected: Invalid token - ${jwtError.message}`);
+        this.logger.warn(
+          `Client ${client.id} connection rejected: Invalid token - ${jwtError.message}`,
+        );
         client.emit('error', { message: 'Invalid or expired token' });
         client.disconnect();
         return;
@@ -147,10 +149,9 @@ export class WebSocketGatewayService
       });
 
       this.logger.log(`Client connected: ${client.id} (User: ${userId}, Role: ${role})`);
-      
+
       // Send connection confirmation
       client.emit('connected', { userId, role });
-
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`);
       client.disconnect();
@@ -165,7 +166,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('subscribe:patient')
   handleSubscribePatient(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { patientId: string }
+    @MessageBody() data: { patientId: string },
   ) {
     // Only providers/admins can subscribe to patient updates
     if (client.role !== 'provider' && client.role !== 'admin' && client.role !== 'superadmin') {
@@ -183,7 +184,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('unsubscribe:patient')
   handleUnsubscribePatient(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { patientId: string }
+    @MessageBody() data: { patientId: string },
   ) {
     client.leave(`patient:${data.patientId}`);
     return { success: true };
@@ -208,7 +209,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('message:join-thread')
   handleJoinThread(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string }
+    @MessageBody() data: { threadId: string },
   ) {
     client.join(`thread:${data.threadId}`);
     this.logger.debug(`Client ${client.id} joined thread ${data.threadId}`);
@@ -218,7 +219,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('message:leave-thread')
   handleLeaveThread(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string }
+    @MessageBody() data: { threadId: string },
   ) {
     client.leave(`thread:${data.threadId}`);
     return { success: true };
@@ -227,11 +228,12 @@ export class WebSocketGatewayService
   @SubscribeMessage('message:send')
   handleSendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      threadId: string; 
+    @MessageBody()
+    data: {
+      threadId: string;
       content: string;
       tempId?: string;
-    }
+    },
   ) {
     const message = {
       id: data.tempId || `msg_${Date.now()}`,
@@ -244,7 +246,7 @@ export class WebSocketGatewayService
 
     // Broadcast to all participants in the thread (except sender)
     client.to(`thread:${data.threadId}`).emit('message:new', message);
-    
+
     this.logger.debug(`Message sent in thread ${data.threadId} by ${client.userId}`);
     return { success: true, message };
   }
@@ -252,7 +254,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('typing:start')
   handleTypingStart(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string; userName: string }
+    @MessageBody() data: { threadId: string; userName: string },
   ) {
     // Notify others in thread that user is typing
     client.to(`thread:${data.threadId}`).emit('typing:update', {
@@ -268,7 +270,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('typing:stop')
   handleTypingStop(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string }
+    @MessageBody() data: { threadId: string },
   ) {
     // Notify others in thread that user stopped typing
     client.to(`thread:${data.threadId}`).emit('typing:update', {
@@ -283,7 +285,7 @@ export class WebSocketGatewayService
   @SubscribeMessage('message:read')
   handleMessageRead(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string; messageId: string }
+    @MessageBody() data: { threadId: string; messageId: string },
   ) {
     // Notify sender that their message was read
     this.server.to(`thread:${data.threadId}`).emit('message:read-receipt', {
@@ -300,17 +302,18 @@ export class WebSocketGatewayService
   @SubscribeMessage('call:initiate')
   handleCallInitiate(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      targetUserId: string; 
+    @MessageBody()
+    data: {
+      targetUserId: string;
       callType: 'video' | 'audio';
       callerName: string;
-    }
+    },
   ) {
     const callId = `call_${Date.now()}_${client.userId}_${data.targetUserId}`;
-    
+
     // Join call room
     client.join(`call:${callId}`);
-    
+
     // Notify target user of incoming call
     this.server.to(`user:${data.targetUserId}`).emit('call:incoming', {
       callId,
@@ -321,18 +324,18 @@ export class WebSocketGatewayService
     });
 
     this.logger.log(`Call initiated: ${callId} from ${client.userId} to ${data.targetUserId}`);
-    
+
     return { success: true, callId };
   }
 
   @SubscribeMessage('call:accept')
   handleCallAccept(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { callId: string; callerId: string }
+    @MessageBody() data: { callId: string; callerId: string },
   ) {
     // Join call room
     client.join(`call:${data.callId}`);
-    
+
     // Notify caller that call was accepted
     this.server.to(`user:${data.callerId}`).emit('call:accepted', {
       callId: data.callId,
@@ -341,14 +344,14 @@ export class WebSocketGatewayService
     });
 
     this.logger.log(`Call accepted: ${data.callId} by ${client.userId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('call:reject')
   handleCallReject(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { callId: string; callerId: string; reason?: string }
+    @MessageBody() data: { callId: string; callerId: string; reason?: string },
   ) {
     // Notify caller that call was rejected
     this.server.to(`user:${data.callerId}`).emit('call:rejected', {
@@ -359,14 +362,14 @@ export class WebSocketGatewayService
     });
 
     this.logger.log(`Call rejected: ${data.callId} by ${client.userId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('call:end')
   handleCallEnd(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { callId: string }
+    @MessageBody() data: { callId: string },
   ) {
     // Notify all participants in call room
     this.server.to(`call:${data.callId}`).emit('call:ended', {
@@ -379,18 +382,19 @@ export class WebSocketGatewayService
     client.leave(`call:${data.callId}`);
 
     this.logger.log(`Call ended: ${data.callId} by ${client.userId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('webrtc:offer')
   handleWebRTCOffer(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      callId: string; 
-      targetUserId: string; 
-      offer: RTCSessionDescriptionInit 
-    }
+    @MessageBody()
+    data: {
+      callId: string;
+      targetUserId: string;
+      offer: RTCSessionDescriptionInit;
+    },
   ) {
     // Forward SDP offer to target user
     this.server.to(`user:${data.targetUserId}`).emit('webrtc:offer', {
@@ -400,18 +404,19 @@ export class WebSocketGatewayService
     });
 
     this.logger.debug(`WebRTC offer sent from ${client.userId} to ${data.targetUserId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('webrtc:answer')
   handleWebRTCAnswer(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      callId: string; 
-      targetUserId: string; 
-      answer: RTCSessionDescriptionInit 
-    }
+    @MessageBody()
+    data: {
+      callId: string;
+      targetUserId: string;
+      answer: RTCSessionDescriptionInit;
+    },
   ) {
     // Forward SDP answer to target user
     this.server.to(`user:${data.targetUserId}`).emit('webrtc:answer', {
@@ -421,18 +426,19 @@ export class WebSocketGatewayService
     });
 
     this.logger.debug(`WebRTC answer sent from ${client.userId} to ${data.targetUserId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('webrtc:ice-candidate')
   handleICECandidate(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      callId: string; 
-      targetUserId: string; 
-      candidate: RTCIceCandidateInit 
-    }
+    @MessageBody()
+    data: {
+      callId: string;
+      targetUserId: string;
+      candidate: RTCIceCandidateInit;
+    },
   ) {
     // Forward ICE candidate to target user
     this.server.to(`user:${data.targetUserId}`).emit('webrtc:ice-candidate', {
@@ -442,18 +448,19 @@ export class WebSocketGatewayService
     });
 
     this.logger.debug(`ICE candidate sent from ${client.userId} to ${data.targetUserId}`);
-    
+
     return { success: true };
   }
 
   @SubscribeMessage('call:toggle-media')
   handleToggleMedia(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { 
-      callId: string; 
-      mediaType: 'audio' | 'video'; 
-      enabled: boolean 
-    }
+    @MessageBody()
+    data: {
+      callId: string;
+      mediaType: 'audio' | 'video';
+      enabled: boolean;
+    },
   ) {
     // Notify other participants in call
     client.to(`call:${data.callId}`).emit('call:media-toggled', {

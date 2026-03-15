@@ -57,14 +57,12 @@ describe('Vitals (e2e)', () => {
       httpServer = app.getHttpServer();
 
       // Register and login a patient user to obtain a JWT
-      await request(httpServer)
-        .post('/api/v1/auth/register')
-        .send({
-          email: patientEmail,
-          password: patientPassword,
-          firstName: 'Vital',
-          lastName: 'Tester',
-        });
+      await request(httpServer).post('/api/v1/auth/register').send({
+        email: patientEmail,
+        password: patientPassword,
+        firstName: 'Vital',
+        lastName: 'Tester',
+      });
 
       const loginRes = await request(httpServer)
         .post('/api/v1/auth/login')
@@ -111,9 +109,7 @@ describe('Vitals (e2e)', () => {
     it('GET /api/v1/vitals/me should return 401 without a token', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/api/v1/vitals/me')
-        .expect(401);
+      await request(httpServer).get('/api/v1/vitals/me').expect(401);
     });
 
     it('should return 401 with a malformed bearer token', async () => {

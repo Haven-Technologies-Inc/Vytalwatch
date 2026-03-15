@@ -63,7 +63,10 @@ export class ChartingAssistantService {
     try {
       const response = await this.client.chat.completions.create({
         model: this.config.get('openai.model') || 'gpt-4',
-        messages: [{ role: 'system', content: this.getChartingSystemPrompt() }, { role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: this.getChartingSystemPrompt() },
+          { role: 'user', content: prompt },
+        ],
         temperature: 0.3,
         response_format: { type: 'json_object' },
       });
@@ -79,30 +82,58 @@ export class ChartingAssistantService {
     try {
       const res = await this.client.chat.completions.create({
         model: this.config.get('openai.model') || 'gpt-4',
-        messages: [{ role: 'system', content: 'You are a clinical triage AI. Analyze RPM data and prioritize based on clinical urgency.' }, { role: 'user', content: prompt }],
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a clinical triage AI. Analyze RPM data and prioritize based on clinical urgency.',
+          },
+          { role: 'user', content: prompt },
+        ],
         temperature: 0.2,
         response_format: { type: 'json_object' },
       });
       return JSON.parse(res.choices[0].message.content || '{}');
     } catch (e) {
       this.logger.error('Triage generation failed', e);
-      return { priority: 'ROUTINE', summary: 'Unable to generate summary', keyFindings: [], recommendedActions: [], escalationNeeded: false };
+      return {
+        priority: 'ROUTINE',
+        summary: 'Unable to generate summary',
+        keyFindings: [],
+        recommendedActions: [],
+        escalationNeeded: false,
+      };
     }
   }
 
   async generateOutreachScript(context: ChartingContext, reason: string): Promise<OutreachScript> {
-    const prompt = `Generate patient outreach script for ${reason}. Patient: ${context.patientName}, Program: ${context.programType}. Recent concerns: ${context.alerts.slice(-3).map(a => a.message).join('; ')}`;
+    const prompt = `Generate patient outreach script for ${reason}. Patient: ${context.patientName}, Program: ${context.programType}. Recent concerns: ${context.alerts
+      .slice(-3)
+      .map((a) => a.message)
+      .join('; ')}`;
     try {
       const res = await this.client.chat.completions.create({
         model: this.config.get('openai.model') || 'gpt-4',
-        messages: [{ role: 'system', content: 'Generate empathetic, professional patient outreach scripts for RPM programs.' }, { role: 'user', content: prompt }],
+        messages: [
+          {
+            role: 'system',
+            content: 'Generate empathetic, professional patient outreach scripts for RPM programs.',
+          },
+          { role: 'user', content: prompt },
+        ],
         temperature: 0.5,
         response_format: { type: 'json_object' },
       });
       return JSON.parse(res.choices[0].message.content || '{}');
     } catch (e) {
       this.logger.error('Outreach script generation failed', e);
-      return { greeting: '', healthCheckQuestions: [], educationPoints: [], closingStatements: [], documentationTemplate: '' };
+      return {
+        greeting: '',
+        healthCheckQuestions: [],
+        educationPoints: [],
+        closingStatements: [],
+        documentationTemplate: '',
+      };
     }
   }
 
@@ -113,15 +144,23 @@ Patient: ${ctx.patientName} | Program: ${ctx.programType}
 Period: ${ctx.periodStart.toISOString().split('T')[0]} to ${ctx.periodEnd.toISOString().split('T')[0]}
 Reading Days: ${ctx.readingDays} | Total Time: ${ctx.totalMinutes} min
 Vitals Summary: ${vitalsSummary}
-Alerts: ${ctx.alerts.length} total, ${ctx.alerts.filter(a => a.severity === 'critical').length} critical
+Alerts: ${ctx.alerts.length} total, ${ctx.alerts.filter((a) => a.severity === 'critical').length} critical
 Communications: ${ctx.communications.length} logged interactions
 Return JSON: {subjective,objective,assessment,plan,icd10Codes[],cptCodes[],billingJustification}`;
   }
 
   private summarizeVitals(vitals: VitalReading[]): string {
     if (!vitals.length) return 'No vitals recorded';
-    const byType = vitals.reduce((acc, v) => { acc[v.type] = (acc[v.type] || 0) + 1; return acc; }, {} as Record<string, number>);
-    return Object.entries(byType).map(([t, c]) => `${t}: ${c} readings`).join(', ');
+    const byType = vitals.reduce(
+      (acc, v) => {
+        acc[v.type] = (acc[v.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    return Object.entries(byType)
+      .map(([t, c]) => `${t}: ${c} readings`)
+      .join(', ');
   }
 
   private getChartingSystemPrompt(): string {

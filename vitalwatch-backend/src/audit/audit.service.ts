@@ -66,7 +66,10 @@ export class AuditService {
     if (resource) queryBuilder.andWhere('audit.resource = :resource', { resource });
     if (resourceId) queryBuilder.andWhere('audit.resourceId = :resourceId', { resourceId });
     if (startDate && endDate) {
-      queryBuilder.andWhere('audit.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate });
+      queryBuilder.andWhere('audit.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
     }
 
     queryBuilder
@@ -79,11 +82,18 @@ export class AuditService {
     return { logs, total };
   }
 
-  async findByUser(userId: string, options?: { page?: number; limit?: number }): Promise<{ logs: AuditLog[]; total: number }> {
+  async findByUser(
+    userId: string,
+    options?: { page?: number; limit?: number },
+  ): Promise<{ logs: AuditLog[]; total: number }> {
     return this.findAll({ userId, ...options });
   }
 
-  async findByResource(resource: string, resourceId: string, options?: { page?: number; limit?: number }): Promise<{ logs: AuditLog[]; total: number }> {
+  async findByResource(
+    resource: string,
+    resourceId: string,
+    options?: { page?: number; limit?: number },
+  ): Promise<{ logs: AuditLog[]; total: number }> {
     return this.findAll({ resource, resourceId, ...options });
   }
 

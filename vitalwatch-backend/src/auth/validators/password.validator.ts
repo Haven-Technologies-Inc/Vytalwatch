@@ -75,7 +75,7 @@ export class PasswordValidator {
       /^(0123|1234|2345|3456|4567|5678|6789)/, // Sequential numbers
     ];
 
-    return commonPatterns.some(pattern => pattern.test(password));
+    return commonPatterns.some((pattern) => pattern.test(password));
   }
 
   getPolicy(): PasswordPolicy {

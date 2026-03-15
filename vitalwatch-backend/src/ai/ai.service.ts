@@ -6,7 +6,11 @@ import OpenAI from 'openai';
 import { VitalReading, VitalType } from '../vitals/entities/vital-reading.entity';
 import { Alert } from '../alerts/entities/alert.entity';
 import { EnterpriseLoggingService } from '../enterprise-logging/enterprise-logging.service';
-import { ApiOperation, ApiProvider, LogSeverity } from '../enterprise-logging/entities/api-audit-log.entity';
+import {
+  ApiOperation,
+  ApiProvider,
+  LogSeverity,
+} from '../enterprise-logging/entities/api-audit-log.entity';
 import { AIModel, AIModelStatus, AIModelType } from './entities/ai-model.entity';
 
 export interface AIAnalysisResult {
@@ -37,7 +41,11 @@ export interface PopulationHealthInsight {
   cohortSize: number;
   riskDistribution: { low: number; moderate: number; high: number; critical: number };
   topConditions: Array<{ condition: string; count: number; percentAffected: number }>;
-  trendingAlerts: Array<{ type: string; count: number; trend: 'increasing' | 'stable' | 'decreasing' }>;
+  trendingAlerts: Array<{
+    type: string;
+    count: number;
+    trend: 'increasing' | 'stable' | 'decreasing';
+  }>;
   interventionOpportunities: string[];
   predictedOutcomes: Array<{ outcome: string; probability: number; preventable: boolean }>;
 }
@@ -116,9 +124,7 @@ export class AIService implements OnModuleInit {
           auc: 0.89,
           lastTrainedAt: new Date('2024-01-05'),
           description: 'Classifies clinical alerts by severity and urgency',
-          trainingHistory: [
-            { version: '1.0.0', date: '2024-01-05', accuracy: 0.85 },
-          ],
+          trainingHistory: [{ version: '1.0.0', date: '2024-01-05', accuracy: 0.85 }],
         },
       ];
 
@@ -221,7 +227,10 @@ export class AIService implements OnModuleInit {
     }
   }
 
-  async generateAlertRecommendation(alert: Alert, patientHistory: VitalReading[]): Promise<string[]> {
+  async generateAlertRecommendation(
+    alert: Alert,
+    patientHistory: VitalReading[],
+  ): Promise<string[]> {
     const prompt = `
       You are a healthcare AI assistant helping providers respond to patient alerts.
 
@@ -269,10 +278,7 @@ export class AIService implements OnModuleInit {
       ${context?.vitals ? `Recent vitals context:\n${this.formatVitalsForPrompt(context.vitals.slice(-5))}` : ''}
     `;
 
-    const fullMessages = [
-      { role: 'system' as const, content: systemMessage },
-      ...messages,
-    ];
+    const fullMessages = [{ role: 'system' as const, content: systemMessage }, ...messages];
 
     try {
       const client = this.openai || this.grokClient;
@@ -302,7 +308,7 @@ export class AIService implements OnModuleInit {
       ${this.formatVitalsForPrompt(vitals)}
 
       Alerts (last 30 days):
-      ${alerts.map(a => `- ${a.type}: ${a.severity} - ${a.message} (${a.createdAt})`).join('\n')}
+      ${alerts.map((a) => `- ${a.type}: ${a.severity} - ${a.message} (${a.createdAt})`).join('\n')}
 
       Provide a 2-3 paragraph summary that:
       1. Highlights overall health trends
@@ -340,24 +346,38 @@ export class AIService implements OnModuleInit {
         max_tokens: 1500,
       });
 
-      await this.enterpriseLogger.logAI({
-        operation: ApiOperation.AI_COMPLETION, success: true,
-        endpoint: '/chat/completions', method: 'POST',
-        durationMs: Date.now() - startTime,
-        metadata: { model, provider: provider, tokensUsed: response.usage?.total_tokens },
-      }, provider);
+      await this.enterpriseLogger.logAI(
+        {
+          operation: ApiOperation.AI_COMPLETION,
+          success: true,
+          endpoint: '/chat/completions',
+          method: 'POST',
+          durationMs: Date.now() - startTime,
+          metadata: { model, provider: provider, tokensUsed: response.usage?.total_tokens },
+        },
+        provider,
+      );
 
       // Increment prediction count on active models
-      this.aiModelRepository.increment({ status: AIModelStatus.ACTIVE }, 'totalPredictions', 1).catch(() => {});
+      this.aiModelRepository
+        .increment({ status: AIModelStatus.ACTIVE }, 'totalPredictions', 1)
+        .catch(() => {});
 
       return response.choices[0]?.message?.content || '';
     } catch (error: any) {
-      await this.enterpriseLogger.logAI({
-        operation: ApiOperation.AI_COMPLETION, success: false, severity: LogSeverity.ERROR,
-        endpoint: '/chat/completions', method: 'POST',
-        durationMs: Date.now() - startTime, errorMessage: error.message,
-        metadata: { model, provider: provider },
-      }, provider);
+      await this.enterpriseLogger.logAI(
+        {
+          operation: ApiOperation.AI_COMPLETION,
+          success: false,
+          severity: LogSeverity.ERROR,
+          endpoint: '/chat/completions',
+          method: 'POST',
+          durationMs: Date.now() - startTime,
+          errorMessage: error.message,
+          metadata: { model, provider: provider },
+        },
+        provider,
+      );
       throw error;
     }
   }
@@ -406,7 +426,7 @@ export class AIService implements OnModuleInit {
       ${this.formatVitalsForPrompt(vitals)}
 
       Alert History:
-      ${alerts.map(a => `- ${a.type}: ${a.severity} - ${a.message}`).join('\n')}
+      ${alerts.map((a) => `- ${a.type}: ${a.severity} - ${a.message}`).join('\n')}
 
       Provide a JSON response with the following structure:
       {
@@ -420,12 +440,14 @@ export class AIService implements OnModuleInit {
   }
 
   private formatVitalsForPrompt(vitals: VitalReading[]): string {
-    return vitals.map(v => {
-      if (v.type === VitalType.BLOOD_PRESSURE) {
-        return `- ${v.type}: ${v.systolic}/${v.diastolic} mmHg (${v.status}) - ${v.recordedAt}`;
-      }
-      return `- ${v.type}: ${v.value} ${v.unit} (${v.status}) - ${v.recordedAt}`;
-    }).join('\n');
+    return vitals
+      .map((v) => {
+        if (v.type === VitalType.BLOOD_PRESSURE) {
+          return `- ${v.type}: ${v.systolic}/${v.diastolic} mmHg (${v.status}) - ${v.recordedAt}`;
+        }
+        return `- ${v.type}: ${v.value} ${v.unit} (${v.status}) - ${v.recordedAt}`;
+      })
+      .join('\n');
   }
 
   private parseAnalysisResponse(response: string): AIAnalysisResult {
@@ -484,8 +506,8 @@ export class AIService implements OnModuleInit {
   }
 
   private getDefaultPatientInsight(vitals: VitalReading[], alerts: Alert[]): PatientInsight {
-    const abnormalCount = vitals.filter(v => v.status !== 'normal').length;
-    const criticalAlerts = alerts.filter(a => a.severity === 'critical').length;
+    const abnormalCount = vitals.filter((v) => v.status !== 'normal').length;
+    const criticalAlerts = alerts.filter((a) => a.severity === 'critical').length;
 
     let riskLevel: PatientInsight['overallRiskLevel'] = 'low';
     if (criticalAlerts > 0) riskLevel = 'high';
@@ -496,7 +518,10 @@ export class AIService implements OnModuleInit {
       summary: `Patient has ${vitals.length} recent vital readings with ${abnormalCount} abnormal values and ${alerts.length} alerts.`,
       trends: [],
       concerns: abnormalCount > 0 ? ['Some vital readings are outside normal range'] : [],
-      recommendations: ['Continue regular monitoring', 'Follow up with healthcare provider as scheduled'],
+      recommendations: [
+        'Continue regular monitoring',
+        'Follow up with healthcare provider as scheduled',
+      ],
       overallRiskLevel: riskLevel,
     };
   }
@@ -518,15 +543,37 @@ export class AIService implements OnModuleInit {
   // General dashboard insights (no specific patient)
   async getGeneralInsights() {
     return [
-      { type: 'prediction', title: 'Patient Risk Trends', message: 'AI models indicate stable risk levels across monitored patients.', confidence: 0.87, color: 'blue' },
-      { type: 'recommendation', title: 'Adherence Improvement', message: 'Consider scheduling follow-ups for patients with declining device usage.', confidence: 0.82, color: 'green' },
-      { type: 'achievement', title: 'Alert Response Time', message: 'Average alert response time improved by 15% this week.', confidence: 0.91, color: 'purple' },
+      {
+        type: 'prediction',
+        title: 'Patient Risk Trends',
+        message: 'AI models indicate stable risk levels across monitored patients.',
+        confidence: 0.87,
+        color: 'blue',
+      },
+      {
+        type: 'recommendation',
+        title: 'Adherence Improvement',
+        message: 'Consider scheduling follow-ups for patients with declining device usage.',
+        confidence: 0.82,
+        color: 'green',
+      },
+      {
+        type: 'achievement',
+        title: 'Alert Response Time',
+        message: 'Average alert response time improved by 15% this week.',
+        confidence: 0.91,
+        color: 'purple',
+      },
     ];
   }
 
   // New methods for controller endpoints
 
-  async getPatientInsights(patientId: string, vitals?: VitalReading[], alerts?: Alert[]): Promise<PatientInsight> {
+  async getPatientInsights(
+    patientId: string,
+    vitals?: VitalReading[],
+    alerts?: Alert[],
+  ): Promise<PatientInsight> {
     // If vitals/alerts provided, use AI to analyze them
     if (vitals && vitals.length > 0) {
       return this.analyzePatientHistory(patientId, vitals, alerts || []);
@@ -562,24 +609,28 @@ export class AIService implements OnModuleInit {
     }
   }
 
-  async predictRisk(body: { patientId: string; vitals?: any[]; conditions?: string[] }): Promise<any> {
+  async predictRisk(body: {
+    patientId: string;
+    vitals?: any[];
+    conditions?: string[];
+  }): Promise<any> {
     const { patientId, vitals, conditions } = body;
-    
+
     // Calculate risk based on vitals and conditions
     let baseRisk = 20;
-    
+
     if (conditions?.length) {
       baseRisk += conditions.length * 10;
     }
-    
-    if (vitals?.some(v => v.status === 'critical')) {
+
+    if (vitals?.some((v) => v.status === 'critical')) {
       baseRisk += 30;
-    } else if (vitals?.some(v => v.status === 'warning')) {
+    } else if (vitals?.some((v) => v.status === 'warning')) {
       baseRisk += 15;
     }
 
     const riskScore = Math.min(100, baseRisk);
-    
+
     return {
       patientId,
       riskScore,
@@ -590,26 +641,27 @@ export class AIService implements OnModuleInit {
         { name: 'Conditions', contribution: conditions?.length ? 30 : 0 },
       ],
       predictions: {
-        hospitalization: { probability: riskScore / 100 * 0.3, timeframe: '30 days' },
-        emergency: { probability: riskScore / 100 * 0.15, timeframe: '30 days' },
+        hospitalization: { probability: (riskScore / 100) * 0.3, timeframe: '30 days' },
+        emergency: { probability: (riskScore / 100) * 0.15, timeframe: '30 days' },
       },
-      recommendations: [
-        'Increase monitoring frequency',
-        'Schedule provider follow-up',
-      ],
+      recommendations: ['Increase monitoring frequency', 'Schedule provider follow-up'],
       generatedAt: new Date().toISOString(),
     };
   }
 
   async getRecommendations(patientId: string, type?: string): Promise<any> {
     const recommendations = [
-      { type: 'medication', text: 'Consider adjusting blood pressure medication timing', priority: 'medium' },
+      {
+        type: 'medication',
+        text: 'Consider adjusting blood pressure medication timing',
+        priority: 'medium',
+      },
       { type: 'lifestyle', text: 'Increase daily water intake to 8 glasses', priority: 'low' },
       { type: 'monitoring', text: 'Take blood pressure readings twice daily', priority: 'high' },
       { type: 'activity', text: 'Light walking for 20 minutes daily', priority: 'medium' },
     ];
 
-    const filtered = type ? recommendations.filter(r => r.type === type) : recommendations;
+    const filtered = type ? recommendations.filter((r) => r.type === type) : recommendations;
 
     return {
       patientId,
@@ -623,19 +675,43 @@ export class AIService implements OnModuleInit {
     const grokKey = this.configService.get('grok.apiKey');
     return {
       providers: [
-        { name: 'OpenAI', model: this.configService.get('openai.model') || 'gpt-4', status: openaiKey && this.openai ? 'connected' : 'not_configured', configured: !!(openaiKey && this.openai) },
-        { name: 'Grok', model: 'grok-2', status: grokKey && this.grokClient ? 'connected' : 'not_configured', configured: !!(grokKey && this.grokClient) },
+        {
+          name: 'OpenAI',
+          model: this.configService.get('openai.model') || 'gpt-4',
+          status: openaiKey && this.openai ? 'connected' : 'not_configured',
+          configured: !!(openaiKey && this.openai),
+        },
+        {
+          name: 'Grok',
+          model: 'grok-2',
+          status: grokKey && this.grokClient ? 'connected' : 'not_configured',
+          configured: !!(grokKey && this.grokClient),
+        },
       ],
       activeProvider: this.getActiveProvider(),
     };
   }
 
-  async trainModel(body: { modelType: string; trainingData?: any; parameters?: any }): Promise<any> {
+  async trainModel(body: {
+    modelType: string;
+    trainingData?: any;
+    parameters?: any;
+  }): Promise<any> {
     const jobId = `train_${Date.now()}`;
     if (!this.isConfigured()) {
-      return { jobId, modelType: body.modelType, status: 'failed', message: 'No AI provider configured. Add API keys in environment.' };
+      return {
+        jobId,
+        modelType: body.modelType,
+        status: 'failed',
+        message: 'No AI provider configured. Add API keys in environment.',
+      };
     }
-    return { jobId, modelType: body.modelType, status: 'queued', message: 'Training job queued. Models will be updated upon completion.' };
+    return {
+      jobId,
+      modelType: body.modelType,
+      status: 'queued',
+      message: 'Training job queued. Models will be updated upon completion.',
+    };
   }
 
   async getModels(status?: string): Promise<AIModel[]> {
@@ -684,15 +760,21 @@ export class AIService implements OnModuleInit {
     }
   }
 
-  async getPerformanceMetrics(options: { modelId?: string; startDate?: string; endDate?: string }): Promise<any> {
+  async getPerformanceMetrics(options: {
+    modelId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
     try {
       const models = await this.getModels();
-      const activeModels = models.filter(m => m.status === AIModelStatus.ACTIVE);
+      const activeModels = models.filter((m) => m.status === AIModelStatus.ACTIVE);
 
       const totalPredictions = models.reduce((sum, m) => sum + (m.totalPredictions || 0), 0);
-      const avgAccuracy = activeModels.length > 0
-        ? activeModels.reduce((sum, m) => sum + (Number(m.accuracy) || 0), 0) / activeModels.length
-        : 0;
+      const avgAccuracy =
+        activeModels.length > 0
+          ? activeModels.reduce((sum, m) => sum + (Number(m.accuracy) || 0), 0) /
+            activeModels.length
+          : 0;
 
       return {
         period: { startDate: options.startDate, endDate: options.endDate },
@@ -702,7 +784,7 @@ export class AIService implements OnModuleInit {
           activeModels: activeModels.length,
           totalModels: models.length,
         },
-        byModel: models.map(m => ({
+        byModel: models.map((m) => ({
           modelId: m.id,
           name: m.name,
           accuracy: m.accuracy,
@@ -721,7 +803,7 @@ export class AIService implements OnModuleInit {
 
   async batchAnalyze(body: { patientIds: string[]; analysisType: string }): Promise<any> {
     const jobId = `batch_${Date.now()}`;
-    
+
     return {
       jobId,
       patientCount: body.patientIds.length,
@@ -735,7 +817,7 @@ export class AIService implements OnModuleInit {
   async realTimeAnalysis(body: { vitalReading: any; patientId: string }): Promise<any> {
     const { vitalReading, patientId } = body;
     const startTime = Date.now();
-    
+
     const prompt = `
       Analyze this vital reading in real-time for anomaly detection:
       
@@ -761,7 +843,7 @@ export class AIService implements OnModuleInit {
       const response = await this.getCompletion(prompt);
       const parsed = JSON.parse(response);
       const latencyMs = Date.now() - startTime;
-      
+
       return {
         patientId,
         vitalType: vitalReading.type,
@@ -772,11 +854,13 @@ export class AIService implements OnModuleInit {
           deviation: parsed.deviation || 'normal',
           trend: parsed.trend || 'stable',
         },
-        alert: parsed.alertRecommended ? {
-          recommended: true,
-          severity: parsed.alertSeverity || 'warning',
-          message: parsed.alertMessage || `Unusual ${vitalReading.type} reading detected`,
-        } : null,
+        alert: parsed.alertRecommended
+          ? {
+              recommended: true,
+              severity: parsed.alertSeverity || 'warning',
+              message: parsed.alertMessage || `Unusual ${vitalReading.type} reading detected`,
+            }
+          : null,
         recommendations: parsed.recommendations || [],
         processedAt: new Date().toISOString(),
         latencyMs,
@@ -784,10 +868,10 @@ export class AIService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Real-time analysis failed', error);
       const latencyMs = Date.now() - startTime;
-      
+
       // Fallback to rule-based analysis
       const isAnomalous = this.checkVitalThresholds(vitalReading);
-      
+
       return {
         patientId,
         vitalType: vitalReading.type,
@@ -798,12 +882,16 @@ export class AIService implements OnModuleInit {
           deviation: isAnomalous ? 'significant' : 'normal',
           trend: 'stable',
         },
-        alert: isAnomalous ? {
-          recommended: true,
-          severity: 'warning',
-          message: `${vitalReading.type} reading outside normal range`,
-        } : null,
-        recommendations: isAnomalous ? ['Review patient history', 'Consider follow-up reading'] : [],
+        alert: isAnomalous
+          ? {
+              recommended: true,
+              severity: 'warning',
+              message: `${vitalReading.type} reading outside normal range`,
+            }
+          : null,
+        recommendations: isAnomalous
+          ? ['Review patient history', 'Consider follow-up reading']
+          : [],
         processedAt: new Date().toISOString(),
         latencyMs,
       };
@@ -827,42 +915,43 @@ export class AIService implements OnModuleInit {
     return value < threshold.min || value > threshold.max;
   }
 
-  async calculateRiskScore(patientId: string, vitals?: VitalReading[], alerts?: Alert[]): Promise<any> {
+  async calculateRiskScore(
+    patientId: string,
+    vitals?: VitalReading[],
+    alerts?: Alert[],
+  ): Promise<any> {
     // Calculate risk based on available data
     let vitalScore = 50;
     let alertScore = 0;
     const adherenceScore = 80;
-    
+
     if (vitals && vitals.length > 0) {
-      const criticalCount = vitals.filter(v => v.status === 'critical').length;
-      const warningCount = vitals.filter(v => v.status === 'warning').length;
-      vitalScore = Math.min(100, (criticalCount * 30) + (warningCount * 15));
+      const criticalCount = vitals.filter((v) => v.status === 'critical').length;
+      const warningCount = vitals.filter((v) => v.status === 'warning').length;
+      vitalScore = Math.min(100, criticalCount * 30 + warningCount * 15);
     }
-    
+
     if (alerts && alerts.length > 0) {
-      const criticalAlerts = alerts.filter(a => a.severity === 'critical').length;
-      const highAlerts = alerts.filter(a => a.severity === 'high').length;
-      alertScore = Math.min(100, (criticalAlerts * 25) + (highAlerts * 15));
+      const criticalAlerts = alerts.filter((a) => a.severity === 'critical').length;
+      const highAlerts = alerts.filter((a) => a.severity === 'high').length;
+      alertScore = Math.min(100, criticalAlerts * 25 + highAlerts * 15);
     }
-    
+
     // Weighted calculation
     const score = Math.round(
-      (vitalScore * 0.35) + 
-      (alertScore * 0.30) + 
-      ((100 - adherenceScore) * 0.20) + 
-      (25 * 0.15) // Base demographic factor
+      vitalScore * 0.35 + alertScore * 0.3 + (100 - adherenceScore) * 0.2 + 25 * 0.15, // Base demographic factor
     );
-    
+
     const clampedScore = Math.min(100, Math.max(0, score));
-    
+
     return {
       patientId,
       score: clampedScore,
       level: clampedScore >= 70 ? 'high' : clampedScore >= 40 ? 'moderate' : 'low',
       factors: [
         { name: 'Vital trends', weight: 0.35, score: vitalScore },
-        { name: 'Alert history', weight: 0.30, score: alertScore },
-        { name: 'Adherence', weight: 0.20, score: 100 - adherenceScore },
+        { name: 'Alert history', weight: 0.3, score: alertScore },
+        { name: 'Adherence', weight: 0.2, score: 100 - adherenceScore },
         { name: 'Demographics', weight: 0.15, score: 25 },
       ],
       calculatedAt: new Date().toISOString(),

@@ -2,7 +2,8 @@
 import { PermissionType } from '../constants/permissions.constant';
 
 export const PERMISSIONS_KEY = 'permissions';
-export const RequirePermissions = (...permissions: PermissionType[]) => SetMetadata(PERMISSIONS_KEY, permissions);
+export const RequirePermissions = (...permissions: PermissionType[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
 
 export const PERMISSIONS_MODE_KEY = 'permissions_mode';
 export type PermissionMode = 'all' | 'any';

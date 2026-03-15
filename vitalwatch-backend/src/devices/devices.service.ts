@@ -279,20 +279,20 @@ export class DevicesService {
 
   private mapTenoviTypeToVitalType(tenoviType: string): VitalType | null {
     const mapping: Record<string, VitalType> = {
-      'blood_pressure': VitalType.BLOOD_PRESSURE,
-      'bp': VitalType.BLOOD_PRESSURE,
-      'glucose': VitalType.BLOOD_GLUCOSE,
-      'blood_glucose': VitalType.BLOOD_GLUCOSE,
-      'spo2': VitalType.SPO2,
-      'oxygen': VitalType.SPO2,
-      'pulse_ox': VitalType.SPO2,
-      'weight': VitalType.WEIGHT,
-      'scale': VitalType.WEIGHT,
-      'temperature': VitalType.TEMPERATURE,
-      'temp': VitalType.TEMPERATURE,
-      'heart_rate': VitalType.HEART_RATE,
-      'pulse': VitalType.HEART_RATE,
-      'respiratory_rate': VitalType.RESPIRATORY_RATE,
+      blood_pressure: VitalType.BLOOD_PRESSURE,
+      bp: VitalType.BLOOD_PRESSURE,
+      glucose: VitalType.BLOOD_GLUCOSE,
+      blood_glucose: VitalType.BLOOD_GLUCOSE,
+      spo2: VitalType.SPO2,
+      oxygen: VitalType.SPO2,
+      pulse_ox: VitalType.SPO2,
+      weight: VitalType.WEIGHT,
+      scale: VitalType.WEIGHT,
+      temperature: VitalType.TEMPERATURE,
+      temp: VitalType.TEMPERATURE,
+      heart_rate: VitalType.HEART_RATE,
+      pulse: VitalType.HEART_RATE,
+      respiratory_rate: VitalType.RESPIRATORY_RATE,
     };
 
     return mapping[tenoviType.toLowerCase()] || null;
@@ -315,14 +315,14 @@ export class DevicesService {
     const devices = await queryBuilder.getMany();
 
     const byType: Record<string, number> = {};
-    Object.values(DeviceType).forEach(type => {
+    Object.values(DeviceType).forEach((type) => {
       byType[type] = 0;
     });
 
     let active = 0;
     let disconnected = 0;
 
-    devices.forEach(device => {
+    devices.forEach((device) => {
       byType[device.type]++;
       if (device.status === DeviceStatus.ACTIVE) active++;
       if (device.status === DeviceStatus.DISCONNECTED) disconnected++;
@@ -388,7 +388,10 @@ export class DevicesService {
     return this.deviceRepository.find({ where, order: { createdAt: 'DESC' }, take: 100 });
   }
 
-  async getDeviceReadings(deviceId: string, params?: { startDate?: string; endDate?: string }): Promise<any> {
+  async getDeviceReadings(
+    deviceId: string,
+    params?: { startDate?: string; endDate?: string },
+  ): Promise<any> {
     const device = await this.findById(deviceId);
     if (!device) throw new NotFoundException('Device not found');
     if (!device.patientId) return { vitals: [], total: 0 };

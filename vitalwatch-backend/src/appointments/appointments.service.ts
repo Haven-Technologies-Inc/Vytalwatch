@@ -6,11 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import {
-  Appointment,
-  AppointmentStatus,
-  AppointmentType,
-} from './entities/appointment.entity';
+import { Appointment, AppointmentStatus, AppointmentType } from './entities/appointment.entity';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
@@ -29,15 +25,10 @@ export class AppointmentsService {
     private readonly auditService: AuditService,
   ) {}
 
-  async create(
-    dto: CreateAppointmentDto,
-    userId: string,
-  ): Promise<Appointment> {
+  async create(dto: CreateAppointmentDto, userId: string): Promise<Appointment> {
     const scheduledAt = new Date(dto.scheduledAt);
     if (scheduledAt <= new Date()) {
-      throw new BadRequestException(
-        'Appointment must be scheduled in the future',
-      );
+      throw new BadRequestException('Appointment must be scheduled in the future');
     }
 
     // Overlap detection: prevent overlapping appointments for the same provider
@@ -52,16 +43,13 @@ export class AppointmentsService {
         statuses: [AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED],
       })
       .andWhere('apt.scheduledAt < :endTime', { endTime })
-      .andWhere(
-        'DATE_ADD(apt.scheduledAt, INTERVAL apt.durationMinutes MINUTE) > :startTime',
-        { startTime },
-      )
+      .andWhere('DATE_ADD(apt.scheduledAt, INTERVAL apt.durationMinutes MINUTE) > :startTime', {
+        startTime,
+      })
       .getCount();
 
     if (overlapping > 0) {
-      throw new ConflictException(
-        'Provider has an overlapping appointment at this time',
-      );
+      throw new ConflictException('Provider has an overlapping appointment at this time');
     }
 
     const conflict = await this.checkConflict(
@@ -70,18 +58,13 @@ export class AppointmentsService {
       dto.durationMinutes || 30,
     );
     if (conflict) {
-      throw new BadRequestException(
-        'Provider has a scheduling conflict at this time',
-      );
+      throw new BadRequestException('Provider has a scheduling conflict at this time');
     }
 
     const appointment = this.appointmentRepository.create({
       ...dto,
       scheduledAt,
-      telehealthUrl:
-        dto.type === AppointmentType.TELEHEALTH
-          ? this.generateTelehealthUrl()
-          : null,
+      telehealthUrl: dto.type === AppointmentType.TELEHEALTH ? this.generateTelehealthUrl() : null,
     });
 
     const saved = await this.appointmentRepository.save(appointment);
@@ -104,16 +87,7 @@ export class AppointmentsService {
   async findAll(
     query: AppointmentQueryDto,
   ): Promise<{ appointments: Appointment[]; total: number }> {
-    const {
-      patientId,
-      providerId,
-      status,
-      type,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 20,
-    } = query;
+    const { patientId, providerId, status, type, startDate, endDate, page = 1, limit = 20 } = query;
 
     const qb = this.appointmentRepository
       .createQueryBuilder('apt')
@@ -171,11 +145,7 @@ export class AppointmentsService {
     });
   }
 
-  async update(
-    id: string,
-    dto: UpdateAppointmentDto,
-    userId: string,
-  ): Promise<Appointment> {
+  async update(id: string, dto: UpdateAppointmentDto, userId: string): Promise<Appointment> {
     const appointment = await this.findOne(id);
     Object.assign(appointment, dto);
     if (dto.scheduledAt) appointment.scheduledAt = new Date(dto.scheduledAt);
@@ -202,9 +172,7 @@ export class AppointmentsService {
     const newDate = new Date(dto.scheduledAt);
 
     if (newDate <= new Date()) {
-      throw new BadRequestException(
-        'New appointment time must be in the future',
-      );
+      throw new BadRequestException('New appointment time must be in the future');
     }
 
     const conflict = await this.checkConflict(
@@ -214,9 +182,7 @@ export class AppointmentsService {
       id,
     );
     if (conflict) {
-      throw new BadRequestException(
-        'Provider has a scheduling conflict at this time',
-      );
+      throw new BadRequestException('Provider has a scheduling conflict at this time');
     }
 
     appointment.scheduledAt = newDate;
@@ -238,11 +204,7 @@ export class AppointmentsService {
     return saved;
   }
 
-  async cancel(
-    id: string,
-    dto: CancelAppointmentDto,
-    userId: string,
-  ): Promise<Appointment> {
+  async cancel(id: string, dto: CancelAppointmentDto, userId: string): Promise<Appointment> {
     const appointment = await this.findOne(id);
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancelledBy = userId;
@@ -267,11 +229,7 @@ export class AppointmentsService {
     return this.appointmentRepository.save(appointment);
   }
 
-  async complete(
-    id: string,
-    notes: string,
-    userId: string,
-  ): Promise<Appointment> {
+  async complete(id: string, notes: string, userId: string): Promise<Appointment> {
     const appointment = await this.findOne(id);
     appointment.status = AppointmentStatus.COMPLETED;
     if (notes) appointment.notes = notes;
@@ -293,10 +251,9 @@ export class AppointmentsService {
         statuses: [AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED],
       })
       .andWhere('apt.scheduledAt < :endTime', { endTime })
-      .andWhere(
-        'DATE_ADD(apt.scheduledAt, INTERVAL apt.durationMinutes MINUTE) > :startTime',
-        { startTime: scheduledAt },
-      );
+      .andWhere('DATE_ADD(apt.scheduledAt, INTERVAL apt.durationMinutes MINUTE) > :startTime', {
+        startTime: scheduledAt,
+      });
 
     if (excludeId) qb.andWhere('apt.id != :excludeId', { excludeId });
 

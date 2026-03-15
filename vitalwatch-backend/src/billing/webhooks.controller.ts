@@ -42,16 +42,12 @@ export class WebhooksController {
     let event: Stripe.Event;
 
     try {
-      event = this.stripe.webhooks.constructEvent(
-        req.rawBody as Buffer,
-        signature,
-        webhookSecret,
-      );
+      event = this.stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
     } catch (err) {
       throw new BadRequestException(`Webhook signature verification failed: ${err.message}`);
     }
 
-    await this.billingService.handleStripeWebhook(req.rawBody as Buffer, signature);
+    await this.billingService.handleStripeWebhook(req.rawBody, signature);
 
     return { received: true };
   }

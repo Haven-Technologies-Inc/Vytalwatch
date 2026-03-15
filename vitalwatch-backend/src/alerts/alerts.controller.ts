@@ -112,10 +112,7 @@ export class AlertsController {
 
   @Post(':id/dismiss')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async dismiss(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async dismiss(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.alertsService.resolve(id, user.sub, 'dismissed');
   }
 
@@ -131,10 +128,7 @@ export class AlertsController {
 
   @Post('bulk-acknowledge')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async bulkAcknowledge(
-    @Body('ids') ids: string[],
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async bulkAcknowledge(@Body('ids') ids: string[], @CurrentUser() user: CurrentUserPayload) {
     const count = await this.alertsService.bulkAcknowledge(ids, user.sub);
     return { acknowledged: count };
   }

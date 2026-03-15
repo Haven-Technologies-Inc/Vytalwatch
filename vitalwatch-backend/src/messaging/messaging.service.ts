@@ -4,7 +4,10 @@ import { Repository, In } from 'typeorm';
 import { Message, MessageThread } from './entities/message.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType, NotificationCategory } from '../notifications/entities/notification.entity';
+import {
+  NotificationType,
+  NotificationCategory,
+} from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class MessagingService {
@@ -96,7 +99,11 @@ export class MessagingService {
     };
   }
 
-  async sendMessage(threadId: string, dto: { content: string; attachments?: string[] }, senderId: string) {
+  async sendMessage(
+    threadId: string,
+    dto: { content: string; attachments?: string[] },
+    senderId: string,
+  ) {
     const thread = await this.getThread(threadId, senderId);
 
     const message = this.messageRepository.create({

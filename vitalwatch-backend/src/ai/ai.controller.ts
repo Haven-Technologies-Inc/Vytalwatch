@@ -25,7 +25,8 @@ export class AIController {
   @Post('chat')
   async chat(
     @CurrentUser() user: CurrentUserPayload,
-    @Body() body: {
+    @Body()
+    body: {
       messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     },
   ) {
@@ -37,16 +38,14 @@ export class AIController {
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   async analyzeVitals(@Body() body: { vitals: any[] }) {
     const analyses = await Promise.all(
-      body.vitals.map(vital => this.aiService.analyzeVitalReading(vital)),
+      body.vitals.map((vital) => this.aiService.analyzeVitalReading(vital)),
     );
     return { analyses };
   }
 
   @Post('patient-insight')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async getPatientInsight(
-    @Body() body: { patientId: string; vitals: any[]; alerts: any[] },
-  ) {
+  async getPatientInsight(@Body() body: { patientId: string; vitals: any[]; alerts: any[] }) {
     const insight = await this.aiService.analyzePatientHistory(
       body.patientId,
       body.vitals,
@@ -56,13 +55,8 @@ export class AIController {
   }
 
   @Post('health-summary')
-  async getHealthSummary(
-    @Body() body: { vitals: any[]; alerts: any[] },
-  ) {
-    const summary = await this.aiService.generateHealthSummary(
-      body.vitals,
-      body.alerts,
-    );
+  async getHealthSummary(@Body() body: { vitals: any[]; alerts: any[] }) {
+    const summary = await this.aiService.generateHealthSummary(body.vitals, body.alerts);
     return { summary };
   }
 
@@ -83,19 +77,14 @@ export class AIController {
   // Risk Prediction
   @Post('predict-risk')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async predictRisk(
-    @Body() body: { patientId: string; vitals?: any[]; conditions?: string[] },
-  ) {
+  async predictRisk(@Body() body: { patientId: string; vitals?: any[]; conditions?: string[] }) {
     return this.aiService.predictRisk(body);
   }
 
   // Recommendations
   @Get('recommendations/:patientId')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async getRecommendations(
-    @Param('patientId') patientId: string,
-    @Query('type') type?: string,
-  ) {
+  async getRecommendations(@Param('patientId') patientId: string, @Query('type') type?: string) {
     return this.aiService.getRecommendations(patientId, type);
   }
 
@@ -103,9 +92,7 @@ export class AIController {
   @Post('train')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
-  async trainModel(
-    @Body() body: { modelType: string; trainingData?: any; parameters?: any },
-  ) {
+  async trainModel(@Body() body: { modelType: string; trainingData?: any; parameters?: any }) {
     return this.aiService.trainModel(body);
   }
 
@@ -157,18 +144,14 @@ export class AIController {
   @Post('batch-analyze')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
-  async batchAnalyze(
-    @Body() body: { patientIds: string[]; analysisType: string },
-  ) {
+  async batchAnalyze(@Body() body: { patientIds: string[]; analysisType: string }) {
     return this.aiService.batchAnalyze(body);
   }
 
   // Real-time Analysis
   @Post('real-time')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async realTimeAnalysis(
-    @Body() body: { vitalReading: any; patientId: string },
-  ) {
+  async realTimeAnalysis(@Body() body: { vitalReading: any; patientId: string }) {
     return this.aiService.realTimeAnalysis(body);
   }
 }

@@ -51,14 +51,12 @@ describe('Billing (e2e)', () => {
       httpServer = app.getHttpServer();
 
       // Register and login
-      await request(httpServer)
-        .post('/api/v1/auth/register')
-        .send({
-          email: billingEmail,
-          password: billingPassword,
-          firstName: 'Billing',
-          lastName: 'Tester',
-        });
+      await request(httpServer).post('/api/v1/auth/register').send({
+        email: billingEmail,
+        password: billingPassword,
+        firstName: 'Billing',
+        lastName: 'Tester',
+      });
 
       const loginRes = await request(httpServer)
         .post('/api/v1/auth/login')
@@ -91,9 +89,7 @@ describe('Billing (e2e)', () => {
     it('GET /api/v1/billing/records should return 401 without a token', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/api/v1/billing/records')
-        .expect(401);
+      await request(httpServer).get('/api/v1/billing/records').expect(401);
     });
 
     it('POST /api/v1/billing/records should return 401 without a token', async () => {

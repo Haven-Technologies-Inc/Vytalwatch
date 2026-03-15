@@ -8,10 +8,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([StaffRole, StaffMember]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([StaffRole, StaffMember]), AuditModule],
   controllers: [StaffController],
   providers: [StaffService, PermissionsGuard],
   exports: [StaffService, PermissionsGuard],

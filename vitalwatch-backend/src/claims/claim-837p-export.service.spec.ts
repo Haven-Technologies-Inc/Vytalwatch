@@ -17,7 +17,9 @@ describe('Claim837PExportService', () => {
 
   describe('generateEDI837P', () => {
     it('should generate valid EDI content', () => {
-      const claims = [{ id: 'CLM001', patientName: 'John Doe', codes: [{ code: '99457', charge: 50 }] }];
+      const claims = [
+        { id: 'CLM001', patientName: 'John Doe', codes: [{ code: '99457', charge: 50 }] },
+      ];
       const submitter = { name: 'Test Clinic', ein: '123456789', npi: '1234567890' };
       const receiver = { name: 'Test Payer', id: 'PAYER01' };
       const result = service.generateEDI837P(claims as any, submitter, receiver);
@@ -31,10 +33,20 @@ describe('Claim837PExportService', () => {
 
     it('should calculate total charges', () => {
       const claims = [
-        { id: 'CLM001', codes: [{ code: '99457', charge: 50 }, { code: '99458', charge: 40 }] },
+        {
+          id: 'CLM001',
+          codes: [
+            { code: '99457', charge: 50 },
+            { code: '99458', charge: 40 },
+          ],
+        },
         { id: 'CLM002', codes: [{ code: '99454', charge: 60 }] },
       ];
-      const result = service.generateEDI837P(claims as any, { name: 'A', ein: 'B', npi: 'C' }, { name: 'D', id: 'E' });
+      const result = service.generateEDI837P(
+        claims as any,
+        { name: 'A', ein: 'B', npi: 'C' },
+        { name: 'D', id: 'E' },
+      );
       expect(result.totalCharges).toBe(150);
     });
   });

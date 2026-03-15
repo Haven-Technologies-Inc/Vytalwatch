@@ -8,7 +8,16 @@ import * as crypto from 'crypto';
 export class ClaimsService {
   constructor(@InjectRepository(Claim) private readonly repo: Repository<Claim>) {}
 
-  async build(data: { patientId: string; enrollmentId: string; periodStart: Date; periodEnd: Date; programType: string; readingDaysCount: number; interactiveTimeMinutes: number; notesSigned: boolean }): Promise<Claim> {
+  async build(data: {
+    patientId: string;
+    enrollmentId: string;
+    periodStart: Date;
+    periodEnd: Date;
+    programType: string;
+    readingDaysCount: number;
+    interactiveTimeMinutes: number;
+    notesSigned: boolean;
+  }): Promise<Claim> {
     const readinessChecks = {
       deviceTransmission: data.readingDaysCount > 0,
       readingDaysThreshold: data.readingDaysCount >= 16,
@@ -18,8 +27,15 @@ export class ClaimsService {
       notesSigned: data.notesSigned,
       medicalNecessity: true,
     };
-    const isReady = Object.values(readinessChecks).every(v => typeof v === 'boolean' ? v : true);
-    const claim = this.repo.create({ ...data, readinessChecks, codes: [], status: isReady ? ClaimStatus.READY : ClaimStatus.DRAFT });
+    const isReady = Object.values(readinessChecks).every((v) =>
+      typeof v === 'boolean' ? v : true,
+    );
+    const claim = this.repo.create({
+      ...data,
+      readinessChecks,
+      codes: [],
+      status: isReady ? ClaimStatus.READY : ClaimStatus.DRAFT,
+    });
     return this.repo.save(claim);
   }
 
@@ -45,7 +61,10 @@ export class ClaimsService {
   async getBillingSummary(clinicId: string, periodStart: Date, periodEnd: Date): Promise<any[]> {
     const claims = await this.repo
       .createQueryBuilder('c')
-      .where('c.createdAt >= :periodStart AND c.createdAt <= :periodEnd', { periodStart, periodEnd })
+      .where('c.createdAt >= :periodStart AND c.createdAt <= :periodEnd', {
+        periodStart,
+        periodEnd,
+      })
       .getMany();
 
     // Group by patient for billing summary

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization } from './entities/organization.entity';
@@ -23,12 +19,7 @@ export class OrganizationsService {
     private readonly auditService: AuditService,
   ) {}
 
-  async findAll(options: {
-    page: number;
-    limit: number;
-    search?: string;
-    status?: string;
-  }) {
+  async findAll(options: { page: number; limit: number; search?: string; status?: string }) {
     const { page, limit, search, status } = options;
     const skip = (page - 1) * limit;
 
@@ -69,10 +60,7 @@ export class OrganizationsService {
       throw new NotFoundException('Organization not found');
     }
 
-    if (
-      user.role !== String(UserRole.SUPERADMIN) &&
-      user.organizationId !== id
-    ) {
+    if (user.role !== String(UserRole.SUPERADMIN) && user.organizationId !== id) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -233,7 +221,9 @@ export class OrganizationsService {
       deviceCount = await this.deviceRepository.count({
         where: { organizationId: id },
       });
-    } catch { /* devices table may not exist */ }
+    } catch {
+      /* devices table may not exist */
+    }
 
     return {
       patientCount,
@@ -243,19 +233,12 @@ export class OrganizationsService {
     };
   }
 
-  async getSettings(
-    id: string,
-    user: CurrentUserPayload,
-  ): Promise<Record<string, unknown>> {
+  async getSettings(id: string, user: CurrentUserPayload): Promise<Record<string, unknown>> {
     await this.findOne(id, user);
     return {};
   }
 
-  async updateSettings(
-    id: string,
-    settings: Record<string, unknown>,
-    user: CurrentUserPayload,
-  ) {
+  async updateSettings(id: string, settings: Record<string, unknown>, user: CurrentUserPayload) {
     await this.auditService.log({
       action: 'ORGANIZATION_SETTINGS_UPDATED',
       userId: user.sub,

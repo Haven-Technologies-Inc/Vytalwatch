@@ -92,7 +92,7 @@ export enum ApiOperation {
 
 /**
  * Enterprise API Audit Log Entity
- * 
+ *
  * IMMUTABLE BY DESIGN:
  * - No @UpdateDateColumn
  * - No update methods in repository

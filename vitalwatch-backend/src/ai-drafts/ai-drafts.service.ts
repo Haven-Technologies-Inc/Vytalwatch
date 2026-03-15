@@ -12,8 +12,14 @@ export class AIDraftsService {
     return this.repo.save(draft);
   }
 
-  async findByPatient(patientId: string, draftType?: AIDraftType, status?: AIDraftStatus): Promise<AIDraft[]> {
-    const query = this.repo.createQueryBuilder('d').where('d.patientId = :patientId', { patientId });
+  async findByPatient(
+    patientId: string,
+    draftType?: AIDraftType,
+    status?: AIDraftStatus,
+  ): Promise<AIDraft[]> {
+    const query = this.repo
+      .createQueryBuilder('d')
+      .where('d.patientId = :patientId', { patientId });
     if (draftType) query.andWhere('d.draftType = :draftType', { draftType });
     if (status) query.andWhere('d.status = :status', { status });
     return query.orderBy('d.createdAt', 'DESC').getMany();
@@ -25,8 +31,18 @@ export class AIDraftsService {
     return draft;
   }
 
-  async review(id: string, userId: string, status: AIDraftStatus, notes?: string): Promise<AIDraft> {
-    await this.repo.update(id, { status, reviewedByUserId: userId, reviewedAt: new Date(), reviewNotes: notes });
+  async review(
+    id: string,
+    userId: string,
+    status: AIDraftStatus,
+    notes?: string,
+  ): Promise<AIDraft> {
+    await this.repo.update(id, {
+      status,
+      reviewedByUserId: userId,
+      reviewedAt: new Date(),
+      reviewNotes: notes,
+    });
     return this.findOne(id);
   }
 

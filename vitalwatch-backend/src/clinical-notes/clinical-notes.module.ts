@@ -6,10 +6,7 @@ import { ClinicalNote, CommunicationLog } from './entities/clinical-note.entity'
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([ClinicalNote, CommunicationLog]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([ClinicalNote, CommunicationLog]), AuditModule],
   controllers: [ClinicalNotesController],
   providers: [ClinicalNotesService],
   exports: [ClinicalNotesService],

@@ -19,7 +19,23 @@ import { BillingRecord } from '../billing/entities/billing-record.entity';
 import { PatientProfile } from '../patients/entities/patient-profile.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Alert, Device, VitalReading, Claim, Task, TimeEntry, Enrollment, Medication, Appointment, Subscription, BillingRecord, PatientProfile])],
+  imports: [
+    TypeOrmModule.forFeature([
+      User,
+      Alert,
+      Device,
+      VitalReading,
+      Claim,
+      Task,
+      TimeEntry,
+      Enrollment,
+      Medication,
+      Appointment,
+      Subscription,
+      BillingRecord,
+      PatientProfile,
+    ]),
+  ],
   controllers: [AnalyticsController, RPMAnalyticsController],
   providers: [AnalyticsService, RPMAnalyticsService],
   exports: [AnalyticsService, RPMAnalyticsService],

@@ -15,11 +15,17 @@ export class TasksService {
     return this.taskRepository.save(task);
   }
 
-  async findAll(filters?: { status?: TaskStatus; assignedToUserId?: string; patientId?: string }): Promise<Task[]> {
+  async findAll(filters?: {
+    status?: TaskStatus;
+    assignedToUserId?: string;
+    patientId?: string;
+  }): Promise<Task[]> {
     const query = this.taskRepository.createQueryBuilder('task');
     if (filters?.status) query.andWhere('task.status = :status', { status: filters.status });
-    if (filters?.assignedToUserId) query.andWhere('task.assignedToUserId = :userId', { userId: filters.assignedToUserId });
-    if (filters?.patientId) query.andWhere('task.patientId = :patientId', { patientId: filters.patientId });
+    if (filters?.assignedToUserId)
+      query.andWhere('task.assignedToUserId = :userId', { userId: filters.assignedToUserId });
+    if (filters?.patientId)
+      query.andWhere('task.patientId = :patientId', { patientId: filters.patientId });
     return query.orderBy('task.dueAt', 'ASC').getMany();
   }
 
@@ -35,6 +41,11 @@ export class TasksService {
   }
 
   async complete(id: string, userId: string, resolution?: string): Promise<Task> {
-    return this.update(id, { status: TaskStatus.COMPLETED, completedAt: new Date(), completedBy: userId, resolution });
+    return this.update(id, {
+      status: TaskStatus.COMPLETED,
+      completedAt: new Date(),
+      completedBy: userId,
+      resolution,
+    });
   }
 }

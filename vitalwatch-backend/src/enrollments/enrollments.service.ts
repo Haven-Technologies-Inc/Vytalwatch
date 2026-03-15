@@ -20,10 +20,15 @@ export class EnrollmentsService {
     return this.repo.save(enrollment);
   }
 
-  async findAll(filters?: { clinicId?: string; patientId?: string; status?: EnrollmentStatus }): Promise<Enrollment[]> {
+  async findAll(filters?: {
+    clinicId?: string;
+    patientId?: string;
+    status?: EnrollmentStatus;
+  }): Promise<Enrollment[]> {
     const query = this.repo.createQueryBuilder('e');
     if (filters?.clinicId) query.andWhere('e.clinicId = :clinicId', { clinicId: filters.clinicId });
-    if (filters?.patientId) query.andWhere('e.patientId = :patientId', { patientId: filters.patientId });
+    if (filters?.patientId)
+      query.andWhere('e.patientId = :patientId', { patientId: filters.patientId });
     if (filters?.status) query.andWhere('e.status = :status', { status: filters.status });
     return query.orderBy('e.createdAt', 'DESC').getMany();
   }
@@ -40,7 +45,11 @@ export class EnrollmentsService {
   }
 
   async completeSetup(id: string, noteId: string): Promise<Enrollment> {
-    return this.update(id, { setupCompleted: true, setupCompletedAt: new Date(), setupNoteId: noteId });
+    return this.update(id, {
+      setupCompleted: true,
+      setupCompletedAt: new Date(),
+      setupNoteId: noteId,
+    });
   }
 
   async advanceBillingPeriod(id: string): Promise<Enrollment> {
@@ -48,6 +57,9 @@ export class EnrollmentsService {
     const newStart = new Date(enrollment.currentBillingPeriodEnd);
     const newEnd = new Date(newStart);
     newEnd.setDate(newEnd.getDate() + 30);
-    return this.update(id, { currentBillingPeriodStart: newStart, currentBillingPeriodEnd: newEnd });
+    return this.update(id, {
+      currentBillingPeriodStart: newStart,
+      currentBillingPeriodEnd: newEnd,
+    });
   }
 }

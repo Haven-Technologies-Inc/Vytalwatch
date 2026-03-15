@@ -11,9 +11,9 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum CPTCode {
-  INITIAL_SETUP = '99453',      // Initial setup and patient education (once)
-  DEVICE_SUPPLY = '99454',       // Device supply with daily recordings (monthly)
-  CLINICAL_REVIEW_20 = '99457',  // First 20 minutes of clinical staff time (monthly)
+  INITIAL_SETUP = '99453', // Initial setup and patient education (once)
+  DEVICE_SUPPLY = '99454', // Device supply with daily recordings (monthly)
+  CLINICAL_REVIEW_20 = '99457', // First 20 minutes of clinical staff time (monthly)
   CLINICAL_REVIEW_ADDITIONAL = '99458', // Additional 20 minutes (monthly, up to 2x)
 }
 

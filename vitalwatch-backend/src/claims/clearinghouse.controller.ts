@@ -9,7 +9,10 @@ import { Claim837PExportService } from './claim-837p-export.service';
 @Controller('claims/clearinghouse')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ClearinghouseController {
-  constructor(private readonly ch: ClearinghouseService, private readonly edi: Claim837PExportService) {}
+  constructor(
+    private readonly ch: ClearinghouseService,
+    private readonly edi: Claim837PExportService,
+  ) {}
 
   @Get('status')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)

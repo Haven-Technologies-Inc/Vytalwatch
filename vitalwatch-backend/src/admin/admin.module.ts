@@ -7,10 +7,7 @@ import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([ApiKey, User]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([ApiKey, User]), AuditModule],
   controllers: [AdminController],
   providers: [AdminService],
   exports: [AdminService],

@@ -8,10 +8,7 @@ import { Device } from '../devices/entities/device.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Organization, User, Device]),
-    AuditModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Organization, User, Device]), AuditModule],
   controllers: [OrganizationsController],
   providers: [OrganizationsService],
   exports: [OrganizationsService],

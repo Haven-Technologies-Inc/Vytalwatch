@@ -125,7 +125,11 @@ export class VitalsService {
 
     switch (vital.type) {
       case VitalType.BLOOD_PRESSURE:
-        return this.evaluateBloodPressure(vital.systolic, vital.diastolic, thresholds.bloodPressure);
+        return this.evaluateBloodPressure(
+          vital.systolic,
+          vital.diastolic,
+          thresholds.bloodPressure,
+        );
 
       case VitalType.BLOOD_GLUCOSE:
         return this.evaluateRange(vital.value, thresholds.glucose);
@@ -214,7 +218,10 @@ export class VitalsService {
     if (type) queryBuilder.andWhere('vital.type = :type', { type });
     if (status) queryBuilder.andWhere('vital.status = :status', { status });
     if (startDate && endDate) {
-      queryBuilder.andWhere('vital.recordedAt BETWEEN :startDate AND :endDate', { startDate, endDate });
+      queryBuilder.andWhere('vital.recordedAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
     }
 
     queryBuilder
@@ -251,7 +258,10 @@ export class VitalsService {
     patientId: string,
     type: VitalType,
     days: number = 30,
-  ): Promise<{ readings: VitalReading[]; trend: 'improving' | 'stable' | 'declining' | 'unknown' }> {
+  ): Promise<{
+    readings: VitalReading[];
+    trend: 'improving' | 'stable' | 'declining' | 'unknown';
+  }> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -269,7 +279,9 @@ export class VitalsService {
     return { readings, trend };
   }
 
-  private calculateTrend(readings: VitalReading[]): 'improving' | 'stable' | 'declining' | 'unknown' {
+  private calculateTrend(
+    readings: VitalReading[],
+  ): 'improving' | 'stable' | 'declining' | 'unknown' {
     if (readings.length < 3) return 'unknown';
 
     const recentHalf = readings.slice(Math.floor(readings.length / 2));
@@ -284,8 +296,8 @@ export class VitalsService {
     // This is a simplified trend calculation
     if (Math.abs(changePercent) < 5) return 'stable';
 
-    const recentAbnormal = recentHalf.filter(r => r.status !== VitalStatus.NORMAL).length;
-    const olderAbnormal = olderHalf.filter(r => r.status !== VitalStatus.NORMAL).length;
+    const recentAbnormal = recentHalf.filter((r) => r.status !== VitalStatus.NORMAL).length;
+    const olderAbnormal = olderHalf.filter((r) => r.status !== VitalStatus.NORMAL).length;
 
     if (recentAbnormal < olderAbnormal) return 'improving';
     if (recentAbnormal > olderAbnormal) return 'declining';
@@ -334,11 +346,14 @@ export class VitalsService {
     };
   }
 
-  async updateAIAnalysis(id: string, analysis: {
-    aiAnalysis?: string;
-    aiRiskScore?: number;
-    aiRecommendations?: string[];
-  }): Promise<VitalReading> {
+  async updateAIAnalysis(
+    id: string,
+    analysis: {
+      aiAnalysis?: string;
+      aiRiskScore?: number;
+      aiRecommendations?: string[];
+    },
+  ): Promise<VitalReading> {
     const vital = await this.findById(id);
     if (!vital) {
       throw new NotFoundException('Vital reading not found');
@@ -366,7 +381,10 @@ export class VitalsService {
       .where('vital.patientId = :patientId', { patientId });
 
     if (startDate && endDate) {
-      queryBuilder.andWhere('vital.recordedAt BETWEEN :startDate AND :endDate', { startDate, endDate });
+      queryBuilder.andWhere('vital.recordedAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
     } else if (startDate) {
       queryBuilder.andWhere('vital.recordedAt >= :startDate', { startDate });
     } else if (endDate) {

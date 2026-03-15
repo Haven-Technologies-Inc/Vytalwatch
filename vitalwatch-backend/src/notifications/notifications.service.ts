@@ -73,7 +73,9 @@ export class NotificationsService {
     return true;
   }
 
-  async sendNotification(options: SendNotificationOptions): Promise<{ email?: boolean; sms?: boolean }> {
+  async sendNotification(
+    options: SendNotificationOptions,
+  ): Promise<{ email?: boolean; sms?: boolean }> {
     const { user, category, title, message, data, forceEmail, forceSms, severity } = options;
     const preferences = this.getUserPreferences(user);
     const results: { email?: boolean; sms?: boolean } = {};
@@ -100,7 +102,12 @@ export class NotificationsService {
         results.email = true;
       } catch (error) {
         this.logger.error(`Failed to send email notification to ${user.email}`, error);
-        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.FAILED, undefined, error.message);
+        await this.updateNotificationStatus(
+          emailNotification.id,
+          NotificationStatus.FAILED,
+          undefined,
+          error.message,
+        );
         results.email = false;
       }
     }
@@ -159,7 +166,12 @@ export class NotificationsService {
       await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
     } catch (error) {
       this.logger.error(`Failed to send welcome email to ${user.email}`, error);
-      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+      await this.updateNotificationStatus(
+        notification.id,
+        NotificationStatus.FAILED,
+        undefined,
+        error.message,
+      );
     }
   }
 
@@ -184,7 +196,12 @@ export class NotificationsService {
       await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
     } catch (error) {
       this.logger.error(`Failed to send verification email to ${user.email}`, error);
-      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+      await this.updateNotificationStatus(
+        notification.id,
+        NotificationStatus.FAILED,
+        undefined,
+        error.message,
+      );
     }
   }
 
@@ -209,7 +226,12 @@ export class NotificationsService {
       await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
     } catch (error) {
       this.logger.error(`Failed to send magic link email to ${user.email}`, error);
-      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+      await this.updateNotificationStatus(
+        notification.id,
+        NotificationStatus.FAILED,
+        undefined,
+        error.message,
+      );
     }
   }
 
@@ -234,7 +256,12 @@ export class NotificationsService {
       await this.updateNotificationStatus(notification.id, NotificationStatus.SENT);
     } catch (error) {
       this.logger.error(`Failed to send password reset email to ${user.email}`, error);
-      await this.updateNotificationStatus(notification.id, NotificationStatus.FAILED, undefined, error.message);
+      await this.updateNotificationStatus(
+        notification.id,
+        NotificationStatus.FAILED,
+        undefined,
+        error.message,
+      );
     }
   }
 
@@ -260,13 +287,23 @@ export class NotificationsService {
       try {
         await this.emailService.sendHealthAlert(
           { email: user.email, firstName: user.firstName },
-          { id: alert.id, type: alert.type, severity: alert.severity as 'info' | 'warning' | 'critical', message: alert.message },
+          {
+            id: alert.id,
+            type: alert.type,
+            severity: alert.severity as 'info' | 'warning' | 'critical',
+            message: alert.message,
+          },
         );
         await this.updateNotificationStatus(emailNotification.id, NotificationStatus.SENT);
         results.email = true;
       } catch (error) {
         this.logger.error(`Failed to send alert email to ${user.email}`, error);
-        await this.updateNotificationStatus(emailNotification.id, NotificationStatus.FAILED, undefined, error.message);
+        await this.updateNotificationStatus(
+          emailNotification.id,
+          NotificationStatus.FAILED,
+          undefined,
+          error.message,
+        );
         results.email = false;
       }
     }
@@ -393,7 +430,7 @@ export class NotificationsService {
   async sendSmsVerificationCode(phone: string, code: string): Promise<void> {
     await this.smsService.send(
       phone,
-      `Your VytalWatch AI verification code is: ${code}. This code expires in 10 minutes.`
+      `Your VytalWatch AI verification code is: ${code}. This code expires in 10 minutes.`,
     );
   }
 

@@ -3,19 +3,11 @@
  * Database client with lifecycle management
  */
 
-import {
-  Injectable,
-  OnModuleInit,
-  OnModuleDestroy,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 
 @Injectable()
-export class PrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
@@ -57,14 +49,14 @@ export class PrismaService
     }
 
     const models = Reflect.ownKeys(this).filter(
-      (key) =>
-        typeof key === 'string' && !key.startsWith('_') && !key.startsWith('$'),
+      (key) => typeof key === 'string' && !key.startsWith('_') && !key.startsWith('$'),
     ) as string[];
 
     return Promise.all(
       models.map((modelKey) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        const model = (this as unknown as Record<string, { deleteMany?: () => Promise<unknown> }>)[modelKey];
+        const model = (this as unknown as Record<string, { deleteMany?: () => Promise<unknown> }>)[
+          modelKey
+        ];
         return model?.deleteMany?.();
       }),
     );

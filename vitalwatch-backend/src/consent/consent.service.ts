@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConsentTemplate, PatientConsent, ConsentStatus, ConsentType } from './entities/consent.entity';
+import {
+  ConsentTemplate,
+  PatientConsent,
+  ConsentStatus,
+  ConsentType,
+} from './entities/consent.entity';
 import {
   CreateConsentTemplateDto,
   UpdateConsentTemplateDto,
@@ -36,7 +41,10 @@ export class ConsentService {
     private readonly emailService: EmailService,
   ) {}
 
-  async createTemplate(dto: CreateConsentTemplateDto, user: CurrentUserPayload): Promise<ConsentTemplate> {
+  async createTemplate(
+    dto: CreateConsentTemplateDto,
+    user: CurrentUserPayload,
+  ): Promise<ConsentTemplate> {
     const template = this.templateRepository.create({
       ...dto,
       organizationId: user.organizationId,
@@ -56,7 +64,8 @@ export class ConsentService {
   }
 
   async findAllTemplates(user: CurrentUserPayload) {
-    const query = this.templateRepository.createQueryBuilder('template')
+    const query = this.templateRepository
+      .createQueryBuilder('template')
       .where('template.isActive = :active', { active: true });
 
     if (user.role !== UserRole.SUPERADMIN) {
@@ -76,10 +85,18 @@ export class ConsentService {
     return template;
   }
 
-  async updateTemplate(id: string, dto: UpdateConsentTemplateDto, user: CurrentUserPayload): Promise<ConsentTemplate> {
+  async updateTemplate(
+    id: string,
+    dto: UpdateConsentTemplateDto,
+    user: CurrentUserPayload,
+  ): Promise<ConsentTemplate> {
     const template = await this.findTemplateById(id);
 
-    if (template.organizationId && template.organizationId !== user.organizationId && user.role !== UserRole.SUPERADMIN) {
+    if (
+      template.organizationId &&
+      template.organizationId !== user.organizationId &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
       throw new ForbiddenException('Cannot modify this template');
     }
 
@@ -96,7 +113,12 @@ export class ConsentService {
     return saved;
   }
 
-  async sendConsent(dto: SendConsentDto, user: CurrentUserPayload, _ip?: string, _userAgent?: string): Promise<PatientConsent> {
+  async sendConsent(
+    dto: SendConsentDto,
+    user: CurrentUserPayload,
+    _ip?: string,
+    _userAgent?: string,
+  ): Promise<PatientConsent> {
     const template = await this.findTemplateById(dto.templateId);
 
     const existingActive = await this.consentRepository.findOne({
@@ -141,14 +163,24 @@ export class ConsentService {
     return saved;
   }
 
-  async signConsent(id: string, dto: SignConsentDto, user: CurrentUserPayload, ip?: string, userAgent?: string): Promise<PatientConsent> {
+  async signConsent(
+    id: string,
+    dto: SignConsentDto,
+    user: CurrentUserPayload,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<PatientConsent> {
     const consent = await this.findConsentById(id);
 
     if (consent.status !== ConsentStatus.PENDING) {
       throw new BadRequestException('This consent cannot be signed');
     }
 
-    if (consent.patientId !== user.sub && user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+    if (
+      consent.patientId !== user.sub &&
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
       throw new ForbiddenException('Only the patient can sign this consent');
     }
 
@@ -179,7 +211,11 @@ export class ConsentService {
     return saved;
   }
 
-  async witnessConsent(id: string, dto: WitnessConsentDto, user: CurrentUserPayload): Promise<PatientConsent> {
+  async witnessConsent(
+    id: string,
+    dto: WitnessConsentDto,
+    user: CurrentUserPayload,
+  ): Promise<PatientConsent> {
     const consent = await this.findConsentById(id);
 
     if (!consent.signedAt) {
@@ -210,7 +246,11 @@ export class ConsentService {
     return saved;
   }
 
-  async guardianSign(id: string, dto: GuardianSignConsentDto, user: CurrentUserPayload): Promise<PatientConsent> {
+  async guardianSign(
+    id: string,
+    dto: GuardianSignConsentDto,
+    user: CurrentUserPayload,
+  ): Promise<PatientConsent> {
     const consent = await this.findConsentById(id);
 
     consent.guardianName = dto.guardianName;
@@ -235,14 +275,22 @@ export class ConsentService {
     return saved;
   }
 
-  async revokeConsent(id: string, dto: RevokeConsentDto, user: CurrentUserPayload): Promise<PatientConsent> {
+  async revokeConsent(
+    id: string,
+    dto: RevokeConsentDto,
+    user: CurrentUserPayload,
+  ): Promise<PatientConsent> {
     const consent = await this.findConsentById(id);
 
     if (consent.status !== ConsentStatus.SIGNED) {
       throw new BadRequestException('Only signed consents can be revoked');
     }
 
-    if (consent.patientId !== user.sub && user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+    if (
+      consent.patientId !== user.sub &&
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
       throw new ForbiddenException('Only the patient or admin can revoke this consent');
     }
 
@@ -292,7 +340,8 @@ export class ConsentService {
     const { page = 1, limit = 20, patientId, type, status } = filters;
     const skip = (page - 1) * limit;
 
-    const query = this.consentRepository.createQueryBuilder('consent')
+    const query = this.consentRepository
+      .createQueryBuilder('consent')
       .leftJoinAndSelect('consent.patient', 'patient')
       .leftJoinAndSelect('consent.template', 'template');
 
@@ -327,7 +376,10 @@ export class ConsentService {
     };
   }
 
-  async getConsentStatus(patientId: string, type: ConsentType): Promise<{ hasConsent: boolean; consent?: PatientConsent }> {
+  async getConsentStatus(
+    patientId: string,
+    type: ConsentType,
+  ): Promise<{ hasConsent: boolean; consent?: PatientConsent }> {
     const consent = await this.consentRepository.findOne({
       where: {
         patientId,
@@ -361,7 +413,10 @@ export class ConsentService {
     });
   }
 
-  async sendReminder(consentId: string, user: CurrentUserPayload): Promise<{ success: boolean; message: string }> {
+  async sendReminder(
+    consentId: string,
+    user: CurrentUserPayload,
+  ): Promise<{ success: boolean; message: string }> {
     const consent = await this.consentRepository.findOne({
       where: { id: consentId },
       relations: ['patient', 'template'],
@@ -436,7 +491,9 @@ export class ConsentService {
         return [];
       }
     } catch {
-      this.logger.warn('Could not check consent templates - table may not exist yet. Will retry on next startup.');
+      this.logger.warn(
+        'Could not check consent templates - table may not exist yet. Will retry on next startup.',
+      );
       return [];
     }
 
@@ -690,7 +747,9 @@ export class ConsentService {
       this.logger.log(`Seeded ${templates.length} default consent templates`);
       return templates;
     } catch {
-      this.logger.warn('Could not seed consent templates - table may not be ready. Will retry on next startup.');
+      this.logger.warn(
+        'Could not seed consent templates - table may not be ready. Will retry on next startup.',
+      );
       return [];
     }
   }

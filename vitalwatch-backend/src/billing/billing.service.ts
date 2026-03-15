@@ -35,12 +35,15 @@ export class BillingService {
   private readonly logger = new Logger(BillingService.name);
   private stripe: Stripe;
 
-  private readonly PLAN_CONFIGS: Record<PlanType, {
-    priceId: string;
-    monthlyPrice: number;
-    patientLimit: number;
-    providerLimit: number;
-  }> = {
+  private readonly PLAN_CONFIGS: Record<
+    PlanType,
+    {
+      priceId: string;
+      monthlyPrice: number;
+      patientLimit: number;
+      providerLimit: number;
+    }
+  > = {
     [PlanType.STARTER]: {
       priceId: '',
       monthlyPrice: 299,
@@ -116,14 +119,22 @@ export class BillingService {
         metadata: { userId: dto.userId, organizationId: dto.organizationId || '' },
       });
       await this.enterpriseLogger.logPayment({
-        operation: ApiOperation.CUSTOMER_CREATE, userId: dto.userId, organizationId: dto.organizationId,
-        endpoint: '/v1/customers', method: 'POST', success: true, durationMs: Date.now() - startTime,
+        operation: ApiOperation.CUSTOMER_CREATE,
+        userId: dto.userId,
+        organizationId: dto.organizationId,
+        endpoint: '/v1/customers',
+        method: 'POST',
+        success: true,
+        durationMs: Date.now() - startTime,
         metadata: { stripeCustomerId: customer.id },
       });
     } catch (error) {
       await this.enterpriseLogger.logPayment({
-        operation: ApiOperation.CUSTOMER_CREATE, userId: dto.userId, success: false,
-        errorMessage: error.message, durationMs: Date.now() - startTime,
+        operation: ApiOperation.CUSTOMER_CREATE,
+        userId: dto.userId,
+        success: false,
+        errorMessage: error.message,
+        durationMs: Date.now() - startTime,
       });
       throw error;
     }
@@ -139,14 +150,24 @@ export class BillingService {
         expand: ['latest_invoice.payment_intent'],
       });
       await this.enterpriseLogger.logPayment({
-        operation: ApiOperation.SUBSCRIPTION_CREATE, userId: dto.userId, organizationId: dto.organizationId,
-        endpoint: '/v1/subscriptions', method: 'POST', success: true, durationMs: Date.now() - subStartTime,
-        amount: planConfig.monthlyPrice, currency: 'usd', metadata: { subscriptionId: stripeSubscription.id, plan: dto.plan },
+        operation: ApiOperation.SUBSCRIPTION_CREATE,
+        userId: dto.userId,
+        organizationId: dto.organizationId,
+        endpoint: '/v1/subscriptions',
+        method: 'POST',
+        success: true,
+        durationMs: Date.now() - subStartTime,
+        amount: planConfig.monthlyPrice,
+        currency: 'usd',
+        metadata: { subscriptionId: stripeSubscription.id, plan: dto.plan },
       });
     } catch (error) {
       await this.enterpriseLogger.logPayment({
-        operation: ApiOperation.SUBSCRIPTION_CREATE, userId: dto.userId, success: false,
-        errorMessage: error.message, durationMs: Date.now() - subStartTime,
+        operation: ApiOperation.SUBSCRIPTION_CREATE,
+        userId: dto.userId,
+        success: false,
+        errorMessage: error.message,
+        durationMs: Date.now() - subStartTime,
       });
       throw error;
     }
@@ -315,7 +336,9 @@ export class BillingService {
       case CPTCode.DEVICE_SUPPLY: {
         // 99454 requires at least 16 days of readings per month
         if (dto.daysWithReadings && dto.daysWithReadings < 16) {
-          throw new BadRequestException('Device supply (99454) requires at least 16 days of readings');
+          throw new BadRequestException(
+            'Device supply (99454) requires at least 16 days of readings',
+          );
         }
         break;
       }
@@ -339,7 +362,9 @@ export class BillingService {
           },
         });
         if (!existingBase) {
-          throw new BadRequestException('Additional review (99458) requires base review (99457) first');
+          throw new BadRequestException(
+            'Additional review (99458) requires base review (99457) first',
+          );
         }
 
         const additionalCount = await this.billingRecordRepository.count({
@@ -368,16 +393,29 @@ export class BillingService {
     page?: number;
     limit?: number;
   }): Promise<{ records: BillingRecord[]; total: number }> {
-    const { patientId, providerId, organizationId, status, startDate, endDate, page = 1, limit = 50 } = options;
+    const {
+      patientId,
+      providerId,
+      organizationId,
+      status,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 50,
+    } = options;
 
     const queryBuilder = this.billingRecordRepository.createQueryBuilder('record');
 
     if (patientId) queryBuilder.andWhere('record.patientId = :patientId', { patientId });
     if (providerId) queryBuilder.andWhere('record.providerId = :providerId', { providerId });
-    if (organizationId) queryBuilder.andWhere('record.organizationId = :organizationId', { organizationId });
+    if (organizationId)
+      queryBuilder.andWhere('record.organizationId = :organizationId', { organizationId });
     if (status) queryBuilder.andWhere('record.status = :status', { status });
     if (startDate && endDate) {
-      queryBuilder.andWhere('record.serviceDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      queryBuilder.andWhere('record.serviceDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
     }
 
     queryBuilder
@@ -415,11 +453,11 @@ export class BillingService {
     const records = await this.billingRecordRepository.find({ where: baseWhere });
 
     const totalRevenue = records
-      .filter(r => r.status === BillingStatus.PAID)
+      .filter((r) => r.status === BillingStatus.PAID)
       .reduce((sum, r) => sum + Number(r.amount), 0);
 
     const pendingAmount = records
-      .filter(r => r.status === BillingStatus.PENDING || r.status === BillingStatus.SUBMITTED)
+      .filter((r) => r.status === BillingStatus.PENDING || r.status === BillingStatus.SUBMITTED)
       .reduce((sum, r) => sum + Number(r.amount), 0);
 
     const recordsByStatus = {
@@ -437,7 +475,7 @@ export class BillingService {
       [CPTCode.CLINICAL_REVIEW_ADDITIONAL]: 0,
     };
 
-    records.forEach(r => {
+    records.forEach((r) => {
       recordsByStatus[r.status]++;
       recordsByCPT[r.cptCode]++;
     });
@@ -458,7 +496,8 @@ export class BillingService {
     const queryBuilder = this.invoiceRepository.createQueryBuilder('invoice');
 
     if (userId) queryBuilder.andWhere('invoice.userId = :userId', { userId });
-    if (organizationId) queryBuilder.andWhere('invoice.organizationId = :organizationId', { organizationId });
+    if (organizationId)
+      queryBuilder.andWhere('invoice.organizationId = :organizationId', { organizationId });
     if (status) queryBuilder.andWhere('invoice.status = :status', { status });
 
     queryBuilder
@@ -480,7 +519,10 @@ export class BillingService {
   }
 
   // Customer Management
-  async createStripeCustomer(dto: { email: string; name: string; organizationId?: string }, user: any): Promise<any> {
+  async createStripeCustomer(
+    dto: { email: string; name: string; organizationId?: string },
+    user: any,
+  ): Promise<any> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
@@ -524,7 +566,10 @@ export class BillingService {
   }
 
   // Checkout Session
-  async createCheckoutSession(dto: { priceId: string; successUrl: string; cancelUrl: string }, user: any): Promise<any> {
+  async createCheckoutSession(
+    dto: { priceId: string; successUrl: string; cancelUrl: string },
+    user: any,
+  ): Promise<any> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
@@ -630,14 +675,19 @@ export class BillingService {
 
   // Usage
   async getUsage(user: any, options: { startDate?: string; endDate?: string }): Promise<any> {
-    const queryBuilder = this.billingRecordRepository.createQueryBuilder('record')
+    const queryBuilder = this.billingRecordRepository
+      .createQueryBuilder('record')
       .where('record.organizationId = :organizationId', { organizationId: user.organizationId });
 
     if (options.startDate) {
-      queryBuilder.andWhere('record.serviceDate >= :startDate', { startDate: new Date(options.startDate) });
+      queryBuilder.andWhere('record.serviceDate >= :startDate', {
+        startDate: new Date(options.startDate),
+      });
     }
     if (options.endDate) {
-      queryBuilder.andWhere('record.serviceDate <= :endDate', { endDate: new Date(options.endDate) });
+      queryBuilder.andWhere('record.serviceDate <= :endDate', {
+        endDate: new Date(options.endDate),
+      });
     }
 
     const records = await queryBuilder.getMany();
@@ -648,10 +698,14 @@ export class BillingService {
       totalBillable,
       recordCount: records.length,
       byCode: {
-        [CPTCode.INITIAL_SETUP]: records.filter(r => r.cptCode === CPTCode.INITIAL_SETUP).length,
-        [CPTCode.DEVICE_SUPPLY]: records.filter(r => r.cptCode === CPTCode.DEVICE_SUPPLY).length,
-        [CPTCode.CLINICAL_REVIEW_20]: records.filter(r => r.cptCode === CPTCode.CLINICAL_REVIEW_20).length,
-        [CPTCode.CLINICAL_REVIEW_ADDITIONAL]: records.filter(r => r.cptCode === CPTCode.CLINICAL_REVIEW_ADDITIONAL).length,
+        [CPTCode.INITIAL_SETUP]: records.filter((r) => r.cptCode === CPTCode.INITIAL_SETUP).length,
+        [CPTCode.DEVICE_SUPPLY]: records.filter((r) => r.cptCode === CPTCode.DEVICE_SUPPLY).length,
+        [CPTCode.CLINICAL_REVIEW_20]: records.filter(
+          (r) => r.cptCode === CPTCode.CLINICAL_REVIEW_20,
+        ).length,
+        [CPTCode.CLINICAL_REVIEW_ADDITIONAL]: records.filter(
+          (r) => r.cptCode === CPTCode.CLINICAL_REVIEW_ADDITIONAL,
+        ).length,
       },
       period: options,
     };
@@ -674,7 +728,13 @@ export class BillingService {
         name: 'Pro',
         price: 799,
         interval: 'month',
-        features: ['Up to 200 patients', '10 providers', 'Advanced analytics', 'Priority support', 'API access'],
+        features: [
+          'Up to 200 patients',
+          '10 providers',
+          'Advanced analytics',
+          'Priority support',
+          'API access',
+        ],
         patientLimit: 200,
         providerLimit: 10,
         popular: true,
@@ -684,7 +744,13 @@ export class BillingService {
         name: 'Enterprise',
         price: null,
         interval: 'month',
-        features: ['Unlimited patients', 'Unlimited providers', 'Custom integrations', 'Dedicated support', 'SLA guarantee'],
+        features: [
+          'Unlimited patients',
+          'Unlimited providers',
+          'Custom integrations',
+          'Dedicated support',
+          'SLA guarantee',
+        ],
         patientLimit: -1,
         providerLimit: -1,
         custom: true,
@@ -694,7 +760,7 @@ export class BillingService {
 
   async getPricingPlan(id: string): Promise<any> {
     const plans = await this.getPricingPlans();
-    return plans.find(p => p.id === id);
+    return plans.find((p) => p.id === id);
   }
 
   // Setup Intent
@@ -722,7 +788,7 @@ export class BillingService {
     }
 
     const webhookSecret = this.configService.get('stripe.webhookSecret');
-    
+
     let event: Stripe.Event;
     try {
       event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
@@ -732,21 +798,23 @@ export class BillingService {
     }
 
     await this.enterpriseLogger.logPayment({
-      operation: ApiOperation.WEBHOOK_RECEIVED, success: true,
-      endpoint: '/billing/webhook', method: 'POST',
+      operation: ApiOperation.WEBHOOK_RECEIVED,
+      success: true,
+      endpoint: '/billing/webhook',
+      method: 'POST',
       metadata: { eventType: event.type, eventId: event.id },
     });
 
     switch (event.type) {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
-        await this.handleSubscriptionUpdate(event.data.object as Stripe.Subscription);
+        await this.handleSubscriptionUpdate(event.data.object);
         break;
       case 'invoice.paid':
-        await this.handleInvoicePaid(event.data.object as Stripe.Invoice);
+        await this.handleInvoicePaid(event.data.object);
         break;
       case 'invoice.payment_failed':
-        await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+        await this.handleInvoicePaymentFailed(event.data.object);
         break;
     }
 
@@ -760,7 +828,9 @@ export class BillingService {
 
     if (subscription) {
       subscription.status = this.mapStripeStatus(stripeSubscription.status);
-      subscription.currentPeriodEnd = new Date((stripeSubscription as any).current_period_end * 1000);
+      subscription.currentPeriodEnd = new Date(
+        (stripeSubscription as any).current_period_end * 1000,
+      );
       await this.subscriptionRepository.save(subscription);
     }
   }

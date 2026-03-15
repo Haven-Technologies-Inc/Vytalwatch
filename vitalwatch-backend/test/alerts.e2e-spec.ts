@@ -49,14 +49,12 @@ describe('Alerts (e2e)', () => {
       httpServer = app.getHttpServer();
 
       // Register and login
-      await request(httpServer)
-        .post('/api/v1/auth/register')
-        .send({
-          email: alertsEmail,
-          password: alertsPassword,
-          firstName: 'Alert',
-          lastName: 'Tester',
-        });
+      await request(httpServer).post('/api/v1/auth/register').send({
+        email: alertsEmail,
+        password: alertsPassword,
+        firstName: 'Alert',
+        lastName: 'Tester',
+      });
 
       const loginRes = await request(httpServer)
         .post('/api/v1/auth/login')
@@ -104,9 +102,7 @@ describe('Alerts (e2e)', () => {
     it('GET /api/v1/alerts should return 401 without a token', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/api/v1/alerts')
-        .expect(401);
+      await request(httpServer).get('/api/v1/alerts').expect(401);
     });
 
     it('should return 401 with a malformed bearer token', async () => {
@@ -362,9 +358,7 @@ describe('Alerts (e2e)', () => {
       if (skipIfNoApp()) return;
 
       const fakeId = '00000000-0000-4000-a000-000000000099';
-      await request(httpServer)
-        .put(`/api/v1/alerts/${fakeId}/acknowledge`)
-        .expect(401);
+      await request(httpServer).put(`/api/v1/alerts/${fakeId}/acknowledge`).expect(401);
     });
 
     it('should return 400 for an invalid UUID parameter', async () => {
@@ -427,10 +421,7 @@ describe('Alerts (e2e)', () => {
         .post('/api/v1/alerts/bulk-acknowledge')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
-          ids: [
-            '00000000-0000-4000-a000-000000000099',
-            '00000000-0000-4000-a000-000000000098',
-          ],
+          ids: ['00000000-0000-4000-a000-000000000099', '00000000-0000-4000-a000-000000000098'],
         });
 
       expect(response.status).toBe(403);

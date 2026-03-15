@@ -7,10 +7,7 @@ import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Message, MessageThread, User]),
-    NotificationsModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Message, MessageThread, User]), NotificationsModule],
   controllers: [MessagingController],
   providers: [MessagingService],
   exports: [MessagingService],

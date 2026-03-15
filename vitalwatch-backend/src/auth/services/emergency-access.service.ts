@@ -22,7 +22,12 @@ export class EmergencyAccessService {
     private readonly auditService: AuditService,
   ) {}
 
-  async requestAccess(userId: string, patientId: string, reason: string, ip: string): Promise<EmergencyAccessGrant> {
+  async requestAccess(
+    userId: string,
+    patientId: string,
+    reason: string,
+    ip: string,
+  ): Promise<EmergencyAccessGrant> {
     if (!this.configService.get('emergencyAccess.enabled')) {
       throw new ForbiddenException('Emergency access disabled');
     }
@@ -47,7 +52,9 @@ export class EmergencyAccessService {
       ipAddress: ip,
     });
 
-    this.logger.warn(`BREAK-GLASS: User ${userId} accessed patient ${patientId}. Reason: ${reason}`);
+    this.logger.warn(
+      `BREAK-GLASS: User ${userId} accessed patient ${patientId}. Reason: ${reason}`,
+    );
     return grant;
   }
 

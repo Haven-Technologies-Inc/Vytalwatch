@@ -74,10 +74,7 @@ export class IntegrationsController {
   @Post(':name/test')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
-  async testIntegration(
-    @Param('name') name: string,
-    @Body() dto: TestIntegrationDto,
-  ) {
+  async testIntegration(@Param('name') name: string, @Body() dto: TestIntegrationDto) {
     return this.integrationsService.testIntegration(name, dto);
   }
 

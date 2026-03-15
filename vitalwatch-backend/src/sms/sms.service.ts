@@ -58,13 +58,17 @@ export class SmsService {
     const startTime = Date.now();
     try {
       const message = await this.twilioClient.messages.create({
-        body, to, from: this.fromNumber,
+        body,
+        to,
+        from: this.fromNumber,
       });
 
       this.logger.log(`SMS sent to ${to}, SID: ${message.sid}`);
       await this.enterpriseLogger.logSms({
-        operation: ApiOperation.SMS_SEND, success: true,
-        endpoint: 'api.twilio.com/messages', method: 'POST',
+        operation: ApiOperation.SMS_SEND,
+        success: true,
+        endpoint: 'api.twilio.com/messages',
+        method: 'POST',
         durationMs: Date.now() - startTime,
         metadata: { messageSid: message.sid, toMasked: this.maskPhone(to) },
       });
@@ -72,9 +76,13 @@ export class SmsService {
     } catch (error: any) {
       this.logger.error(`Failed to send SMS to ${to}`, error);
       await this.enterpriseLogger.logSms({
-        operation: ApiOperation.SMS_SEND, success: false, severity: LogSeverity.ERROR,
-        endpoint: 'api.twilio.com/messages', method: 'POST',
-        durationMs: Date.now() - startTime, errorMessage: error.message,
+        operation: ApiOperation.SMS_SEND,
+        success: false,
+        severity: LogSeverity.ERROR,
+        endpoint: 'api.twilio.com/messages',
+        method: 'POST',
+        durationMs: Date.now() - startTime,
+        errorMessage: error.message,
         metadata: { toMasked: this.maskPhone(to) },
       });
       return { success: false, error: error.message };
@@ -85,7 +93,7 @@ export class SmsService {
 
   async sendVerificationCode(recipient: SmsRecipient, code: string): Promise<SmsResult> {
     const message = `${this.appName}: Your verification code is ${code}. This code expires in 10 minutes. Do not share this code with anyone.`;
-    
+
     await this.auditService.log({
       action: 'SMS_VERIFICATION_SENT',
       details: { phone: this.maskPhone(recipient.phone) },
@@ -96,20 +104,20 @@ export class SmsService {
 
   async sendPasswordResetCode(recipient: SmsRecipient, code: string): Promise<SmsResult> {
     const message = `${this.appName}: Your password reset code is ${code}. This code expires in 15 minutes. If you didn't request this, ignore this message.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
   async sendMagicLinkCode(recipient: SmsRecipient, code: string): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const message = `${name}${this.appName}: Your sign-in code is ${code}. This code expires in 15 minutes.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
   async send2FACode(recipient: SmsRecipient, code: string): Promise<SmsResult> {
     const message = `${this.appName}: Your two-factor authentication code is ${code}. Valid for 5 minutes.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -121,12 +129,16 @@ export class SmsService {
   ): Promise<SmsResult> {
     const severityEmoji = this.getSeverityEmoji(alert.severity);
     const patientInfo = alert.patientName ? `Patient: ${alert.patientName}. ` : '';
-    
+
     const message = `${severityEmoji} ${this.appName} ALERT [${alert.severity.toUpperCase()}]: ${patientInfo}${alert.type} - ${alert.message}`;
-    
+
     await this.auditService.log({
       action: 'SMS_HEALTH_ALERT_SENT',
-      details: { phone: this.maskPhone(recipient.phone), alertType: alert.type, severity: alert.severity },
+      details: {
+        phone: this.maskPhone(recipient.phone),
+        alertType: alert.type,
+        severity: alert.severity,
+      },
     });
 
     return this.send(recipient.phone, message);
@@ -138,7 +150,7 @@ export class SmsService {
   ): Promise<SmsResult> {
     const patientInfo = alert.patientName ? `for ${alert.patientName} ` : '';
     const message = `🚨 URGENT ${this.appName}: Critical ${alert.type} reading ${patientInfo}detected: ${alert.value}. Immediate attention required. Call 911 if emergency.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -150,12 +162,16 @@ export class SmsService {
   ): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const date = new Date(appointment.dateTime);
-    const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const formattedDate = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     const formattedTime = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const apptType = appointment.type ? ` (${appointment.type})` : '';
-    
+
     const message = `${name}${this.appName} Reminder: Your appointment${apptType} with ${appointment.providerName} is on ${formattedDate} at ${formattedTime}. Reply CONFIRM to confirm.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -164,11 +180,15 @@ export class SmsService {
     appointment: { providerName: string; dateTime: Date | string },
   ): Promise<SmsResult> {
     const date = new Date(appointment.dateTime);
-    const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const formattedDate = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     const formattedTime = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    
+
     const message = `${this.appName}: Your appointment with ${appointment.providerName} is confirmed for ${formattedDate} at ${formattedTime}. We look forward to seeing you!`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -177,11 +197,15 @@ export class SmsService {
     appointment: { providerName: string; dateTime: Date | string; reason?: string },
   ): Promise<SmsResult> {
     const date = new Date(appointment.dateTime);
-    const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const formattedDate = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     const reason = appointment.reason ? ` Reason: ${appointment.reason}` : '';
-    
+
     const message = `${this.appName}: Your appointment with ${appointment.providerName} on ${formattedDate} has been cancelled.${reason} Please reschedule at your convenience.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -193,7 +217,7 @@ export class SmsService {
   ): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const message = `💊 ${name}${this.appName} Reminder: Time to take your ${medication.name} (${medication.dosage}). Scheduled for ${medication.time}.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -202,7 +226,7 @@ export class SmsService {
     medication: { name: string; daysRemaining: number },
   ): Promise<SmsResult> {
     const message = `${this.appName}: Your ${medication.name} prescription has ${medication.daysRemaining} days remaining. Please contact your pharmacy for a refill.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -211,7 +235,7 @@ export class SmsService {
   async sendReadingReminder(recipient: SmsRecipient, vitalType: string): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const message = `📊 ${name}${this.appName} Reminder: It's time to take your ${vitalType} reading. Open the app to record your measurement.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -221,7 +245,7 @@ export class SmsService {
   ): Promise<SmsResult> {
     const emoji = reading.status === 'critical' ? '🚨' : '⚠️';
     const message = `${emoji} ${this.appName}: Your ${reading.type} reading of ${reading.value} is ${reading.status}. Please review in the app or contact your provider.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -234,9 +258,9 @@ export class SmsService {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const tracking = device.trackingNumber ? ` Tracking: ${device.trackingNumber}` : '';
     const delivery = device.estimatedDelivery ? ` Est. delivery: ${device.estimatedDelivery}` : '';
-    
+
     const message = `📦 ${name}${this.appName}: Your ${device.name} has shipped!${tracking}${delivery}`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -246,9 +270,9 @@ export class SmsService {
   ): Promise<SmsResult> {
     const emoji = device.status === 'connected' ? '✅' : '⚠️';
     const statusText = device.status === 'connected' ? 'is now connected' : 'has disconnected';
-    
+
     const message = `${emoji} ${this.appName}: Your ${device.name} ${statusText}. ${device.status === 'disconnected' ? 'Please check the device.' : ''}`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -257,7 +281,7 @@ export class SmsService {
   async sendWelcome(recipient: SmsRecipient): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}! ` : '';
     const message = `${name}Welcome to ${this.appName}! 🎉 Your account is ready. Download our app to get started with remote health monitoring.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -267,9 +291,9 @@ export class SmsService {
   ): Promise<SmsResult> {
     const location = event.location ? ` from ${event.location}` : '';
     const device = event.device ? ` on ${event.device}` : '';
-    
+
     const message = `🔐 ${this.appName} Security: ${event.type}${location}${device}. If this wasn't you, secure your account immediately.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -280,7 +304,7 @@ export class SmsService {
     payment: { amount: string; dueDate: string },
   ): Promise<SmsResult> {
     const message = `${this.appName}: Your payment of ${payment.amount} is due on ${payment.dueDate}. Log in to manage your subscription.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -289,7 +313,7 @@ export class SmsService {
     payment: { amount: string; date: string },
   ): Promise<SmsResult> {
     const message = `✅ ${this.appName}: Payment of ${payment.amount} received on ${payment.date}. Thank you!`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -299,7 +323,7 @@ export class SmsService {
   ): Promise<SmsResult> {
     const reason = payment.reason ? ` Reason: ${payment.reason}` : '';
     const message = `⚠️ ${this.appName}: Payment of ${payment.amount} failed.${reason} Please update your payment method.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -310,7 +334,7 @@ export class SmsService {
     invite: { code: string; inviterName: string; role: string },
   ): Promise<SmsResult> {
     const message = `${this.appName}: ${invite.inviterName} invited you to join as a ${invite.role}. Use code: ${invite.code} to sign up at vytalwatch.ai`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -322,7 +346,7 @@ export class SmsService {
   ): Promise<SmsResult> {
     const name = recipient.firstName ? `Hi ${recipient.firstName}, ` : '';
     const message = `📊 ${name}${this.appName}: Your ${report.month} ${report.year} health report is ready! Log in to view your progress and insights.`;
-    
+
     return this.send(recipient.phone, message);
   }
 
@@ -330,11 +354,16 @@ export class SmsService {
 
   private getSeverityEmoji(severity: string): string {
     switch (severity.toLowerCase()) {
-      case 'critical': return '🚨';
-      case 'high': return '🔴';
-      case 'medium': return '🟠';
-      case 'low': return '🟡';
-      default: return '⚠️';
+      case 'critical':
+        return '🚨';
+      case 'high':
+        return '🔴';
+      case 'medium':
+        return '🟠';
+      case 'low':
+        return '🟡';
+      default:
+        return '⚠️';
     }
   }
 

@@ -7,11 +7,7 @@ import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([ConsentTemplate, PatientConsent]),
-    AuditModule,
-    EmailModule,
-  ],
+  imports: [TypeOrmModule.forFeature([ConsentTemplate, PatientConsent]), AuditModule, EmailModule],
   controllers: [ConsentController],
   providers: [ConsentService],
   exports: [ConsentService],

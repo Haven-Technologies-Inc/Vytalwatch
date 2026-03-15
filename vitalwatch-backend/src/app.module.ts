@@ -53,7 +53,6 @@ import { EnterpriseLoggingModule } from './enterprise-logging/enterprise-logging
 import { ComplianceModule } from './compliance/compliance.module';
 import { StaffModule } from './staff/staff.module';
 
-
 // Scheduler Module
 import { SchedulerModule } from './scheduler/scheduler.module';
 

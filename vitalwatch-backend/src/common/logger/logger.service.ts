@@ -32,9 +32,7 @@ export class WinstonLoggerService implements LoggerService {
       level: isProduction ? 'info' : 'debug',
       format: isProduction ? jsonFormat : devFormat,
       defaultMeta: { service: 'vitalwatch-backend' },
-      transports: [
-        new winston.transports.Console(),
-      ],
+      transports: [new winston.transports.Console()],
     });
   }
 

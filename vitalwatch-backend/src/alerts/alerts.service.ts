@@ -252,7 +252,12 @@ export class AlertsService {
     }
 
     // Increase severity
-    const severityOrder = [AlertSeverity.LOW, AlertSeverity.MEDIUM, AlertSeverity.HIGH, AlertSeverity.CRITICAL];
+    const severityOrder = [
+      AlertSeverity.LOW,
+      AlertSeverity.MEDIUM,
+      AlertSeverity.HIGH,
+      AlertSeverity.CRITICAL,
+    ];
     const currentIndex = severityOrder.indexOf(alert.severity);
     if (currentIndex < severityOrder.length - 1) {
       alert.severity = severityOrder[currentIndex + 1];
@@ -289,7 +294,9 @@ export class AlertsService {
     const [total, active, critical, acknowledged, resolved] = await Promise.all([
       this.alertRepository.count({ where: baseWhere }),
       this.alertRepository.count({ where: { ...baseWhere, status: AlertStatus.ACTIVE } }),
-      this.alertRepository.count({ where: { ...baseWhere, severity: AlertSeverity.CRITICAL, status: AlertStatus.ACTIVE } }),
+      this.alertRepository.count({
+        where: { ...baseWhere, severity: AlertSeverity.CRITICAL, status: AlertStatus.ACTIVE },
+      }),
       this.alertRepository.count({ where: { ...baseWhere, status: AlertStatus.ACKNOWLEDGED } }),
       this.alertRepository.count({ where: { ...baseWhere, status: AlertStatus.RESOLVED } }),
     ]);
@@ -317,10 +324,7 @@ export class AlertsService {
     return result.affected || 0;
   }
 
-  async findByPatient(
-    patientId: string,
-    status?: AlertStatus,
-  ): Promise<Alert[]> {
+  async findByPatient(patientId: string, status?: AlertStatus): Promise<Alert[]> {
     const where: any = { patientId };
     if (status) {
       where.status = status;

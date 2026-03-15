@@ -58,10 +58,7 @@ export class UsersController {
 
   @Post('invite')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async inviteUser(
-    @Body() dto: InviteUserDto,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async inviteUser(@Body() dto: InviteUserDto, @CurrentUser() user: CurrentUserPayload) {
     // Validate role
     const allowedRole = dto.role as UserRole;
     if (!Object.values(UserRole).includes(allowedRole)) {
@@ -100,12 +97,12 @@ export class UsersController {
         code: saved.code,
         role: allowedRole,
         organizationName: 'VytalWatch Health',
-        inviterName: creator
-          ? `${creator.firstName} ${creator.lastName}`
-          : 'VytalWatch Admin',
+        inviterName: creator ? `${creator.firstName} ${creator.lastName}` : 'VytalWatch Admin',
       });
     } catch (err) {
-      this.logger.warn(`Failed to send invite email to ${dto.email}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      this.logger.warn(
+        `Failed to send invite email to ${dto.email}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
     }
 
     await this.auditService.log({
@@ -200,10 +197,7 @@ export class UsersController {
 
   @Put(':id')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
 

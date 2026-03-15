@@ -1,4 +1,11 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger, ForbiddenException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  Logger,
+  ForbiddenException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -81,7 +88,10 @@ export class AuthService {
       await this.auditService.log({
         action: 'LOGIN_FAILED',
         userId: user.id,
-        details: { reason: 'Invalid password', remainingAttempts: rateLimitCheck.remainingAttempts - 1 },
+        details: {
+          reason: 'Invalid password',
+          remainingAttempts: rateLimitCheck.remainingAttempts - 1,
+        },
       });
       return null;
     }
@@ -160,7 +170,10 @@ export class AuthService {
       }
 
       // Validate invite code
-      const inviteValidation = await this.validateInviteCode(registerDto.inviteCode, registerDto.role);
+      const inviteValidation = await this.validateInviteCode(
+        registerDto.inviteCode,
+        registerDto.role,
+      );
       if (!inviteValidation.valid) {
         throw new BadRequestException(inviteValidation.error || 'Invalid invite code');
       }
@@ -201,9 +214,10 @@ export class AuthService {
             usesCount: inviteCode.usesCount + 1,
             usedById: savedUser.id,
             usedAt: new Date(),
-            status: inviteCode.usesCount + 1 >= inviteCode.maxUses
-              ? InviteCodeStatus.USED
-              : inviteCode.status,
+            status:
+              inviteCode.usesCount + 1 >= inviteCode.maxUses
+                ? InviteCodeStatus.USED
+                : inviteCode.status,
           });
         }
       }
@@ -221,7 +235,7 @@ export class AuthService {
     });
 
     // Send verification email (non-blocking, outside transaction)
-    this.notificationsService.sendEmailVerification(user).catch(err => {
+    this.notificationsService.sendEmailVerification(user).catch((err) => {
       this.logger.warn(`Failed to send verification email: ${err.message}`);
     });
 
@@ -326,16 +340,19 @@ export class AuthService {
     }
 
     // Check password history
-    const historyCheck = await this.authSecurityService.validatePasswordNotReused(userId, newPassword);
+    const historyCheck = await this.authSecurityService.validatePasswordNotReused(
+      userId,
+      newPassword,
+    );
     if (!historyCheck.valid) {
       throw new BadRequestException(historyCheck.message);
     }
 
     const newPasswordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
-    
+
     // Add current password to history before updating
     await this.authSecurityService.addPasswordToHistory(userId, user.passwordHash);
-    
+
     await this.usersService.updatePassword(userId, newPasswordHash);
 
     // Revoke all existing tokens for security
@@ -373,18 +390,21 @@ export class AuthService {
     }
 
     // Check password history
-    const historyCheck = await this.authSecurityService.validatePasswordNotReused(user.id, newPassword);
+    const historyCheck = await this.authSecurityService.validatePasswordNotReused(
+      user.id,
+      newPassword,
+    );
     if (!historyCheck.valid) {
       throw new BadRequestException(historyCheck.message);
     }
 
     const newPasswordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
-    
+
     // Add current password to history if it exists
     if (user.passwordHash) {
       await this.authSecurityService.addPasswordToHistory(user.id, user.passwordHash);
     }
-    
+
     await this.usersService.updatePassword(user.id, newPasswordHash);
     await this.usersService.clearResetToken(user.id);
 
@@ -410,7 +430,7 @@ export class AuthService {
 
     // Send verification email (non-blocking)
     const updatedUser = { ...user, verificationToken: newToken };
-    this.notificationsService.sendEmailVerification(updatedUser as any).catch(err => {
+    this.notificationsService.sendEmailVerification(updatedUser as any).catch((err) => {
       this.logger.warn(`Failed to resend verification email: ${err.message}`);
     });
   }
@@ -431,7 +451,7 @@ export class AuthService {
 
     // Send welcome email after successful verification (non-blocking)
     if (this.notificationsService) {
-      this.notificationsService.sendWelcomeNotification(user).catch(err => {
+      this.notificationsService.sendWelcomeNotification(user).catch((err) => {
         this.logger.warn(`Failed to send welcome email after verification: ${err.message}`);
       });
     }
@@ -468,27 +488,32 @@ export class AuthService {
     const unit = match[2];
 
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 3600;
-      case 'd': return value * 86400;
-      default: return 900;
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'd':
+        return value * 86400;
+      default:
+        return 900;
     }
   }
 
   async sendSmsVerificationCode(phone: string): Promise<void> {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Store code with expiry (5 minutes)
     await this.usersService.setSmsVerificationCode(phone, code);
-    
+
     // Send via Twilio
     await this.notificationsService.sendSmsVerificationCode(phone, code);
   }
 
   async verifySmsCode(phone: string, code: string): Promise<void> {
     const isValid = await this.usersService.verifySmsCode(phone, code);
-    
+
     if (!isValid) {
       throw new BadRequestException('Invalid or expired verification code');
     }
@@ -496,8 +521,17 @@ export class AuthService {
     await this.usersService.markPhoneVerified(phone);
   }
 
-  async validateSocialLogin(provider: 'google' | 'microsoft' | 'apple', token: string): Promise<User> {
-    let profile: { providerId: string; email: string; firstName: string; lastName: string; avatar?: string };
+  async validateSocialLogin(
+    provider: 'google' | 'microsoft' | 'apple',
+    token: string,
+  ): Promise<User> {
+    let profile: {
+      providerId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    };
 
     switch (provider) {
       case 'google':
@@ -516,13 +550,19 @@ export class AuthService {
     return this.validateOAuthLogin({ provider, ...profile });
   }
 
-  private async verifyGoogleToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string; avatar?: string }> {
+  private async verifyGoogleToken(token: string): Promise<{
+    providerId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  }> {
     // In production, verify with Google OAuth API
     // For now, decode the token (assuming it's a JWT from Google)
     try {
       const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
       const data = await response.json();
-      
+
       if (!data.email) {
         throw new BadRequestException('Invalid Google token');
       }
@@ -539,7 +579,13 @@ export class AuthService {
     }
   }
 
-  private async verifyMicrosoftToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string; avatar?: string }> {
+  private async verifyMicrosoftToken(token: string): Promise<{
+    providerId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  }> {
     try {
       const response = await fetch('https://graph.microsoft.com/v1.0/me', {
         headers: { Authorization: `Bearer ${token}` },
@@ -561,7 +607,9 @@ export class AuthService {
     }
   }
 
-  private async verifyAppleToken(token: string): Promise<{ providerId: string; email: string; firstName: string; lastName: string }> {
+  private async verifyAppleToken(
+    token: string,
+  ): Promise<{ providerId: string; email: string; firstName: string; lastName: string }> {
     try {
       // Dynamic imports for optional Apple auth dependencies
       const jwksRsaModule = await import('jwks-rsa');
@@ -610,7 +658,7 @@ export class AuthService {
 
   async sendMagicLink(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
-    
+
     if (!user) {
       // Don't reveal if user exists
       return;
@@ -628,7 +676,7 @@ export class AuthService {
 
   async verifyMagicLink(token: string): Promise<User> {
     const user = await this.usersService.findByMagicLinkToken(token);
-    
+
     if (!user) {
       throw new BadRequestException('Invalid or expired magic link');
     }
@@ -645,17 +693,29 @@ export class AuthService {
 
   async getCurrentUser(userId: string): Promise<Partial<User>> {
     const user = await this.usersService.findById(userId);
-    
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
     // Return user without sensitive data
-    const { passwordHash: _passwordHash, resetToken: _resetToken, verificationToken: _verificationToken, magicLinkToken: _magicLinkToken, ...safeUser } = user as any;
+    const {
+      passwordHash: _passwordHash,
+      resetToken: _resetToken,
+      verificationToken: _verificationToken,
+      magicLinkToken: _magicLinkToken,
+      ...safeUser
+    } = user as any;
     return safeUser;
   }
 
-  async getInviteInfo(code: string): Promise<{ valid: boolean; role?: string; email?: string; organizationId?: string; error?: string }> {
+  async getInviteInfo(code: string): Promise<{
+    valid: boolean;
+    role?: string;
+    email?: string;
+    organizationId?: string;
+    error?: string;
+  }> {
     const inviteCode = await this.inviteCodeRepository.findOne({ where: { code } });
     if (!inviteCode) {
       return { valid: false, error: 'Invalid invite code' };
@@ -730,9 +790,10 @@ export class AuthService {
         usesCount: inviteCode.usesCount + 1,
         usedById: userId,
         usedAt: new Date(),
-        status: inviteCode.usesCount + 1 >= inviteCode.maxUses
-          ? InviteCodeStatus.USED
-          : inviteCode.status,
+        status:
+          inviteCode.usesCount + 1 >= inviteCode.maxUses
+            ? InviteCodeStatus.USED
+            : inviteCode.status,
       });
 
       await this.auditService.log({
@@ -754,7 +815,7 @@ export class AuthService {
     },
   ): Promise<InviteCode> {
     const code = this.generateInviteCode();
-    
+
     const inviteCode = this.inviteCodeRepository.create({
       code,
       allowedRole: options.allowedRole,

@@ -128,7 +128,7 @@ export class AdminService {
 
   async regenerateApiKey(id: string, user: CurrentUserPayload) {
     const apiKey = await this.getApiKey(id, user);
-    
+
     const key = `vw_${crypto.randomBytes(32).toString('hex')}`;
     const hashedKey = crypto.createHash('sha256').update(key).digest('hex');
 
@@ -244,7 +244,13 @@ export class AdminService {
       const activeUsers = await this.userRepository.count({ where: { status: UserStatus.ACTIVE } });
       return {
         apiRequests: { total: 0, successful: 0, failed: 0 },
-        activeUsers: { total: totalUsers, active: activeUsers, daily: 0, weekly: 0, monthly: activeUsers },
+        activeUsers: {
+          total: totalUsers,
+          active: activeUsers,
+          daily: 0,
+          weekly: 0,
+          monthly: activeUsers,
+        },
         dataProcessed: { vitals: 0, alerts: 0, reports: 0 },
       };
     } catch {
@@ -437,12 +443,18 @@ export class AdminService {
       try {
         const data = await this.redis.get(MAINTENANCE_KEY);
         return data ? JSON.parse(data) : this.fallbackMaintenance;
-      } catch { /* fall through */ }
+      } catch {
+        /* fall through */
+      }
     }
     return this.fallbackMaintenance;
   }
 
-  private async persistMaintenance(state: { enabled: boolean; message: string; startedAt: string | null }): Promise<void> {
+  private async persistMaintenance(state: {
+    enabled: boolean;
+    message: string;
+    startedAt: string | null;
+  }): Promise<void> {
     this.fallbackMaintenance = { ...state };
     if (this.redisAvailable) {
       try {
@@ -480,7 +492,12 @@ export class AdminService {
       details: { pattern, keysCleared },
     });
 
-    return { success: true, pattern: pattern || '*', keysCleared, clearedAt: new Date().toISOString() };
+    return {
+      success: true,
+      pattern: pattern || '*',
+      keysCleared,
+      clearedAt: new Date().toISOString(),
+    };
   }
 
   async getCacheStats() {

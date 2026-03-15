@@ -12,15 +12,31 @@ export class RPMAnalyticsController {
 
   @Get('dashboard')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN)
-  async getDashboard(@Query('clinicId') clinicId: string, @Query('startDate') startDate: string, @Query('endDate') endDate: string) {
-    const data = await this.analytics.getDashboardAnalytics(clinicId, new Date(startDate), new Date(endDate));
+  async getDashboard(
+    @Query('clinicId') clinicId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const data = await this.analytics.getDashboardAnalytics(
+      clinicId,
+      new Date(startDate),
+      new Date(endDate),
+    );
     return { data };
   }
 
   @Get('productivity')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN)
-  async getProductivity(@Query('clinicId') clinicId: string, @Query('startDate') startDate: string, @Query('endDate') endDate: string) {
-    const data = await this.analytics.getProviderProductivity(clinicId, new Date(startDate), new Date(endDate));
+  async getProductivity(
+    @Query('clinicId') clinicId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const data = await this.analytics.getProviderProductivity(
+      clinicId,
+      new Date(startDate),
+      new Date(endDate),
+    );
     return { data };
   }
 

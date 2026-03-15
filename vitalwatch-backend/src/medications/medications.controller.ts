@@ -1,6 +1,24 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { MedicationsService } from './medications.service';
-import { CreateMedicationDto, UpdateMedicationDto, MarkTakenDto, MedicationQueryDto } from './dto/medication.dto';
+import {
+  CreateMedicationDto,
+  UpdateMedicationDto,
+  MarkTakenDto,
+  MedicationQueryDto,
+} from './dto/medication.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,7 +47,10 @@ export class MedicationsController {
   }
 
   @Get('patient/:patientId')
-  async findByPatient(@Param('patientId') patientId: string, @CurrentUser() user: CurrentUserPayload) {
+  async findByPatient(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     if (user.role === UserRole.PATIENT && user.id !== patientId) {
       return { success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } };
     }
@@ -63,19 +84,31 @@ export class MedicationsController {
 
   @Put(':id')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async update(@Param('id') id: string, @Body() dto: UpdateMedicationDto, @CurrentUser() user: CurrentUserPayload) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateMedicationDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const medication = await this.medicationsService.update(id, dto, user.id);
     return { success: true, data: medication };
   }
 
   @Post(':id/taken')
-  async markTaken(@Param('id') id: string, @Body() dto: MarkTakenDto, @CurrentUser() user: CurrentUserPayload) {
+  async markTaken(
+    @Param('id') id: string,
+    @Body() dto: MarkTakenDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const log = await this.medicationsService.markTaken(id, dto, user.id);
     return { success: true, data: log };
   }
 
   @Post(':id/skip')
-  async skip(@Param('id') id: string, @Body('reason') reason: string, @CurrentUser() user: CurrentUserPayload) {
+  async skip(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const log = await this.medicationsService.skip(id, reason, user.id);
     return { success: true, data: log };
   }
@@ -88,7 +121,11 @@ export class MedicationsController {
 
   @Post(':id/discontinue')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  async discontinue(@Param('id') id: string, @Body('reason') reason: string, @CurrentUser() user: CurrentUserPayload) {
+  async discontinue(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     const medication = await this.medicationsService.discontinue(id, reason, user.id);
     return { success: true, data: medication };
   }
@@ -96,10 +133,7 @@ export class MedicationsController {
   @Delete(':id')
   @Roles(UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload) {
     const medication = await this.medicationsService.remove(id, user.id);
     return { success: true, data: medication };
   }

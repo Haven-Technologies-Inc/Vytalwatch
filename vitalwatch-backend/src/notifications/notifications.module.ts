@@ -8,12 +8,7 @@ import { EmailModule } from '../email/email.module';
 import { SmsModule } from '../sms/sms.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Notification]),
-    ConfigModule,
-    EmailModule,
-    SmsModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Notification]), ConfigModule, EmailModule, SmsModule],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],

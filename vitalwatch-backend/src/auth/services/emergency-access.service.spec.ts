@@ -13,7 +13,9 @@ describe('EmergencyAccessService', () => {
         EmergencyAccessService,
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((key) => key === 'emergencyAccess.enabled' ? true : undefined) },
+          useValue: {
+            get: jest.fn((key) => (key === 'emergencyAccess.enabled' ? true : undefined)),
+          },
         },
         {
           provide: AuditService,

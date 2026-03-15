@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
@@ -107,11 +102,15 @@ export class PatientsService {
     this.checkAccess(patient, user);
 
     // HIPAA: Log PHI access for audit trail
-    this.auditService.log({
-      action: 'PHI_ACCESS',
-      userId: user.sub,
-      details: { patientId: id, accessType: 'view' },
-    }).catch(() => { /* non-blocking */ });
+    this.auditService
+      .log({
+        action: 'PHI_ACCESS',
+        userId: user.sub,
+        details: { patientId: id, accessType: 'view' },
+      })
+      .catch(() => {
+        /* non-blocking */
+      });
 
     return this.sanitizePatient(patient);
   }
@@ -193,21 +192,12 @@ export class PatientsService {
     });
   }
 
-  async getVitalsByType(
-    patientId: string,
-    type: string,
-    limit: number,
-    user: CurrentUserPayload,
-  ) {
+  async getVitalsByType(patientId: string, type: string, limit: number, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
     return this.vitalsService.getVitalsByType(patientId, type as any, limit);
   }
 
-  async getAlerts(
-    patientId: string,
-    status: string | undefined,
-    user: CurrentUserPayload,
-  ) {
+  async getAlerts(patientId: string, status: string | undefined, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
     return this.alertsService.findByPatient(patientId, status as any);
   }
@@ -221,8 +211,7 @@ export class PatientsService {
     await this.findOne(patientId, user);
 
     const genericDevices = await this.devicesService.findByPatient(patientId);
-    const tenoviDevices =
-      await this.tenoviService.findHwiDevicesByPatient(patientId);
+    const tenoviDevices = await this.tenoviService.findHwiDevicesByPatient(patientId);
 
     return {
       devices: genericDevices,
@@ -231,20 +220,12 @@ export class PatientsService {
     };
   }
 
-  async assignDevice(
-    patientId: string,
-    deviceId: string,
-    user: CurrentUserPayload,
-  ) {
+  async assignDevice(patientId: string, deviceId: string, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
     return this.devicesService.assignToPatient(deviceId, patientId, user.sub);
   }
 
-  async unassignDevice(
-    patientId: string,
-    deviceId: string,
-    user: CurrentUserPayload,
-  ) {
+  async unassignDevice(patientId: string, deviceId: string, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
     return this.devicesService.unassignFromPatient(deviceId, user.sub);
   }
@@ -276,11 +257,7 @@ export class PatientsService {
     return this.medicationsService.update(medicationId, dto as any, user.sub);
   }
 
-  async removeMedication(
-    patientId: string,
-    medicationId: string,
-    user: CurrentUserPayload,
-  ) {
+  async removeMedication(patientId: string, medicationId: string, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
     await this.medicationsService.remove(medicationId, user.sub);
   }
@@ -356,13 +333,10 @@ export class PatientsService {
     await this.findOne(patientId, user);
 
     // Calculate adherence based on vitals readings and medication tracking
-    const vitalsResult = await this.vitalsService.getVitalsHistory(
-      patientId,
-      {
-        startDate: options.startDate ? new Date(options.startDate) : undefined,
-        endDate: options.endDate ? new Date(options.endDate) : undefined,
-      },
-    );
+    const vitalsResult = await this.vitalsService.getVitalsHistory(patientId, {
+      startDate: options.startDate ? new Date(options.startDate) : undefined,
+      endDate: options.endDate ? new Date(options.endDate) : undefined,
+    });
 
     // Simple adherence calculation
     const totalExpected = 30; // Expected readings per month
@@ -378,14 +352,11 @@ export class PatientsService {
     };
   }
 
-  async getAppointments(
-    patientId: string,
-    _status: string,
-    user: CurrentUserPayload,
-  ) {
+  async getAppointments(patientId: string, _status: string, user: CurrentUserPayload) {
     await this.findOne(patientId, user);
 
-    const query = this.appointmentRepository.createQueryBuilder('appointment')
+    const query = this.appointmentRepository
+      .createQueryBuilder('appointment')
       .where('appointment.patientId = :patientId', { patientId })
       .orderBy('appointment.scheduledAt', 'DESC');
 
@@ -416,12 +387,11 @@ export class PatientsService {
   }
 
   private sanitizePatient(patient: User): Partial<User> {
-    const { passwordHash, resetToken, verificationToken, ...safe } =
-      patient as User & {
-        passwordHash?: string;
-        resetToken?: string;
-        verificationToken?: string;
-      };
+    const { passwordHash, resetToken, verificationToken, ...safe } = patient as User & {
+      passwordHash?: string;
+      resetToken?: string;
+      verificationToken?: string;
+    };
     void passwordHash;
     void resetToken;
     void verificationToken;

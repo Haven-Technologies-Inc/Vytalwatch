@@ -12,7 +12,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VitalType } from '../entities/vital-reading.entity';
 
 export class CreateVitalDto {
-  @ApiProperty({ description: 'Patient ID (UUID)', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'Patient ID (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsUUID()
   @IsNotEmpty()
   patientId: string;
@@ -27,7 +30,11 @@ export class CreateVitalDto {
   @IsUUID()
   deviceId?: string;
 
-  @ApiProperty({ description: 'Type of vital reading', enum: VitalType, example: VitalType.HEART_RATE })
+  @ApiProperty({
+    description: 'Type of vital reading',
+    enum: VitalType,
+    example: VitalType.HEART_RATE,
+  })
   @IsEnum(VitalType)
   @IsNotEmpty()
   type: VitalType;
@@ -41,12 +48,18 @@ export class CreateVitalDto {
   @IsNotEmpty()
   unit: string;
 
-  @ApiPropertyOptional({ description: 'Systolic blood pressure value (for blood pressure readings)', example: 120 })
+  @ApiPropertyOptional({
+    description: 'Systolic blood pressure value (for blood pressure readings)',
+    example: 120,
+  })
   @IsOptional()
   @IsNumber()
   systolic?: number;
 
-  @ApiPropertyOptional({ description: 'Diastolic blood pressure value (for blood pressure readings)', example: 80 })
+  @ApiPropertyOptional({
+    description: 'Diastolic blood pressure value (for blood pressure readings)',
+    example: 80,
+  })
   @IsOptional()
   @IsNumber()
   diastolic?: number;
@@ -56,7 +69,10 @@ export class CreateVitalDto {
   @IsObject()
   metadata?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Timestamp when the vital was recorded (ISO 8601)', example: '2026-03-01T10:00:00Z' })
+  @ApiPropertyOptional({
+    description: 'Timestamp when the vital was recorded (ISO 8601)',
+    example: '2026-03-01T10:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   recordedAt?: Date;

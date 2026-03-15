@@ -17,7 +17,9 @@ describe('RiskScoringService', () => {
 
   describe('calculateRiskScore', () => {
     it('should return LOW risk for healthy vitals', () => {
-      const vitals = [{ type: 'BLOOD_PRESSURE', value: 120, status: 'normal', timestamp: new Date() }];
+      const vitals = [
+        { type: 'BLOOD_PRESSURE', value: 120, status: 'normal', timestamp: new Date() },
+      ];
       const alerts: any[] = [];
       const result = service.calculateRiskScore(vitals as any, alerts);
       expect(result.riskLevel).toBe('LOW');
@@ -38,7 +40,7 @@ describe('RiskScoringService', () => {
 
     it('should include age factor when provided', () => {
       const result = service.calculateRiskScore([], [], 70);
-      const ageFactor = result.factors.find(f => f.name === 'Age Factor');
+      const ageFactor = result.factors.find((f) => f.name === 'Age Factor');
       expect(ageFactor).toBeDefined();
       expect(ageFactor?.score).toBeGreaterThan(20);
     });

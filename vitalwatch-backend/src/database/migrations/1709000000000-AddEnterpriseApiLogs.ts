@@ -12,7 +12,7 @@ export class AddEnterpriseApiLogs1709000000000 implements MigrationInterface {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-    
+
     await queryRunner.query(`
       DO $$ BEGIN
         CREATE TYPE "enterprise_api_logs_severity_enum" AS ENUM (
@@ -21,7 +21,7 @@ export class AddEnterpriseApiLogs1709000000000 implements MigrationInterface {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-    
+
     await queryRunner.query(`
       DO $$ BEGIN
         CREATE TYPE "enterprise_api_logs_operation_enum" AS ENUM (
@@ -77,14 +77,30 @@ export class AddEnterpriseApiLogs1709000000000 implements MigrationInterface {
     `);
 
     // Create indexes for efficient querying
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_provider_created" ON "enterprise_api_logs" ("provider", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_operation_created" ON "enterprise_api_logs" ("operation", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_severity_created" ON "enterprise_api_logs" ("severity", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_correlation" ON "enterprise_api_logs" ("correlationId")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_user" ON "enterprise_api_logs" ("userId")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_org_created" ON "enterprise_api_logs" ("organizationId", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_success_created" ON "enterprise_api_logs" ("success", "createdAt")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_status_created" ON "enterprise_api_logs" ("responseStatus", "createdAt")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_provider_created" ON "enterprise_api_logs" ("provider", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_operation_created" ON "enterprise_api_logs" ("operation", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_severity_created" ON "enterprise_api_logs" ("severity", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_correlation" ON "enterprise_api_logs" ("correlationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_user" ON "enterprise_api_logs" ("userId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_org_created" ON "enterprise_api_logs" ("organizationId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_success_created" ON "enterprise_api_logs" ("success", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_enterprise_logs_status_created" ON "enterprise_api_logs" ("responseStatus", "createdAt")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

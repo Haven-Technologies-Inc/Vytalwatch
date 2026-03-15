@@ -55,10 +55,20 @@ export class ClinicalNotesService {
   }
 
   async findAll(filters: NoteFilterDto, user: CurrentUserPayload) {
-    const { page = 1, limit = 20, patientId, providerId, type, status, startDate, endDate } = filters;
+    const {
+      page = 1,
+      limit = 20,
+      patientId,
+      providerId,
+      type,
+      status,
+      startDate,
+      endDate,
+    } = filters;
     const skip = (page - 1) * limit;
 
-    const query = this.noteRepository.createQueryBuilder('note')
+    const query = this.noteRepository
+      .createQueryBuilder('note')
       .leftJoinAndSelect('note.patient', 'patient')
       .leftJoinAndSelect('note.provider', 'provider');
 
@@ -90,9 +100,7 @@ export class ClinicalNotesService {
       query.andWhere('note.createdAt <= :endDate', { endDate: new Date(endDate) });
     }
 
-    query.orderBy('note.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+    query.orderBy('note.createdAt', 'DESC').skip(skip).take(limit);
 
     const [notes, total] = await query.getManyAndCount();
 
@@ -120,7 +128,8 @@ export class ClinicalNotesService {
   }
 
   async findByPatient(patientId: string, user: CurrentUserPayload, limit = 50) {
-    const query = this.noteRepository.createQueryBuilder('note')
+    const query = this.noteRepository
+      .createQueryBuilder('note')
       .leftJoinAndSelect('note.provider', 'provider')
       .where('note.patientId = :patientId', { patientId })
       .orderBy('note.createdAt', 'DESC')
@@ -133,14 +142,22 @@ export class ClinicalNotesService {
     return query.getMany();
   }
 
-  async update(id: string, dto: UpdateClinicalNoteDto, user: CurrentUserPayload): Promise<ClinicalNote> {
+  async update(
+    id: string,
+    dto: UpdateClinicalNoteDto,
+    user: CurrentUserPayload,
+  ): Promise<ClinicalNote> {
     const note = await this.findOne(id, user);
 
     if (note.status === NoteStatus.SIGNED || note.status === NoteStatus.LOCKED) {
       throw new BadRequestException('Cannot edit a signed or locked note. Use amendment instead.');
     }
 
-    if (note.providerId !== user.sub && user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+    if (
+      note.providerId !== user.sub &&
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
       throw new ForbiddenException('Only the note author can edit this note');
     }
 
@@ -253,7 +270,11 @@ export class ClinicalNotesService {
       throw new BadRequestException('Only draft notes can be deleted');
     }
 
-    if (note.providerId !== user.sub && user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+    if (
+      note.providerId !== user.sub &&
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
       throw new ForbiddenException('Only the note author or admin can delete this note');
     }
 
@@ -267,7 +288,12 @@ export class ClinicalNotesService {
     });
   }
 
-  async getTimeTrackingSummary(patientId: string, startDate: Date, endDate: Date, _user: CurrentUserPayload) {
+  async getTimeTrackingSummary(
+    patientId: string,
+    startDate: Date,
+    endDate: Date,
+    _user: CurrentUserPayload,
+  ) {
     const notes = await this.noteRepository.find({
       where: {
         patientId,
@@ -279,7 +305,7 @@ export class ClinicalNotesService {
     let billableMinutes = 0;
     const cptBreakdown: Record<string, number> = {};
 
-    notes.forEach(note => {
+    notes.forEach((note) => {
       if (note.timeTracking) {
         totalMinutes += note.timeTracking.totalMinutes || 0;
         if (note.timeTracking.billable) {
@@ -301,7 +327,10 @@ export class ClinicalNotesService {
     };
   }
 
-  async createCommunicationLog(dto: CreateCommunicationLogDto, user: CurrentUserPayload): Promise<CommunicationLog> {
+  async createCommunicationLog(
+    dto: CreateCommunicationLogDto,
+    user: CurrentUserPayload,
+  ): Promise<CommunicationLog> {
     const log = this.commLogRepository.create({
       ...dto,
       providerId: user.sub,

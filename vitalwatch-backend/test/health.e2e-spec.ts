@@ -66,9 +66,7 @@ describe('Health Check (e2e)', () => {
     it('should return 200 with status "healthy"', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/health')
-        .expect(200);
+      const response = await request(httpServer).get('/health').expect(200);
 
       expect(response.body.status).toBe('healthy');
       expect(response.body.version).toBeDefined();
@@ -80,17 +78,13 @@ describe('Health Check (e2e)', () => {
       if (skipIfNoApp()) return;
 
       // No Authorization header — should still succeed
-      await request(httpServer)
-        .get('/health')
-        .expect(200);
+      await request(httpServer).get('/health').expect(200);
     });
 
     it('should return a valid ISO 8601 timestamp', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/health')
-        .expect(200);
+      const response = await request(httpServer).get('/health').expect(200);
 
       const parsed = Date.parse(response.body.timestamp);
       expect(isNaN(parsed)).toBe(false);
@@ -102,9 +96,7 @@ describe('Health Check (e2e)', () => {
     it('should return 200 with service statuses', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/ready')
-        .expect(200);
+      const response = await request(httpServer).get('/ready').expect(200);
 
       expect(response.body.status).toBeDefined();
       expect(['healthy', 'degraded', 'unhealthy']).toContain(response.body.status);
@@ -122,26 +114,20 @@ describe('Health Check (e2e)', () => {
 
         expect(response.body.services.redis).toBeDefined();
         expect(response.body.services.redis.status).toBeDefined();
-        expect(['healthy', 'degraded', 'unhealthy']).toContain(
-          response.body.services.redis.status,
-        );
+        expect(['healthy', 'degraded', 'unhealthy']).toContain(response.body.services.redis.status);
       }
     });
 
     it('should not require authentication', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/ready')
-        .expect(200);
+      await request(httpServer).get('/ready').expect(200);
     });
 
     it('should report latency for healthy services', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/ready')
-        .expect(200);
+      const response = await request(httpServer).get('/ready').expect(200);
 
       if (
         response.body.services?.database?.status === 'healthy' &&
@@ -157,9 +143,7 @@ describe('Health Check (e2e)', () => {
     it('should return 200 with status "ok"', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/live')
-        .expect(200);
+      const response = await request(httpServer).get('/live').expect(200);
 
       expect(response.body.status).toBe('ok');
       expect(response.body.timestamp).toBeDefined();
@@ -168,17 +152,13 @@ describe('Health Check (e2e)', () => {
     it('should not require authentication', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/live')
-        .expect(200);
+      await request(httpServer).get('/live').expect(200);
     });
 
     it('should return a valid ISO 8601 timestamp', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/live')
-        .expect(200);
+      const response = await request(httpServer).get('/live').expect(200);
 
       const parsed = Date.parse(response.body.timestamp);
       expect(isNaN(parsed)).toBe(false);
@@ -190,9 +170,7 @@ describe('Health Check (e2e)', () => {
     it('should return 200 with detailed health information', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/health/detailed')
-        .expect(200);
+      const response = await request(httpServer).get('/health/detailed').expect(200);
 
       expect(response.body.status).toBeDefined();
       expect(['healthy', 'degraded', 'unhealthy']).toContain(response.body.status);
@@ -204,27 +182,21 @@ describe('Health Check (e2e)', () => {
     it('should include memory usage information', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/health/detailed')
-        .expect(200);
+      const response = await request(httpServer).get('/health/detailed').expect(200);
 
       if (response.body.memory) {
         expect(response.body.memory.heapUsed).toBeGreaterThan(0);
         expect(response.body.memory.heapTotal).toBeGreaterThan(0);
         expect(response.body.memory.rss).toBeGreaterThan(0);
         // Heap used should be less than or equal to heap total
-        expect(response.body.memory.heapUsed).toBeLessThanOrEqual(
-          response.body.memory.heapTotal,
-        );
+        expect(response.body.memory.heapUsed).toBeLessThanOrEqual(response.body.memory.heapTotal);
       }
     });
 
     it('should include service-level statuses (database, redis, influxdb)', async () => {
       if (skipIfNoApp()) return;
 
-      const response = await request(httpServer)
-        .get('/health/detailed')
-        .expect(200);
+      const response = await request(httpServer).get('/health/detailed').expect(200);
 
       if (response.body.services) {
         // Database
@@ -235,9 +207,7 @@ describe('Health Check (e2e)', () => {
 
         // Redis
         expect(response.body.services.redis).toBeDefined();
-        expect(['healthy', 'degraded', 'unhealthy']).toContain(
-          response.body.services.redis.status,
-        );
+        expect(['healthy', 'degraded', 'unhealthy']).toContain(response.body.services.redis.status);
 
         // InfluxDB
         expect(response.body.services.influxdb).toBeDefined();
@@ -250,9 +220,7 @@ describe('Health Check (e2e)', () => {
     it('should not require authentication', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/health/detailed')
-        .expect(200);
+      await request(httpServer).get('/health/detailed').expect(200);
     });
   });
 
@@ -261,9 +229,7 @@ describe('Health Check (e2e)', () => {
     it('should return 404 for /health/nonexistent', async () => {
       if (skipIfNoApp()) return;
 
-      await request(httpServer)
-        .get('/health/nonexistent')
-        .expect(404);
+      await request(httpServer).get('/health/nonexistent').expect(404);
     });
   });
 });

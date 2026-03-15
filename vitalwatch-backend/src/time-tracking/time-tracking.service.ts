@@ -7,7 +7,12 @@ import { TimeEntry, TimeEntryCategory, TimeEntryStatus } from './entities/time-e
 export class TimeTrackingService {
   constructor(@InjectRepository(TimeEntry) private readonly repo: Repository<TimeEntry>) {}
 
-  async startTimer(data: { patientId: string; userId: string; category: TimeEntryCategory; enrollmentId?: string }): Promise<TimeEntry> {
+  async startTimer(data: {
+    patientId: string;
+    userId: string;
+    category: TimeEntryCategory;
+    enrollmentId?: string;
+  }): Promise<TimeEntry> {
     const entry = this.repo.create({ ...data, startAt: new Date(), status: TimeEntryStatus.DRAFT });
     return this.repo.save(entry);
   }
@@ -21,14 +26,17 @@ export class TimeTrackingService {
   }
 
   async findByPatient(patientId: string, startDate?: Date, endDate?: Date): Promise<TimeEntry[]> {
-    const query = this.repo.createQueryBuilder('te').where('te.patientId = :patientId', { patientId });
+    const query = this.repo
+      .createQueryBuilder('te')
+      .where('te.patientId = :patientId', { patientId });
     if (startDate) query.andWhere('te.startAt >= :startDate', { startDate });
     if (endDate) query.andWhere('te.startAt <= :endDate', { endDate });
     return query.orderBy('te.startAt', 'DESC').getMany();
   }
 
   async getTotalMinutes(patientId: string, startDate: Date, endDate: Date): Promise<number> {
-    const result = await this.repo.createQueryBuilder('te')
+    const result = await this.repo
+      .createQueryBuilder('te')
       .select('SUM(te.minutes)', 'total')
       .where('te.patientId = :patientId', { patientId })
       .andWhere('te.startAt >= :startDate', { startDate })
@@ -38,7 +46,14 @@ export class TimeTrackingService {
     return result?.total || 0;
   }
 
-  async addManualEntry(data: { patientId: string; userId: string; category: TimeEntryCategory; minutes: number; notes?: string; enrollmentId?: string }): Promise<TimeEntry> {
+  async addManualEntry(data: {
+    patientId: string;
+    userId: string;
+    category: TimeEntryCategory;
+    minutes: number;
+    notes?: string;
+    enrollmentId?: string;
+  }): Promise<TimeEntry> {
     const entry = this.repo.create({
       patientId: data.patientId,
       userId: data.userId,

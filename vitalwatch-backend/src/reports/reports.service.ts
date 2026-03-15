@@ -139,10 +139,10 @@ export class ReportsService {
     try {
       const format = dto.format || 'pdf';
       const filePath = path.join(this.reportsDir, `${reportId}.${format}`);
-      
+
       // Generate content based on report type
       let content: string;
-      
+
       switch (dto.type) {
         case 'patient_summary':
           content = await this.generatePatientSummaryContent(dto.parameters);
@@ -346,17 +346,18 @@ export class ReportsService {
     }
 
     const filePath = path.join(this.reportsDir, `${id}.${report.format}`);
-    
+
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException('Report file not found on disk');
     }
 
     const data = fs.readFileSync(filePath);
-    const contentType = report.format === 'csv' 
-      ? 'text/csv' 
-      : report.format === 'pdf' 
-        ? 'application/pdf' 
-        : 'text/html';
+    const contentType =
+      report.format === 'csv'
+        ? 'text/csv'
+        : report.format === 'pdf'
+          ? 'application/pdf'
+          : 'text/html';
 
     return {
       data,

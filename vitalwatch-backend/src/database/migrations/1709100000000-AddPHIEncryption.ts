@@ -107,7 +107,9 @@ export class AddPHIEncryption1709100000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     if (await this.columnExists(queryRunner, 'users', 'dateOfBirth')) {
-      await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "dateOfBirth" TYPE date USING NULL`);
+      await queryRunner.query(
+        `ALTER TABLE "users" ALTER COLUMN "dateOfBirth" TYPE date USING NULL`,
+      );
       await queryRunner.query(`COMMENT ON COLUMN "users"."dateOfBirth" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'users', 'phone')) {
@@ -117,29 +119,39 @@ export class AddPHIEncryption1709100000000 implements MigrationInterface {
       await queryRunner.query(`COMMENT ON COLUMN "users"."mfaSecret" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'vital_readings', 'values')) {
-      await queryRunner.query(`ALTER TABLE "vital_readings" ALTER COLUMN "values" TYPE jsonb USING '{}'::jsonb`);
+      await queryRunner.query(
+        `ALTER TABLE "vital_readings" ALTER COLUMN "values" TYPE jsonb USING '{}'::jsonb`,
+      );
       await queryRunner.query(`COMMENT ON COLUMN "vital_readings"."values" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'vital_readings', 'rawData')) {
-      await queryRunner.query(`ALTER TABLE "vital_readings" ALTER COLUMN "rawData" TYPE jsonb USING NULL`);
+      await queryRunner.query(
+        `ALTER TABLE "vital_readings" ALTER COLUMN "rawData" TYPE jsonb USING NULL`,
+      );
       await queryRunner.query(`COMMENT ON COLUMN "vital_readings"."rawData" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'vital_readings', 'notes')) {
       await queryRunner.query(`COMMENT ON COLUMN "vital_readings"."notes" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'clinical_notes', 'soapContent')) {
-      await queryRunner.query(`ALTER TABLE "clinical_notes" ALTER COLUMN "soapContent" TYPE jsonb USING NULL`);
+      await queryRunner.query(
+        `ALTER TABLE "clinical_notes" ALTER COLUMN "soapContent" TYPE jsonb USING NULL`,
+      );
       await queryRunner.query(`COMMENT ON COLUMN "clinical_notes"."soapContent" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'clinical_notes', 'content')) {
       await queryRunner.query(`COMMENT ON COLUMN "clinical_notes"."content" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'claims', 'codes')) {
-      await queryRunner.query(`ALTER TABLE "claims" ALTER COLUMN "codes" TYPE jsonb USING '[]'::jsonb`);
+      await queryRunner.query(
+        `ALTER TABLE "claims" ALTER COLUMN "codes" TYPE jsonb USING '[]'::jsonb`,
+      );
       await queryRunner.query(`COMMENT ON COLUMN "claims"."codes" IS NULL`);
     }
     if (await this.columnExists(queryRunner, 'claims', 'readinessChecks')) {
-      await queryRunner.query(`ALTER TABLE "claims" ALTER COLUMN "readinessChecks" TYPE jsonb USING '{}'::jsonb`);
+      await queryRunner.query(
+        `ALTER TABLE "claims" ALTER COLUMN "readinessChecks" TYPE jsonb USING '{}'::jsonb`,
+      );
     }
     if (await this.columnExists(queryRunner, 'claims', 'patientName')) {
       await queryRunner.query(`COMMENT ON COLUMN "claims"."patientName" IS NULL`);

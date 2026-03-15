@@ -33,19 +33,13 @@ export class ClinicalNotesController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.PROVIDER)
-  async create(
-    @Body() dto: CreateClinicalNoteDto,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async create(@Body() dto: CreateClinicalNoteDto, @CurrentUser() user: CurrentUserPayload) {
     return this.clinicalNotesService.create(dto, user);
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
-  async findAll(
-    @Query() filters: NoteFilterDto,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async findAll(@Query() filters: NoteFilterDto, @CurrentUser() user: CurrentUserPayload) {
     return this.clinicalNotesService.findAll(filters, user);
   }
 
@@ -77,10 +71,7 @@ export class ClinicalNotesController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.PROVIDER, UserRole.PATIENT)
-  async findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.clinicalNotesService.findOne(id, user);
   }
 
@@ -116,20 +107,14 @@ export class ClinicalNotesController {
 
   @Post(':id/lock')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  async lock(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async lock(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.clinicalNotesService.lock(id, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(UserRole.ADMIN, UserRole.PROVIDER)
-  async delete(
-    @Param('id') id: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ) {
+  async delete(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     await this.clinicalNotesService.delete(id, user);
   }
 

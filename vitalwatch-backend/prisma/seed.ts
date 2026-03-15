@@ -13,13 +13,15 @@ async function main() {
   const adminLastName = process.env.ADMIN_LAST_NAME || 'User';
 
   if (!adminEmail || !adminPassword) {
-    console.log('Skipping admin seed: ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required.');
+    console.log(
+      'Skipping admin seed: ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required.',
+    );
     console.log('Set these in your .env file to bootstrap an admin user.');
     return;
   }
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
-  
+
   await prisma.user.upsert({
     where: { email: adminEmail },
     update: {
@@ -37,8 +39,10 @@ async function main() {
       emailVerified: true,
     },
   });
-  
+
   console.log(`Admin user created/verified: ${adminEmail}`);
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
